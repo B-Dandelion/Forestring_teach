@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:forestring_teach/Home_page.dart';
 import 'package:forestring_teach/Data/constant.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'dart:async';
 
 class Auth_page extends StatefulWidget {
   const Auth_page({super.key});
@@ -14,7 +11,7 @@ class Auth_page extends StatefulWidget {
 }
 
 class _Auth_page extends State<Auth_page> {
-  String _message = '';
+  final String _message = '';
   bool _isChecked = false;
   final id_controller = TextEditingController();
   final pw_controller = TextEditingController();
@@ -126,7 +123,7 @@ class _Auth_page extends State<Auth_page> {
                   onPressed: () {
                     Navigator.of(context)
                         .pushReplacement(MaterialPageRoute(builder: (context) {
-                      return Home_page();
+                      return const Home_page();
                     }));
                   },
                   child: const Text(

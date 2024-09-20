@@ -45,7 +45,7 @@ class BaseAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: PRIMARY_COLOR,
       iconTheme: const IconThemeData(color: Colors.white),
       title: Text(
-        "$title",
+        title,
         style: const TextStyle(
             color: Colors.white,
             fontFamily: 'OpenSans',
@@ -110,7 +110,7 @@ class BaseDrawer extends StatelessWidget {
             ),
             onTap: () {
               Navigator.of(context).push(
-                _createRoute(My_page()),
+                _createRoute(const My_page()),
               );
             },
             trailing: const Icon(Icons.navigate_next_rounded),
@@ -129,7 +129,7 @@ class BaseDrawer extends StatelessWidget {
             ),
             onTap: () {
               Navigator.of(context).push(
-                _createRoute(Home_page()),
+                _createRoute(const Home_page()),
               );
             },
             trailing: const Icon(Icons.navigate_next_rounded),
@@ -192,7 +192,7 @@ class MainCalendar extends StatelessWidget {
   final OnDaySelected onDaySelected;
   final DateTime selectedDate;
 
-  const MainCalendar({
+  const MainCalendar({super.key, 
     required this.onDaySelected,
     required this.selectedDate,
   });
