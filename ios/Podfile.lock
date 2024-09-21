@@ -1160,9 +1160,6 @@ PODS:
     - FlutterMacOS
   - Firebase/Analytics (11.0.0):
     - Firebase/Core
-  - Firebase/Auth (11.0.0):
-    - Firebase/CoreOnly
-    - FirebaseAuth (~> 11.0.0)
   - Firebase/Core (11.0.0):
     - Firebase/CoreOnly
     - FirebaseAnalytics (~> 11.0.0)
@@ -1173,10 +1170,6 @@ PODS:
     - FirebaseFirestore (~> 11.0.0)
   - firebase_analytics (11.3.1):
     - Firebase/Analytics (= 11.0.0)
-    - firebase_core
-    - Flutter
-  - firebase_auth (5.2.1):
-    - Firebase/Auth (= 11.0.0)
     - firebase_core
     - Flutter
   - firebase_core (3.4.1):
@@ -1201,16 +1194,6 @@ PODS:
     - "GoogleUtilities/NSData+zlib (~> 8.0)"
     - nanopb (~> 3.30910.0)
   - FirebaseAppCheckInterop (11.1.0)
-  - FirebaseAuth (11.0.0):
-    - FirebaseAppCheckInterop (~> 11.0)
-    - FirebaseAuthInterop (~> 11.0)
-    - FirebaseCore (~> 11.0)
-    - FirebaseCoreExtension (~> 11.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.0)
-    - GoogleUtilities/Environment (~> 8.0)
-    - GTMSessionFetcher/Core (~> 3.4)
-    - RecaptchaInterop (~> 100.0)
-  - FirebaseAuthInterop (11.1.0)
   - FirebaseCore (11.0.0):
     - FirebaseCoreInternal (~> 11.0)
     - GoogleUtilities/Environment (~> 8.0)
@@ -1383,7 +1366,6 @@ PODS:
     - gRPC-Core/Privacy (= 1.65.5)
   - gRPC-Core/Interface (1.65.5)
   - gRPC-Core/Privacy (1.65.5)
-  - GTMSessionFetcher/Core (3.5.0)
   - leveldb-library (1.22.5)
   - nanopb (3.30910.0):
     - nanopb/decode (= 3.30910.0)
@@ -1391,7 +1373,6 @@ PODS:
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
   - PromisesObjC (2.4.0)
-  - RecaptchaInterop (100.0.0)
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -1400,7 +1381,6 @@ DEPENDENCIES:
   - cloud_firestore (from `.symlinks/plugins/cloud_firestore/ios`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/darwin`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
-  - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - Flutter (from `Flutter`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -1412,8 +1392,6 @@ SPEC REPOS:
     - Firebase
     - FirebaseAnalytics
     - FirebaseAppCheckInterop
-    - FirebaseAuth
-    - FirebaseAuthInterop
     - FirebaseCore
     - FirebaseCoreExtension
     - FirebaseCoreInternal
@@ -1425,11 +1403,9 @@ SPEC REPOS:
     - GoogleUtilities
     - "gRPC-C++"
     - gRPC-Core
-    - GTMSessionFetcher
     - leveldb-library
     - nanopb
     - PromisesObjC
-    - RecaptchaInterop
 
 EXTERNAL SOURCES:
   cloud_firestore:
@@ -1438,8 +1414,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/connectivity_plus/darwin"
   firebase_analytics:
     :path: ".symlinks/plugins/firebase_analytics/ios"
-  firebase_auth:
-    :path: ".symlinks/plugins/firebase_auth/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   Flutter:
@@ -1454,12 +1428,9 @@ SPEC CHECKSUMS:
   connectivity_plus: ddd7f30999e1faaef5967c23d5b6d503d10434db
   Firebase: 9f574c08c2396885b5e7e100ed4293d956218af9
   firebase_analytics: b8ce6c2c4b245d3c3bb3a147965d09da0f455959
-  firebase_auth: 78dab5e2826921865b33799c66ce7868542beed0
   firebase_core: ba84e940cf5cbbc601095f86556560937419195c
   FirebaseAnalytics: 27eb78b97880ea4a004839b9bac0b58880f5a92a
   FirebaseAppCheckInterop: e59b52f2c0e188e6ba77b9e3f6acead2117f2abf
-  FirebaseAuth: d5cf28be74d7e82257f6a3f717509eff70d3cf4a
-  FirebaseAuthInterop: 49e8faefaf254ce578e278a84a8fe0aebe23b546
   FirebaseCore: 3cf438f431f18c12cdf2aaf64434648b63f7e383
   FirebaseCoreExtension: aa5c9779c2d0d39d83f1ceb3fdbafe80c4feecfa
   FirebaseCoreInternal: adefedc9a88dbe393c4884640a73ec9e8e790f8c
@@ -1472,11 +1443,9 @@ SPEC CHECKSUMS:
   GoogleUtilities: 26a3abef001b6533cf678d3eb38fd3f614b7872d
   "gRPC-C++": 2fa52b3141e7789a28a737f251e0c45b4cb20a87
   gRPC-Core: a27c294d6149e1c39a7d173527119cfbc3375ce4
-  GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   leveldb-library: e8eadf9008a61f9e1dde3978c086d2b6d9b9dc28
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
 
 PODFILE CHECKSUM: d3d44dd8f85904f876a474551ba2cd729dcc2c08

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:forestring_teach/Schedule_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 
@@ -146,7 +147,11 @@ class BaseDrawer extends StatelessWidget {
                 fontWeight: FontWeight.w300,
               ),
             ),
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).push(
+                _createRoute(const Schedule_page()),
+              );
+            },
             trailing: const Icon(Icons.navigate_next_rounded),
           ),
           ListTile(
