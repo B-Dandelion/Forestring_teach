@@ -6,14 +6,14 @@ class ScheduleCard extends StatelessWidget {
   final int endTime;
   final int month;
   final int date;
-  final String teacher;
+  final String student;
 
   const ScheduleCard({
     required this.startTime,
     required this.endTime,
     required this.month,
     required this.date,
-    required this.teacher,
+    required this.student,
     super.key,
   });
 
@@ -37,7 +37,7 @@ class ScheduleCard extends StatelessWidget {
                   const SizedBox(width: 16.0),
                   _Time(startTime: startTime, endTime: endTime ),
                   const SizedBox(width: 15.0),
-                  _Content(teacher: teacher),
+                  _Content(teacher: student),
                 ],
               ),
             )));

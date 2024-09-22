@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:forestring_teach/Auth_page.dart';
 import 'package:forestring_teach/Schedule_page.dart';
-import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart';
 
 import 'package:forestring_teach/Home_page.dart';
 import 'package:forestring_teach/My_page.dart';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class Constant {
   static const APP_NAME = 'FORESTRING';
 }
 
+String? UserID;
+String? Userpw;
 
 const PRIMARY_COLOR = Color(0xff003717);
 const SECONDARY_COLOR = Color(0xff003411);
@@ -70,27 +73,26 @@ class BaseDrawer extends StatelessWidget {
     return Drawer(
       child: ListView(
         children: [
-          const UserAccountsDrawerHeader(
-            currentAccountPicture: CircleAvatar(
-              backgroundImage: AssetImage('assets/img/ME_Profile.png'),
-            ),
+          UserAccountsDrawerHeader(
             accountName: Text(
-              '진민경 님',
-              style: TextStyle(
+              '$UserID 선생님',
+              style: const TextStyle(
                 color: Colors.white,
                 fontFamily: 'ELAND',
                 fontWeight: FontWeight.w300,
+                fontSize: 15
               ),
             ),
-            accountEmail: Text(
-              'Michelle_mk@naver.com',
+            accountEmail: const Text(
+              '환영합니다',
               style: TextStyle(
                 color: Colors.white,
                 fontFamily: 'OpenSans',
                 fontWeight: FontWeight.w300,
+                fontSize: 10
               ),
             ),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
                 color: PRIMARY_COLOR,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(10.0),
@@ -140,7 +142,7 @@ class BaseDrawer extends StatelessWidget {
             iconColor: PRIMARY_COLOR,
             focusColor: IBORY,
             title: const Text(
-              '예약 변경하기',
+              '주간 일정 확인하기',
               style: TextStyle(
                 color: Colors.black,
                 fontFamily: 'ELAND',
@@ -166,7 +168,9 @@ class BaseDrawer extends StatelessWidget {
                 fontWeight: FontWeight.w300,
               ),
             ),
-            onTap: () {},
+            onTap: () {
+
+            },
             trailing: const Icon(Icons.navigate_next_rounded),
           ),
           ListTile(
@@ -181,126 +185,25 @@ class BaseDrawer extends StatelessWidget {
                 fontWeight: FontWeight.w300,
               ),
             ),
-            onTap: () {},
+            onTap: () {
+              //delete 함수를 통해 key 이름이 login 인것을 완전히 폐기.
+              //다음 로그인 시에는 정보가 없어 정보를 불러올 수가 없게 된다.
+              const FlutterSecureStorage().delete(key:"id");
+              const FlutterSecureStorage().delete(key:"pw");
+
+              UserID = null;
+              Userpw = null;
+
+              Navigator.of(context).push(
+                _createRoute(const Auth_page()),
+              );
+            },
             trailing: const Icon(Icons.navigate_next_rounded),
           )
         ],
       ),
     );
   }
-
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MainCalendar extends StatelessWidget {
-  final OnDaySelected onDaySelected;
-  final DateTime selectedDate;
-
-  const MainCalendar({super.key, 
-    required this.onDaySelected,
-    required this.selectedDate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TableCalendar(
-      onDaySelected: onDaySelected,
-      selectedDayPredicate: (date) =>
-      date.year == selectedDate.year &&
-          date.month == selectedDate.month &&
-          date.day == selectedDate.day,
-
-      calendarBuilders: CalendarBuilders(
-        dowBuilder: (context, day) {
-          final text = DateFormat.E().format(day);
-          if (day.weekday == DateTime.sunday) {
-            return Center(
-                child: Text(
-                  text,
-                  style: const TextStyle(
-                      fontFamily: 'OpenSans',
-                      fontWeight: FontWeight.w500,
-                      color: Colors.red),
-                ));
-          } else if (day.weekday == DateTime.saturday) {
-            return Center(
-                child: Text(text,
-                    style: const TextStyle(
-                        fontFamily: 'OpenSans',
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blue)));
-          } else {
-            return Center(
-                child: Text(text,
-                    style: const TextStyle(
-                      fontFamily: 'OpenSans',
-                      fontWeight: FontWeight.w500,
-                    )));
-          }
-        },
-        defaultBuilder: (context, day, _) {
-          return Center(
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                  color: day.weekday == 7
-                      ? Colors.red
-                      : day.weekday == 6
-                      ? Colors.blue
-                      : Colors.black),
-            ),
-          );
-        },
-      ),
-
-      focusedDay: DateTime.now(),
-      //화면에 보여지는 날짜
-      firstDay: DateTime(2020, 1, 1),
-      lastDay: DateTime(2059, 12, 31),
-      headerStyle: const HeaderStyle(
-        titleCentered: true,
-        formatButtonVisible: false,
-        titleTextStyle: TextStyle(
-          fontFamily: 'OpenSans',
-          fontWeight: FontWeight.w500,
-          fontSize: 20.0,
-        ),
-      ),
-
-      calendarStyle: const CalendarStyle(
-        isTodayHighlighted: true,
-        todayDecoration: BoxDecoration(
-          color: PRIMARY_COLOR,
-          shape: BoxShape.circle,
-        ),
-        todayTextStyle: TextStyle(
-          color: Colors.white,
-          fontFamily: 'openSans',
-          fontWeight: FontWeight.w500,
-        ),
-        weekendDecoration: BoxDecoration(
-          shape: BoxShape.circle,
-        ),
-        weekendTextStyle: TextStyle(
-          color: Colors.red,
-          fontFamily: 'openSans',
-          fontWeight: FontWeight.w300,
-        ),
-        selectedDecoration: BoxDecoration(
-          color: Color(0xff708C7A),
-          shape: BoxShape.circle,
-        ),
-        selectedTextStyle: TextStyle(
-          color: Colors.black,
-          fontFamily: 'openSans',
-          fontWeight: FontWeight.w500,
-        ),
-        defaultTextStyle: TextStyle(
-          fontFamily: 'openSans',
-          fontWeight: FontWeight.w300,
-        ),
-      ),
-    );
-  }
 }

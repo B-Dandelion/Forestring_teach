@@ -32,16 +32,10 @@ class _My_page extends State<My_page> {
           child: Column(
             children: <Widget>[
               Container(
-                  padding: const EdgeInsets.only(top: 50),
-                  child: const CircleAvatar(
-                    radius: 80,
-                    backgroundImage: AssetImage('assets/img/ME_Profile.png'),
-                  )),
-              Container(
                 padding: const EdgeInsets.only(top: 20),
-                child: const Text(
-                  '진민경 님',
-                  style: TextStyle(
+                child: Text(
+                  '$UserID 선생님',
+                  style: const TextStyle(
                       color: Colors.black,
                       fontFamily: 'ELAND',
                       fontWeight: FontWeight.w300,
