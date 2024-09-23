@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "979880986063",
+    "project_id": "forestring-student",
+    "storage_bucket": "forestring-student.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979880986063:android:4601e4d0992fd098efbeba",
+        "android_client_info": {
+          "package_name": "com.example.forestring_stu.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSt3aljAj9rrCUREWto8GxRITw88zbqSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979880986063:android:ae9d2cdbc1819f7fefbeba",
+        "android_client_info": {
+          "package_name": "com.example.forestring_teach"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSt3aljAj9rrCUREWto8GxRITw88zbqSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
