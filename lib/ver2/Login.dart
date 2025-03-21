@@ -196,8 +196,7 @@ class _Login extends State<Login> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                          child: Column(
+                          Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Image.asset(
@@ -205,7 +204,7 @@ class _Login extends State<Login> {
                                 width: MediaQuery.of(context).size.width * 0.75,
                               ),
                               const SizedBox(height: 20.0),
-                              Text(
+                              const Text(
                                 '포레스트링 선생님',
                                 style: TextStyle(
                                     fontFamily: 'ELAND',
@@ -215,8 +214,7 @@ class _Login extends State<Login> {
                                 textAlign: TextAlign.center,
                               ),
                             ],
-                          )
-                      ),
+                          ),
                       const SizedBox(height: 20.0),
                       Column(
                         mainAxisSize: MainAxisSize.min,
