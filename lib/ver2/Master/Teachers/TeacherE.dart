@@ -50,6 +50,8 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
     WriteBatch batch = firestore.batch();
 
+    String oldName = widget.teacher['name']; // 기존 이름
+    String newName = _nameController.text;  // 변경된 이름
     String teacherId = widget.teacher['id'];
 
     DocumentReference availableSlotsDocRef = firestore.collection('availableSlots').doc(teacherId);
@@ -59,9 +61,37 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
 
     DocumentReference usersDocRef = firestore.collection('users').doc(teacherId);
     batch.update(usersDocRef, {
-      'name': _nameController.text,
+      'name': newName,
       'password': _passwordController.text,
     });
+
+    // 3월 21일 추가 >> 1. userbyname에 있는 기존 이름 문서 삭제
+    DocumentReference oldNameDocRef = firestore.collection('usersByName').doc(oldName);
+    DocumentSnapshot oldNameDocSnapshot = await oldNameDocRef.get();
+
+    if (oldNameDocSnapshot.exists) {
+      List<dynamic> userIds = List.from(oldNameDocSnapshot['userIds']);
+      userIds.remove(teacherId);
+      if (userIds.isEmpty) {
+        batch.delete(oldNameDocRef); // userIds가 비면 문서 삭제
+      } else {
+        batch.update(oldNameDocRef, {'userIds': userIds});
+      }
+    }
+    // 3월 21일 추가 >> 2. 새로운 `usersByName` 문서에 teacherId 추가
+    DocumentReference newNameDocRef = firestore.collection('usersByName').doc(newName);
+    DocumentSnapshot newNameDocSnapshot = await newNameDocRef.get();
+
+    if (newNameDocSnapshot.exists) {
+      List<dynamic> userIds = List.from(newNameDocSnapshot['userIds']);
+      if (!userIds.contains(teacherId)) {
+        userIds.add(teacherId);
+        batch.update(newNameDocRef, {'userIds': userIds});
+      }
+    } else {
+      batch.set(newNameDocRef, {'userIds': [teacherId]});
+    }
+
     await batch.commit(); // Firestore에 변경 사항 적용
     Navigator.pop(context);
   }
@@ -89,23 +119,6 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
       });
     }
   }
-  // Future<void> selectTime(BuildContext context, int index) async {
-  //   TimeOfDay? pickedTime = await showTimePicker(
-  //     context: context,
-  //     initialTime: TimeOfDay(
-  //       hour: int.parse(workSchedule[index]!['startTime']!.split(":")[0]),
-  //       minute: int.parse(workSchedule[index]!['startTime']!.split(":")[1]),
-  //     ),
-  //   );
-  //
-  //   if (pickedTime != null) {
-  //     setState(() {
-  //       workSchedule[index]!['startTime'] =
-  //       "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
-  //     });
-  //   }
-  // }
-  // 근무 추가 버튼 클릭 시 기본 시간 추가
   void _addWorkSchedule(String day) {
     setState(() {
       workschedule[day] = {
