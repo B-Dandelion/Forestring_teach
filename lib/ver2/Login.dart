@@ -196,8 +196,7 @@ class _Login extends State<Login> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                          child: Column(
+                        Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Image.asset(
@@ -215,8 +214,7 @@ class _Login extends State<Login> {
                                 textAlign: TextAlign.center,
                               ),
                             ],
-                          )
-                      ),
+                          ),
                       const SizedBox(height: 20.0),
                       Column(
                         mainAxisSize: MainAxisSize.min,

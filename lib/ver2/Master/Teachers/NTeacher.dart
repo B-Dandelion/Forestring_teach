@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
-import '../../../New_Data/new_constant.dart';
+import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
 
 class NewTeacherDialog extends StatefulWidget {
   @override
