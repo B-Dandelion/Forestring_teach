@@ -529,7 +529,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
               onChanged: (newValue) {
                 setState(() {
                   selectedTeacherId = newValue!;
-                  selectedTeacherName = getName(selectedTeacherId, teachers);
+                  selectedTeacherName = masterProvider.getDisplayName(selectedTeacherId, isTeacher: true);
                 });
               },
             ),
@@ -635,7 +635,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                                           MaterialPageRoute(
                                             builder: (context) => EditLessonPage(
                                               studentName: widget.student['name'],
-                                              teacherName: getName(widget.student['teacherId'], teachers),
+                                              teacherName: masterProvider.getDisplayName(widget.student['teacherId'], isTeacher: true),
                                               index: index,
                                               lesson: scheduleList[index],
                                               isNewLesson: false, // 기존 수업 수정
@@ -688,7 +688,7 @@ class _EditStudentPageState extends State<EditStudentPage> {
                     MaterialPageRoute(
                       builder: (context) => EditLessonPage(
                         studentName: widget.student['name'],
-                        teacherName: getName(widget.student['teacherId'], teachers),
+                        teacherName: masterProvider.getDisplayName(widget.student['teacherId'], isTeacher: true),
                         isNewLesson: true, // 새로운 수업 추가 모드
                         onSave: (newLesson) {
                           setState(() {

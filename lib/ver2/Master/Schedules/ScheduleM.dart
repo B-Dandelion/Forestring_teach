@@ -108,8 +108,8 @@ class _ScheduleM extends State<ScheduleM> {
                             itemCount: lessons.length,
                             itemBuilder: (context, index) {
                               final lesson = lessons[index];
-                              final tname = getName(lesson['teacherId'], teachers);
-                              final sname = getName(lesson['studentId'], students);
+                              final teacherName = provider.getDisplayName(lesson['teacherId'], isTeacher: true);
+                              final studentName = provider.getDisplayName(lesson['studentId'], isTeacher: false);
                               return Column(
                                 children: [
                                   LessonCardM(
@@ -117,8 +117,8 @@ class _ScheduleM extends State<ScheduleM> {
                                       endTime: lesson['date'].add(Duration(minutes: lesson['duration'])),
                                       month: lesson['date'].month,
                                       date: lesson['date'].day,
-                                      student: sname,
-                                      teacher: tname,
+                                      student: studentName,
+                                      teacher: teacherName,
                                       onEdit: () {
                                         showEditLessonDialog(context, lesson);
                                       }

@@ -132,11 +132,6 @@ class _Manage extends State<Manage> {
     final List<Meeting> meetings = <Meeting>[];
     final provider = Provider.of<MasterProvider>(context, listen: false);
 
-    // 학생 리스트를 Map으로 변환 (id -> name 매칭)
-    final Map<String, String> studentNames = {
-      for (var student in provider.students) student['id']: student['name']
-    };
-
     for (var entry in schedules.entries) {
       Map<String, dynamic> lesson = entry.value;
 
@@ -147,8 +142,7 @@ class _Manage extends State<Manage> {
       DateTime endTime = startTime.add(Duration(minutes: lesson["duration"]));
       bool isRescheduled = lesson['isRescheduled'];
 
-      // 학생 이름 조회 (없으면 기본값 "알 수 없음")
-      String studentName = studentNames[lesson["studentId"]] ?? "알 수 없음";
+      String studentName = provider.getDisplayName(lesson["studentId"], isTeacher: false);
 
       // 상태에 따른 색상 설정
       Color lessonColor = PRIMARY_COLOR;

@@ -56,10 +56,7 @@ class _TeacherM extends State<TeacherM> {
                     for (var studentId in teacher['studentIds'])
                       {
                         'studentId': studentId,
-                        'name' : students.firstWhere(
-                              (student) => student['id'] == studentId,
-                          orElse: () => {'name': '이름 없음'}, //
-                        )['name'],
+                        'name': provider.getDisplayName(studentId, isTeacher: false),
                         'weeklySchedule': students.firstWhere(
                               (student) => student['id'] == studentId,
                           orElse: () => {'weeklySchedule': {}}, // 기본값: 빈 schedule
@@ -355,47 +352,6 @@ void _showTeacherDetails(BuildContext context, Map<String, dynamic> teacher,
                 "담당 학생",
                 style: style.copyWith(fontSize: 18, fontWeight: FontWeight.w500, color: PRIMARY_COLOR),
               ),
-              // 아래 Container가 담당 학생 리스트를 출력하는 부분입니다.
-              // Container(
-              //   child: Column(
-              //     crossAxisAlignment: CrossAxisAlignment.start,
-              //     children: studentschedule.map((student) {
-              //       final name = student['name'] ?? '이름 없음';
-              //       final weekly = student['weeklySchedule'] ?? [];
-              //
-              //       String koday = '';
-              //       String formattedStart = '14:00';
-              //       String formattedEnd = '16:00';
-              //       if (weekly.isNotEmpty) {
-              //         final String day = weekly[0]['day'] ?? '';
-              //         koday = _convertDayToKorean(day);
-              //         String rawStartTime = weekly[0]['startTime'] ?? '14:00';
-              //         DateTime startTime;
-              //         try {
-              //           final parts = rawStartTime.split(':');
-              //           final int hour = int.parse(parts[0]);
-              //           final int minute = int.parse(parts[1]);
-              //           startTime = DateTime(2000, 1, 1, hour, minute);
-              //         } catch (e) {
-              //           startTime = DateTime(2000, 1, 1, 0, 0);
-              //         }
-              //         final duration = weekly[0]['duration'] ?? 0;
-              //         final endTime = startTime.add(Duration(minutes: duration));
-              //
-              //         // 시간 포맷 변경 (예: 16:00)
-              //         formattedStart = DateFormat('HH:mm').format(startTime);
-              //         formattedEnd = DateFormat('HH:mm').format(endTime);
-              //       }
-              //       return Padding(
-              //         padding: const EdgeInsets.symmetric(vertical: 4.0),
-              //         child: Text(
-              //           '$name : $koday요일 $formattedStart ~ $formattedEnd',
-              //           style: style.copyWith(fontSize: 14),
-              //         ),
-              //       );
-              //     }).toList(),
-              //   ),
-              // ),
               Container(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

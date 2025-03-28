@@ -171,7 +171,7 @@ class _TeacherCalendarState extends State<TeacherCalendar> {
                             itemCount: _getEvents(selectedDate, lessons).length,
                             itemBuilder: (context, index) {
                               final lesson = _getEvents(selectedDate, lessons)[index];
-                              String studentName = students[lesson['studentId']]['name'];
+                              String studentName = provider.getDisplayName(lesson['studentId'], isTeacher: false);
                               return Padding(
                                 padding:
                                 const EdgeInsets.only(bottom: 8, left: 8, right: 8),

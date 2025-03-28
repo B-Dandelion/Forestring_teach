@@ -88,7 +88,7 @@ class _Intro extends State<Intro> {
         await Masterprovider.fetchUsers();
         await Masterprovider.fetchAllAvailableSlots();
         await Masterprovider.fetchLessons(); // lesson 데이터도 가져오기
-        await Masterprovider.fetchArchivedStudents();
+        await Masterprovider.fetchArchivedUsers();
         Masterprovider.listenToAvailableSlotsUpdates();
         Masterprovider.listenToLessonsUpdates(); // lesson 실시간 업데이트 감지
         Masterprovider.listenToUserCollectionUpdates();

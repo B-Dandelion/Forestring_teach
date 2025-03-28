@@ -1106,7 +1106,9 @@ class MasterProvider with ChangeNotifier {
   // 선생님별 예약된 슬롯을 저장하는 변수 변경
   Map<String, Map<String, Map<String, dynamic>>> _bookedSlots = {}; // {teacherId: {lessonId: {lessonData}}}
   Map<String, Map<String, dynamic>> _workSchedule = {}; // 선생님별 근무 일정
-  Map<String, String> _archivedStudents = {};
+  Map<String, String> _archivedUsers = {};
+  Map<String, String> _teacherNames = {}; // 선생님 ID → 이름
+  Map<String, String> _studentNames = {}; // 학생 ID → 이름
 
   // 실시간 감지 리스너 추적용 변수
   StreamSubscription? _lessonsSubscription;
@@ -1118,7 +1120,9 @@ class MasterProvider with ChangeNotifier {
   List<Map<String, dynamic>> get lessons => _lessons;
   Map<String, Map<String, Map<String, dynamic>>> get bookedSlots => _bookedSlots;
   Map<String, Map<String, dynamic>> get workSchedule => _workSchedule;
-  Map<String, String> get archivedStudents => _archivedStudents; // 아카이브된 학생 ID → 이름 매핑
+  Map<String, String> get archivedUsers => _archivedUsers; // 아카이브된 학생 ID → 이름 매핑
+  Map<String, String> get teacherNames => _teacherNames;
+  Map<String, String> get studentNames => _studentNames;
 
   // Firestore에서 선생님과 학생 데이터 불러오기 (로그인 시 실행)
   Future<void> fetchUsers() async {
@@ -1127,11 +1131,14 @@ class MasterProvider with ChangeNotifier {
 
       List<Map<String, dynamic>> teachers = [];
       List<Map<String, dynamic>> students = [];
+      Map<String, String> newTeacherNames = {};
+      Map<String, String> newStudentNames = {};
 
       for (var doc in usersSnapshot.docs) {
         var data = doc.data() as Map<String, dynamic>;
         if (data['role'] == 'teacher') {
           teachers.add({...data, 'id': doc.id});
+          newTeacherNames[doc.id] = data['name'] ?? '알 수 없음';
         } else if (data['role'] == 'student') {
           // 학생 정보를 가져올 때, lessons 서브컬렉션도 가져오기
           List<Map<String, dynamic>> studentLessons = await fetchStudentLessons(doc.id);
@@ -1140,11 +1147,14 @@ class MasterProvider with ChangeNotifier {
             'id': doc.id,
             'lessons': studentLessons // 해당 학생의 수업 목록 추가
           });
+          newStudentNames[doc.id] = data['name'] ?? '알 수 없음';
         }
       }
 
       _teachers = teachers;
       _students = students;
+      _teacherNames = newTeacherNames;
+      _studentNames = newStudentNames;
       notifyListeners();
       print("선생님 & 학생 데이터 로드 완료");
     } catch (e) {
@@ -1253,14 +1263,14 @@ class MasterProvider with ChangeNotifier {
     }
   }
 
-  // Firestore에서 아카이브된 학생 정보를 불러와 `archivedStudents`에 저장
-  Future<void> fetchArchivedStudents() async {
+  // Firestore에서 아카이브된 users 정보를 불러와 `archivedStudents`에 저장
+  Future<void> fetchArchivedUsers() async {
     try {
       FirebaseFirestore firestore = FirebaseFirestore.instance;
       QuerySnapshot archivedSnapshot = await firestore.collection('archivedUsers').get();
 
-      // 아카이브된 학생 ID → 이름 맵핑 저장
-      _archivedStudents = {
+      // 아카이브된 user ID → 이름 맵핑 저장
+      _archivedUsers = {
         for (var doc in archivedSnapshot.docs)
           doc.id: doc['name'] ?? "알 수 없음"
       };
@@ -1337,31 +1347,49 @@ class MasterProvider with ChangeNotifier {
     _usersSubscription = _firestore.collection('users').snapshots().listen((snapshot) async {
       List<Map<String, dynamic>> updatedTeachers = [];
       List<Map<String, dynamic>> updatedStudents = [];
+      Map<String, String> newTeacherNames = {};
+      Map<String, String> newStudentNames = {};
+
       for (var doc in snapshot.docs) {
         var data = doc.data() as Map<String, dynamic>;
         String role = data['role'] ?? '';
 
         if (role == 'teacher') {
           updatedTeachers.add({...data, 'id': doc.id});
+          newTeacherNames[doc.id] = data['name'] ?? '알 수 없음';
         } else if (role == 'student') {
           // 실시간 감지에서도 lessons 데이터 불러오기 추가
           List<Map<String, dynamic>> studentLessons = await fetchStudentLessons(doc.id);
-
           updatedStudents.add({
             ...data,
             'id': doc.id,
             'lessons': studentLessons, // lessons 서브컬렉션 포함
           });
+          newStudentNames[doc.id] = data['name'] ?? '알 수 없음';
         }
       }
 
       // 리스트 갱신
       _teachers = updatedTeachers;
       _students = updatedStudents;
+      _teacherNames = newTeacherNames;
+      _studentNames = newStudentNames;
 
       notifyListeners();
       print("실시간 유저 컬렉션 업데이트 감지됨 (총 선생님 ${_teachers.length}명, 학생 ${_students.length}명)");
     });
+  }
+
+  String getDisplayName(String id, {required bool isTeacher}) {
+    if (_archivedUsers.containsKey(id)) {
+      return '${_archivedUsers[id]}(탈퇴)';
+    }
+
+    if (isTeacher) {
+      return _teacherNames[id] ?? "알 수 없음";
+    } else {
+      return _studentNames[id] ?? "알 수 없음";
+    }
   }
 
   void cancelAllListeners() {
@@ -1739,12 +1767,4 @@ void showLoadingDialog(BuildContext context, String content) {
       );
     },
   );
-}
-
-// 아이디로 이름 찾기
-String getName(String userId, List<Map<String, dynamic>> users) {
-  return users.firstWhere(
-        (user) => user['id'] == userId,
-    orElse: () => {'name': '알 수 없음'}, // 만약 Id가 없으면 기본값 반환
-  )['name'];
 }

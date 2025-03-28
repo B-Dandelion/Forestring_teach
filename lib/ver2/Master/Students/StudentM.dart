@@ -49,11 +49,7 @@ class _StudentM extends State<StudentM> {
                   Color teacherColor = teacherIndex != -1
                       ? Colors_list[teacherIndex % Colors_list.length]
                       : Colors.grey; // 만약 매칭 안 되면 기본값 회색
-                  String teacherName = teachers
-                      .firstWhere(
-                        (teacher) => teacher['id'] == student["teacherId"],
-                    orElse: () => {'name': 'Unknown'}, // teacherId가 없을 경우 대비
-                  )['name'];
+                  String teacherName = provider.getDisplayName(student["teacherId"], isTeacher: true);
                   DateTime? outstudent = (student['withdrawalDate'] as Timestamp?)?.toDate();
                   String studentname = student['name'];
                   if (outstudent != null) {
@@ -527,6 +523,13 @@ class _StudentM extends State<StudentM> {
         'withdrawalDate': withdrawalDate,
       });
       debugPrint("batch.delete() 실행 개수: ${lessonIdsToDelete.length}");
+
+      // 7. 정보를 조회할 때 (탈퇴)라고 표시되도록 아카이브 리스트에 탐지되로록 문서를 생성해줌.
+      await firestore.collection('archivedUsers').doc(studentId).set({
+        'name': studentName,
+        'role': 'student',
+      });
+
       // 배치 커밋
       await batch.commit();
 
@@ -536,10 +539,12 @@ class _StudentM extends State<StudentM> {
         await archiveStudentData(studentId, teacherId, studentName);
         return;
       }
+      await provider.fetchArchivedUsers(); // 아카이브 리스트는 자동 갱신이 안되므로 삭제 예정 즉시 업데이트 함.
+
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-            "선생님 정보가 삭제 예정으로 설정되었습니다.",
+            "학생 정보가 삭제 예정으로 설정되었습니다.",
             style: style.copyWith(color: Colors.black),
             textAlign: TextAlign.center,
           ),
