@@ -75,30 +75,6 @@ class _Home extends State<Home> {
                         ),
                       ),
                     );
-                //     if (day.weekday == DateTime.sunday) {
-                //       return Center(
-                //           child: Text(
-                //         text,
-                //         style: const TextStyle(
-                //             fontFamily: 'OpenSans',
-                //             fontWeight: FontWeight.w500,
-                //             color: Colors.red),
-                //       ));
-                // } else if (day.weekday == DateTime.saturday) {
-                //   return Center(
-                //       child: Text(text,
-                //           style: const TextStyle(
-                //               fontFamily: 'OpenSans',
-                //               fontWeight: FontWeight.w500,
-                //               color: Colors.blue)));
-                // } else {
-                //   return Center(
-                //       child: Text(text,
-                //           style: const TextStyle(
-                //             fontFamily: 'OpenSans',
-                //             fontWeight: FontWeight.w500,
-                //           )));
-                // }
               },
                   // 달력 속 날짜 숫자 색상 변경(요일에 맞게)
                   defaultBuilder: (context, day, _) {
@@ -199,7 +175,7 @@ class _Home extends State<Home> {
                             endTime: lesson['date'].add(Duration(minutes: lesson['duration'])),
                             month: lesson['date'].month,
                             date: lesson['date'].day,
-                            student: userProvider.studentNames[lesson['studentId']] ?? "Unknown",
+                            student: userProvider.displayStudentName(lesson['studentId']),
                             teacher: userProvider.userName,
                           ),
                         );

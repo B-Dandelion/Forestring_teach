@@ -113,7 +113,7 @@ class _WeekSchedule extends State<WeekSchedule> {
 
       DateTime startTime = lesson["date"]; // Firestore에서 저장된 DateTime
       DateTime endTime = startTime.add(Duration(minutes: lesson["duration"])); // duration 적용
-      String studentName = userProvider.studentNames[lesson["studentId"]] ?? "Unknown";
+      String studentName = userProvider.displayStudentName(lesson['studentId']);
 
       // 수업 색상 설정 (예약 금지, 재예약 여부에 따라)
       Color lessonColor = PRIMARY_COLOR; // 기본값

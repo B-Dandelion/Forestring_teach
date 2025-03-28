@@ -123,6 +123,7 @@ class UserProvider extends ChangeNotifier {
   Map<String, String> _studentNames = {};
   Map<String, List<Map<String, dynamic>>> _studentSchedules = {};
   StreamSubscription? _studentScheduleSubscription;
+  Map<String, String> _archivedStudents = {};
 
   String get userID => _userID;
   String get userName => _userName;
@@ -130,6 +131,7 @@ class UserProvider extends ChangeNotifier {
   String get role => _role;
   Map<String, String> get studentNames => _studentNames;
   Map<String, List<Map<String, dynamic>>> get studentSchedules => _studentSchedules;
+  Map<String, String> get archivedStudents => _archivedStudents; // 삭제된 학생 ID → 이름
 
   // 마스터일 경우 아이디, 이름, 비번, 역할만 저장.
   // 선생님일 경우 담당 학생들의 이름과 정규 수업 정보(실시간 탐지)를 불러온다.
@@ -174,6 +176,31 @@ class UserProvider extends ChangeNotifier {
       print("학생 정보 불러오기 중 오류 발생: $e");
     }
   }
+
+  // 탈퇴한 학생 정보 불러오기
+  Future<void> fetchArchivedStudents() async {
+    try {
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+      QuerySnapshot snapshot = await firestore.collection('archivedUsers').get();
+
+      _archivedStudents = {
+        for (var doc in snapshot.docs)
+          if ((doc.data() as Map)['role'] == 'student')  // 학생 정보만 불러옴!
+            doc.id: (doc.data() as Map)['name'] ?? "알 수 없음"
+      };
+      notifyListeners(); // UI 업데이트
+    } catch (e) {
+      print("아카이브된 정보 불러오기 실패: $e");
+    }
+  }
+
+  // 학생 아이디 입력시 학생 + 탈퇴한 학생 아이디 전부 확인 후 이름을 각 상태에 맞게 변환
+  String displayStudentName(String id) {
+    if (_archivedStudents.containsKey(id)) return '${_archivedStudents[id]}(탈퇴)';
+    if (_studentNames.containsKey(id)) return _studentNames[id]!;
+    return '알 수 없음';
+  }
+
 
   void listenToStudentSchedules() {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -1079,6 +1106,7 @@ class MasterProvider with ChangeNotifier {
   // 선생님별 예약된 슬롯을 저장하는 변수 변경
   Map<String, Map<String, Map<String, dynamic>>> _bookedSlots = {}; // {teacherId: {lessonId: {lessonData}}}
   Map<String, Map<String, dynamic>> _workSchedule = {}; // 선생님별 근무 일정
+  Map<String, String> _archivedStudents = {};
 
   // 실시간 감지 리스너 추적용 변수
   StreamSubscription? _lessonsSubscription;
@@ -1090,6 +1118,7 @@ class MasterProvider with ChangeNotifier {
   List<Map<String, dynamic>> get lessons => _lessons;
   Map<String, Map<String, Map<String, dynamic>>> get bookedSlots => _bookedSlots;
   Map<String, Map<String, dynamic>> get workSchedule => _workSchedule;
+  Map<String, String> get archivedStudents => _archivedStudents; // 아카이브된 학생 ID → 이름 매핑
 
   // Firestore에서 선생님과 학생 데이터 불러오기 (로그인 시 실행)
   Future<void> fetchUsers() async {
@@ -1221,6 +1250,24 @@ class MasterProvider with ChangeNotifier {
       print("모든 선생님의 예약된 슬롯 & 근무 일정 불러오기 완료");
     } catch (e) {
       print("availableSlots 데이터 불러오기 실패: $e");
+    }
+  }
+
+  // Firestore에서 아카이브된 학생 정보를 불러와 `archivedStudents`에 저장
+  Future<void> fetchArchivedStudents() async {
+    try {
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+      QuerySnapshot archivedSnapshot = await firestore.collection('archivedUsers').get();
+
+      // 아카이브된 학생 ID → 이름 맵핑 저장
+      _archivedStudents = {
+        for (var doc in archivedSnapshot.docs)
+          doc.id: doc['name'] ?? "알 수 없음"
+      };
+
+      notifyListeners(); // UI 업데이트
+    } catch (e) {
+      print("아카이브된 정보 불러오기 실패: $e");
     }
   }
 

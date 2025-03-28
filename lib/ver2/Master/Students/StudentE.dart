@@ -478,56 +478,6 @@ class _EditStudentPageState extends State<EditStudentPage> {
       },
     );
   }
-  // Future<void> deleteFutureLessons(String studentId, String teacherId, String lessonCode) async {
-  //   FirebaseFirestore firestore = FirebaseFirestore.instance;
-  //   WriteBatch batch = firestore.batch();
-  //
-  //   // ① 글로벌 lessons 컬렉션 참조
-  //   CollectionReference globalLessonsRef = firestore.collection('lessons');
-  //   // ② 선생님 availableSlots 문서 참조 (선생님 아이디를 문서 ID로 사용)
-  //   DocumentReference teacherSlotRef = firestore.collection('availableSlots').doc(teacherId);
-  //   // ③ 학생 레슨 하위 컬렉션 참조
-  //   CollectionReference studentLessonsCollection =
-  //   firestore.collection('users').doc(studentId).collection('lessons');
-  //   // ④ 학생 문서 참조 (weeklySchedule 수정)
-  //   DocumentReference studentDocRef = firestore.collection('users').doc(studentId);
-  //
-  //   // 현재 시간 이후의 같은 code 값을 가진 수업들 조회 (lessonCode를 String으로 비교)
-  //   QuerySnapshot snapshot = await studentLessonsCollection
-  //       .where('date', isGreaterThanOrEqualTo: Timestamp.now()) // 현재 이후의 수업만 삭제
-  //       .where('code', isEqualTo: lessonCode) // 같은 code 값을 가진 수업만 삭제
-  //       .get();
-  //
-  //   List<String> lessonIds = snapshot.docs.map((doc) => doc.id).toList();
-  //
-  //   // 삭제할 lessonId 리스트를 기반으로 모든 컬렉션에서 삭제
-  //   for (String lessonId in lessonIds) {
-  //     batch.delete(studentLessonsCollection.doc(lessonId)); // 학생 레슨에서 삭제
-  //     batch.delete(globalLessonsRef.doc(lessonId)); // 글로벌 lessons에서 삭제
-  //     batch.update(teacherSlotRef, {
-  //       'bookedSlots.$lessonId': FieldValue.delete(), // 선생님 bookedSlots에서 삭제
-  //     });
-  //   }
-  //
-  //   // weeklySchedule에서 해당 code 값을 가진 요소 삭제
-  //   DocumentSnapshot studentSnapshot = await studentDocRef.get();
-  //   if (studentSnapshot.exists) {
-  //     Map<String, dynamic> studentData = studentSnapshot.data() as Map<String, dynamic>;
-  //     List<Map<String, dynamic>> weeklySchedule =
-  //     List<Map<String, dynamic>>.from(studentData['weeklySchedule'] ?? []);
-  //
-  //     // 같은 `code` 값을 가진 요소 제거 후 Firestore에 업데이트
-  //     List<Map<String, dynamic>> updatedSchedule =
-  //     weeklySchedule.where((lesson) => lesson['code'] != lessonCode).toList();
-  //
-  //     batch.update(studentDocRef, {'weeklySchedule': updatedSchedule});
-  //   }
-  //
-  //   // 모든 삭제 연산 실행
-  //   await batch.commit();
-  //
-  //   print("수업 삭제 완료: lessonCode = $lessonCode");
-  // }
   void _deleteLesson(int index) {
     setState(() {
       scheduleList.removeAt(index);

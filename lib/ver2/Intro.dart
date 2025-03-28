@@ -88,6 +88,7 @@ class _Intro extends State<Intro> {
         await Masterprovider.fetchUsers();
         await Masterprovider.fetchAllAvailableSlots();
         await Masterprovider.fetchLessons(); // lesson 데이터도 가져오기
+        await Masterprovider.fetchArchivedStudents();
         Masterprovider.listenToAvailableSlotsUpdates();
         Masterprovider.listenToLessonsUpdates(); // lesson 실시간 업데이트 감지
         Masterprovider.listenToUserCollectionUpdates();
@@ -196,6 +197,7 @@ class _Intro extends State<Intro> {
                   Align(
                     alignment: Alignment.center,
                     child: Image.asset('assets/img/포레스트링_선생님_로고.png',
+                        width: MediaQuery.of(context).size.width * 0.75,
                         fit: BoxFit.contain),
                   ),
                 ],
