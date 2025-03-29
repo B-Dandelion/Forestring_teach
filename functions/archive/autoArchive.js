@@ -4,16 +4,11 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { setGlobalOptions } = require("firebase-functions/v2");
 
 const db = admin.firestore();
-
-// Optional: 전역 설정 (예: 리전 설정)
 setGlobalOptions({ region: "asia-northeast3" }); // 서울 리전
 
-const autoArchiveStudents = onSchedule({
-      schedule: "every 24 hours",
-      timeZone: "Asia/Seoul",
-    },
-    async () => {
-
+const autoArchiveStudents = onSchedule(
+  { schedule: "every 24 hours", timeZone: "Asia/Seoul" },
+  async () => {
     // withdrawalDate랑 날짜 비교를 위해 오늘 날짜를 Timestamp 형식으로 저장
     const now = new Date();
     now.setHours(0, 0, 0, 0);
