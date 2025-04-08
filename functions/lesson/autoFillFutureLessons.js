@@ -1,12 +1,10 @@
 const admin = require("firebase-admin");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { setGlobalOptions } = require("firebase-functions/v2");
 
 const db = admin.firestore();
-setGlobalOptions({ region: "asia-northeast3" }); // 서울 리전
 
 const autoFillFutureLessons = onSchedule(
-  { schedule: "every 1 of month 04:00", timeZone: "Asia/Seoul" },
+  { schedule: "0 4 1 * *", timeZone: "Asia/Seoul", timeoutSeconds: 300},
   async () => {
     const now = new Date();
     const threeMonthsLater = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());

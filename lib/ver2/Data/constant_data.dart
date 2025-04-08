@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:forestring_teacher_2/ver2/Login.dart';
@@ -13,6 +14,7 @@ import 'package:forestring_teacher_2/ver2/Teacher/MyPage.dart';
 import 'package:forestring_teacher_2/ver2/Teacher/WeekSchedule.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const Color_list = [
   Color(0xff23288C),
@@ -120,10 +122,12 @@ class UserProvider extends ChangeNotifier {
   String _userName = '';
   String _userPw = '';
   String _role = '';
+
   Map<String, String> _studentNames = {};
   Map<String, List<Map<String, dynamic>>> _studentSchedules = {};
   StreamSubscription? _studentScheduleSubscription;
   Map<String, String> _archivedStudents = {};
+  StreamSubscription? _fcmSubscription;
 
   String get userID => _userID;
   String get userName => _userName;
@@ -201,6 +205,67 @@ class UserProvider extends ChangeNotifier {
     return '알 수 없음';
   }
 
+  void listenToFcmTokenChanges(BuildContext context) async {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null || _userID.isEmpty) return;
+
+    _fcmSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_userID)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data()!;
+      final dynamic storedToken = data['fcmToken'];
+
+      bool shouldLogout = false;
+
+      if (_role == 'master') {
+        // 마스터 계정은 토큰 배열임
+        if (storedToken is List) {
+          if (!storedToken.contains(token)) {
+            shouldLogout = true;
+          }
+        } else {
+          // 혹시라도 단일 문자열로 잘못 저장된 경우
+          shouldLogout = true;
+        }
+      } else {
+        // 일반 선생님은 단일 토큰
+        if (storedToken is String) {
+          if (storedToken != token) {
+            shouldLogout = true;
+          }
+        } else {
+          shouldLogout = true;
+        }
+      }
+
+      if (shouldLogout) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text("로그아웃 안내"),
+            content: const Text("다른 기기에서 로그인되어 자동 로그아웃되었습니다."),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  clearUser();
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const Login()),
+                        (route) => false,
+                  );
+                },
+                child: const Text("확인"),
+              )
+            ],
+          ),
+        );
+      }
+    });
+  }
 
   void listenToStudentSchedules() {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -228,12 +293,15 @@ class UserProvider extends ChangeNotifier {
     });
   }
 
-  void cancelStudentScheduleListener() {
+  void cancelListeners() {
     _studentScheduleSubscription?.cancel();
+    _fcmSubscription?.cancel();
+    _studentScheduleSubscription = null;
+    _fcmSubscription = null;
   }
 
   void clearUser() {
-    cancelStudentScheduleListener();
+    cancelListeners();
     _userID = '';
     _userName = '';
     _userPw = '';
@@ -808,7 +876,7 @@ class BaseDrawer extends StatelessWidget {
 
               // 2. `UserProvider`의 사용자 정보 초기화
               userProvider.clearUser();
-              userProvider.cancelStudentScheduleListener();
+              userProvider.cancelListeners();
 
               // 3. `LessonProvider`의 수업 데이터 초기화
               lessonProvider.clearLessons();
@@ -1077,7 +1145,7 @@ class ManagerDrawer extends StatelessWidget {
 
               // 2. `UserProvider`의 사용자 정보 초기화
               userProvider.clearUser();
-              userProvider.cancelStudentScheduleListener();
+              userProvider.cancelListeners();
 
               // 마스터 로그아웃 시 clear 로직.
               masterProvider.cancelAllListeners();
@@ -1123,6 +1191,16 @@ class MasterProvider with ChangeNotifier {
   Map<String, String> get archivedUsers => _archivedUsers; // 아카이브된 학생 ID → 이름 매핑
   Map<String, String> get teacherNames => _teacherNames;
   Map<String, String> get studentNames => _studentNames;
+
+  Future<void> initialize() async {
+    await fetchUsers();
+    await fetchAllAvailableSlots();
+    await fetchLessons();
+    await fetchArchivedUsers();
+    listenToAvailableSlotsUpdates();
+    listenToLessonsUpdates();
+    listenToUserCollectionUpdates();
+  }
 
   // Firestore에서 선생님과 학생 데이터 불러오기 (로그인 시 실행)
   Future<void> fetchUsers() async {
@@ -1725,7 +1803,6 @@ bool isOverlapping(String start1, int duration1, String start2, int duration2) {
 
   return startTime1.isBefore(endTime2) && startTime2.isBefore(endTime1);
 }
-
 // 휴일 검사 함수 (1일 추가해서 작동함)
 bool isHoliday(DateTime date, List<Map<String, DateTime>> holidays) {
   for (var holiday in holidays) {
@@ -1767,4 +1844,69 @@ void showLoadingDialog(BuildContext context, String content) {
       );
     },
   );
+}
+
+// 알람 동의 팝업창
+Future<void> showNotificationPermissionDialog(BuildContext context) async {
+  final prefs = await SharedPreferences.getInstance();
+  bool? alreadyAsked = prefs.getBool("notification_permission_requested");
+
+  if (alreadyAsked == true) return;
+
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return AlertDialog(
+        title: Text(
+          "알림을 허용하시겠어요?",
+          style: style.copyWith(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "수업 일정, 변경 사항 등을 실시간으로 받아보시려면\n"
+              "알림을 켜 주세요.\n\n"
+              "설정에서 언제든지 변경 가능합니다.",
+          style: style, // 폰트 두께 건드리지 않음
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(false);
+            },
+            child: Text(
+              "다음에",
+              style: style.copyWith(color: Colors.black54),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PRIMARY_COLOR,
+            ),
+            onPressed: () {
+              Navigator.of(context).pop(true);
+            },
+            child: Text("허용", style: style.copyWith(color: Colors.white)),
+          ),
+        ],
+      );
+    },
+  );
+
+  prefs.setBool("notification_permission_requested", true);
+
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final userId = userProvider.userID;
+
+  if (userId != null) {
+    await FirebaseFirestore.instance.collection('users')
+        .doc(userId)
+        .update({'notificationPermission': result == true});
+  }
+
+  if (result == true) {
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      sound: true,
+    );
+  }
 }

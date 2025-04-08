@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -6,6 +7,7 @@ import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
 import 'package:forestring_teacher_2/ver2/Master/Manage.dart';
 import 'package:forestring_teacher_2/ver2/Teacher/Home.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -72,12 +74,34 @@ class _Login extends State<Login> {
         return;
       }
 
-      // 4. 기존 로그인 정보 초기화 (이전 로그인 데이터 삭제)
+      // 4. FCM 토큰 저장 (비밀번호 확인 직후)
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        if (userData!['role'] == "master") {
+          // 기존 리스트 불러오기
+          List<String> existingTokens = List<String>.from(userData?['fcmTokens'] ?? []);
+
+          // 중복 제거 및 3개 초과 방지
+          if (!existingTokens.contains(token)) {
+            existingTokens.insert(0, token); // 최근 로그인한 기기가 맨 앞으로
+            if (existingTokens.length > 3) {
+              existingTokens = existingTokens.sublist(0, 3);
+            }
+          }
+
+          await firestore.collection('users').doc(matchedUserId).update({'fcmTokens': existingTokens});
+        } else {
+          // 일반 선생님은 단일 토큰만
+          await firestore.collection('users').doc(matchedUserId).update({'fcmToken': token});
+        }
+      }
+
+      // 5. 기존 로그인 정보 초기화 (이전 로그인 데이터 삭제)
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       userProvider.clearUser();  // 이전 로그인 데이터 초기화
-      userProvider.cancelStudentScheduleListener(); // 기존 스트림 구독 해제
+      userProvider.cancelListeners(); // 기존 스트림 구독 해제
 
-      // 4. 로그인 성공 → 유저 정보 저장
+      // 6. 로그인 성공 → 유저 정보 저장
       await userProvider.setUser(
         matchedUserId,
         userData!['name'],
@@ -98,14 +122,10 @@ class _Login extends State<Login> {
 
       // 6. 역할에 따라 추가 데이터 로드
       if (userProvider.role == "master") {
-        final Masterprovider = Provider.of<MasterProvider>(context, listen: false);
-        await Masterprovider.fetchUsers();
-        await Masterprovider.fetchAllAvailableSlots();
-        await Masterprovider.fetchLessons(); // lesson 데이터도 가져오기
-        await Masterprovider.fetchArchivedUsers();
-        Masterprovider.listenToAvailableSlotsUpdates();
-        Masterprovider.listenToLessonsUpdates(); // lesson 실시간 업데이트 감지
-        Masterprovider.listenToUserCollectionUpdates();
+        final masterProvider = Provider.of<MasterProvider>(context, listen: false);
+        await masterProvider.initialize(); // 인스턴스를 통해 호출
+
+        await showNotificationPermissionDialog(context);
         Navigator.of(context).pop(); // 로딩 종료
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) {
           return Manage();
@@ -121,6 +141,8 @@ class _Login extends State<Login> {
         final workProvider = Provider.of<SlotProvider>(context, listen: false);
         await workProvider.fetchTeacherSlots(userProvider.userID);
         workProvider.listenToTeacherSlotsUpdates(userProvider.userID);
+
+        await showNotificationPermissionDialog(context);
 
         // 로딩 다이얼로그 닫기 후 홈 이동
         Navigator.of(context).pop(); // 로딩 종료
@@ -139,8 +161,7 @@ class _Login extends State<Login> {
     }
   }
 
-
-// 로그인 실패 시 에러 메시지 표시 함수
+  // 로그인 실패 시 에러 메시지 표시 함수
   void _showLoginError(String message) {
     showDialog(
       context: context,

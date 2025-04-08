@@ -3,6 +3,9 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
+const { setGlobalOptions } = require("firebase-functions/v2");
+setGlobalOptions({ region: "asia-northeast3" });
+
 // 학생 아카이빙 함수 가져오기
 const { autoArchiveStudents } = require("./archive/autoArchive");
 exports.autoArchiveStudents = autoArchiveStudents;
