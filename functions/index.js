@@ -13,3 +13,28 @@ exports.autoArchiveStudents = autoArchiveStudents;
 // 수업 자동 생성 함수
 const { autoFillFutureLessons } = require("./lesson/autoFillFutureLessons");
 exports.autoFillFutureLessons = autoFillFutureLessons;
+
+// 수업 자동 제거 함수
+const { cleanupLeftoverLessons } = require("./lesson/cleanupLeftoverLessons");
+exports.cleanupLeftoverLessons = cleanupLeftoverLessons;
+
+// 휴원 기간과 겹치는 수업 제거
+//const { removeLessonsInHolidayRange } = require("./lesson/removeLessonsInHolidayRange");
+//exports.removeLessonsInHolidayRange = removeLessonsInHolidayRange;
+
+// 특정 기간 정규 수업 추가
+const { generateLessonsCustom } = require("./lesson/generateLessonsCustom");
+exports.generateLessonsCustom = generateLessonsCustom;
+
+// 오전 12시로 잘못 생성된 수업 삭제 함수
+const { deleteMidnightLessons } = require("./lesson/deleteMidnightLessons");
+exports.deleteMidnightLessons = deleteMidnightLessons;
+
+// 수업 시간 +9시간 하는 함수
+const { fixLessonTimes } = require("./lesson/fixLessonTimes");
+exports.fixLessonTimes = fixLessonTimes;
+
+// 특정 날짜 이후 수업을 전부 삭제하는 함수 (꼬였을 때 대비)
+const { deleteLessonsAfterDate } = require("./lesson/deleteLessonsAfterDate");
+exports.deleteLessonsAfterDate = deleteLessonsAfterDate;
+

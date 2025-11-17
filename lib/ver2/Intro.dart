@@ -67,28 +67,28 @@ class _Intro extends State<Intro> {
 
       Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
 
-      // 3. 현재 기기의 FCM 토큰 가져오기
-      final token = await FirebaseMessaging.instance.getToken();
-      bool isValidToken = false;
-
-      if (token != null) {
-        if (userData['role'] == 'master') {
-          List<String> savedTokens = List<String>.from(userData['fcmTokens'] ?? []);
-          isValidToken = savedTokens.contains(token);
-        } else {
-          String savedToken = userData['fcmToken'] ?? '';
-          isValidToken = (token == savedToken);
-        }
-      }
-
-      if (!isValidToken) {
-        // 토큰이 일치하지 않으면 자동 로그인 정보 삭제 후 로그인 페이지 이동
-        await storage.delete(key: "auto_id.ver2");
-        await storage.delete(key: "auto_pw.ver2");
-        print("자동 로그인 차단됨: FCM 토큰 불일치");
-        _navigateToLogin();
-        return;
-      }
+      // // 3. 현재 기기의 FCM 토큰 가져오기
+      // final token = await FirebaseMessaging.instance.getToken();
+      // bool isValidToken = false;
+      //
+      // if (token != null) {
+      //   if (userData['role'] == 'master') {
+      //     List<String> savedTokens = List<String>.from(userData['fcmTokens'] ?? []);
+      //     isValidToken = savedTokens.contains(token);
+      //   } else {
+      //     String savedToken = userData['fcmToken'] ?? '';
+      //     isValidToken = (token == savedToken);
+      //   }
+      // }
+      //
+      // if (!isValidToken) {
+      //   // 토큰이 일치하지 않으면 자동 로그인 정보 삭제 후 로그인 페이지 이동
+      //   await storage.delete(key: "auto_id.ver2");
+      //   await storage.delete(key: "auto_pw.ver2");
+      //   print("자동 로그인 차단됨: FCM 토큰 불일치");
+      //   _navigateToLogin();
+      //   return;
+      // }
 
       // 3. 로그인 성공 → UserProvider에 정보 저장
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -99,7 +99,7 @@ class _Intro extends State<Intro> {
         userData['role'],
       );
 
-      userProvider.listenToFcmTokenChanges(context);
+      // userProvider.listenToFcmTokenChanges(context);
 
       // 로딩 다이얼 표시
       showLoadingDialog();
@@ -113,7 +113,7 @@ class _Intro extends State<Intro> {
         final masterprovider = Provider.of<MasterProvider>(context, listen: false);
         await masterprovider.initialize();
 
-        await showNotificationPermissionDialog(context);
+        // await showNotificationPermissionDialog(context);
 
         Navigator.of(context).pop();
         _navigateToHome(userProvider.role);
@@ -126,7 +126,7 @@ class _Intro extends State<Intro> {
         await workProvider.fetchTeacherSlots(userProvider.userID);
         workProvider.listenToTeacherSlotsUpdates(userProvider.userID);
 
-        await showNotificationPermissionDialog(context);
+        // await showNotificationPermissionDialog(context);
 
         // 로딩 다이얼로그 닫기 후 홈 이동
         Navigator.of(context).pop();

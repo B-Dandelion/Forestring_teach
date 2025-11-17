@@ -286,6 +286,15 @@ class _ScheduleM extends State<ScheduleM> {
                                             setState(() { // UI 업데이트 추가!
                                               lessons[index]['time'] =
                                               "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                                              // 'date'에 시간까지 반영된 DateTime으로 덮어쓰기
+                                              final DateTime dateOnly = lessons[index]['date'];
+                                              lessons[index]['date'] = DateTime(
+                                                dateOnly.year,
+                                                dateOnly.month,
+                                                dateOnly.day,
+                                                pickedTime.hour,
+                                                pickedTime.minute,
+                                              );
                                             });
                                           }
                                         },
@@ -723,6 +732,8 @@ class _ScheduleM extends State<ScheduleM> {
       DateTime lessonDate = lesson["date"];
       int duration = lesson["duration"];
       String? lessonId = lesson["id"]; // 자기 자신 제외할 때 사용
+      DateTime lessonEnd = lessonDate.add(Duration(minutes: duration));
+      print("🟦 추가 시도 수업: ID=$lessonId, 시작=$lessonDate, 종료=$lessonEnd");
 
       // 해당 선생님의 예약된 슬롯 가져오기
       final teacherLessons = bookedSlots[teacherId]!;
@@ -744,9 +755,12 @@ class _ScheduleM extends State<ScheduleM> {
         final int bookedDuration = entry.value['duration'];
         final DateTime bookedEnd = bookedStart.add(Duration(minutes: bookedDuration));
 
+        print("📌 비교 대상: ${entry.key} | 시작=$bookedStart, 종료=$bookedEnd");
+
         // (lessonDate ~ lessonEnd) vs (bookedStart ~ bookedEnd)
         final DateTime lessonEnd = lessonDate.add(Duration(minutes: duration));
         if (lessonDate.isBefore(bookedEnd) && lessonEnd.isAfter(bookedStart)) {
+          print("겹치는 수업 발견: ${entry.key} / 시작: $bookedStart ~ 끝: $bookedEnd");
           return false; // 겹침 발생
         }
       }

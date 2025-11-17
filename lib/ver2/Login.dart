@@ -73,28 +73,28 @@ class _Login extends State<Login> {
         _showLoginError("접근 권한이 없습니다.\n선생님 계정으로 로그인하세요.");
         return;
       }
-
-      // 4. FCM 토큰 저장 (비밀번호 확인 직후)
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        if (userData!['role'] == "master") {
-          // 기존 리스트 불러오기
-          List<String> existingTokens = List<String>.from(userData?['fcmTokens'] ?? []);
-
-          // 중복 제거 및 3개 초과 방지
-          if (!existingTokens.contains(token)) {
-            existingTokens.insert(0, token); // 최근 로그인한 기기가 맨 앞으로
-            if (existingTokens.length > 3) {
-              existingTokens = existingTokens.sublist(0, 3);
-            }
-          }
-
-          await firestore.collection('users').doc(matchedUserId).update({'fcmTokens': existingTokens});
-        } else {
-          // 일반 선생님은 단일 토큰만
-          await firestore.collection('users').doc(matchedUserId).update({'fcmToken': token});
-        }
-      }
+      //
+      // // 4. FCM 토큰 저장 (비밀번호 확인 직후)
+      // final token = await FirebaseMessaging.instance.getToken();
+      // if (token != null) {
+      //   if (userData!['role'] == "master") {
+      //     // 기존 리스트 불러오기
+      //     List<String> existingTokens = List<String>.from(userData?['fcmTokens'] ?? []);
+      //
+      //     // 중복 제거 및 3개 초과 방지
+      //     if (!existingTokens.contains(token)) {
+      //       existingTokens.insert(0, token); // 최근 로그인한 기기가 맨 앞으로
+      //       if (existingTokens.length > 3) {
+      //         existingTokens = existingTokens.sublist(0, 3);
+      //       }
+      //     }
+      //
+      //     await firestore.collection('users').doc(matchedUserId).update({'fcmTokens': existingTokens});
+      //   } else {
+      //     // 일반 선생님은 단일 토큰만
+      //     await firestore.collection('users').doc(matchedUserId).update({'fcmToken': token});
+      //   }
+      // }
 
       // 5. 기존 로그인 정보 초기화 (이전 로그인 데이터 삭제)
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -125,7 +125,8 @@ class _Login extends State<Login> {
         final masterProvider = Provider.of<MasterProvider>(context, listen: false);
         await masterProvider.initialize(); // 인스턴스를 통해 호출
 
-        await showNotificationPermissionDialog(context);
+        // await showNotificationPermissionDialog(context);
+
         Navigator.of(context).pop(); // 로딩 종료
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) {
           return Manage();
@@ -142,7 +143,7 @@ class _Login extends State<Login> {
         await workProvider.fetchTeacherSlots(userProvider.userID);
         workProvider.listenToTeacherSlotsUpdates(userProvider.userID);
 
-        await showNotificationPermissionDialog(context);
+        // await showNotificationPermissionDialog(context);
 
         // 로딩 다이얼로그 닫기 후 홈 이동
         Navigator.of(context).pop(); // 로딩 종료

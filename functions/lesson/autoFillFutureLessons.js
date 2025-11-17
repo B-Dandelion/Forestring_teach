@@ -65,6 +65,9 @@ const autoFillFutureLessons = onSchedule(
           const baseCode = `${day}${startTime.replace(":", "")}`;
 
           let lessonDate = getFirstDateMatchingDay(start, day);
+          const [hour, minute] = startTime.split(":").map(Number);
+          lessonDate.setUTCHours(hour - 9, minute, 0, 0);  // KST 기준 수업 시간
+
           let count = 1;
 
           while (lessonDate <= end && count <= 4) {

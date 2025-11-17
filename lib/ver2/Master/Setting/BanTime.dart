@@ -113,6 +113,22 @@ Future<void> _showBanTimeDialog(BuildContext context) async {
                   }
                   _saveBanTime(selectedTeacherId!, selectedDate, selectedStartTime, selectedEndTime);
                   Navigator.pop(context);
+                  if (!context.mounted) return; // ontext 유효성 체크
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "예약 금지 시간이 설정되었습니다.",
+                        style: style.copyWith(color: Colors.black),
+                        textAlign: TextAlign.center,
+                      ),
+                      backgroundColor: IBORY,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: PRIMARY_COLOR),
                 child: Text("확인", style: style.copyWith(color: Colors.white)),
@@ -346,25 +362,9 @@ class _BanTimeManagementPageState extends State<BanTimeManagementPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: PRIMARY_COLOR,
-        onPressed: (){
-          try{
-            _showAddBanTimeDialog;
-            if (!context.mounted) return; // ontext 유효성 체크
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  "예약 금지 시간이 설정되었습니다.",
-                  style: style.copyWith(color: Colors.black),
-                  textAlign: TextAlign.center,
-                ),
-                backgroundColor: IBORY,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                duration: Duration(seconds: 2),
-              ),
-            );
+        onPressed: () async {
+          try {
+            await _showBanTimeDialog(context);
           } catch (e) {
             debugPrint("벤타임 저장 오류: $e");
 

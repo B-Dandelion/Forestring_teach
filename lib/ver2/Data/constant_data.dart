@@ -205,67 +205,67 @@ class UserProvider extends ChangeNotifier {
     return '알 수 없음';
   }
 
-  void listenToFcmTokenChanges(BuildContext context) async {
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token == null || _userID.isEmpty) return;
-
-    _fcmSubscription = FirebaseFirestore.instance
-        .collection('users')
-        .doc(_userID)
-        .snapshots()
-        .listen((snapshot) {
-      if (!snapshot.exists) return;
-
-      final data = snapshot.data()!;
-      final dynamic storedToken = data['fcmToken'];
-
-      bool shouldLogout = false;
-
-      if (_role == 'master') {
-        // 마스터 계정은 토큰 배열임
-        if (storedToken is List) {
-          if (!storedToken.contains(token)) {
-            shouldLogout = true;
-          }
-        } else {
-          // 혹시라도 단일 문자열로 잘못 저장된 경우
-          shouldLogout = true;
-        }
-      } else {
-        // 일반 선생님은 단일 토큰
-        if (storedToken is String) {
-          if (storedToken != token) {
-            shouldLogout = true;
-          }
-        } else {
-          shouldLogout = true;
-        }
-      }
-
-      if (shouldLogout) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("로그아웃 안내"),
-            content: const Text("다른 기기에서 로그인되어 자동 로그아웃되었습니다."),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  clearUser();
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const Login()),
-                        (route) => false,
-                  );
-                },
-                child: const Text("확인"),
-              )
-            ],
-          ),
-        );
-      }
-    });
-  }
+  // void listenToFcmTokenChanges(BuildContext context) async {
+  //   final token = await FirebaseMessaging.instance.getToken();
+  //   if (token == null || _userID.isEmpty) return;
+  //
+  //   _fcmSubscription = FirebaseFirestore.instance
+  //       .collection('users')
+  //       .doc(_userID)
+  //       .snapshots()
+  //       .listen((snapshot) {
+  //     if (!snapshot.exists) return;
+  //
+  //     final data = snapshot.data()!;
+  //     final dynamic storedToken = data['fcmToken'];
+  //
+  //     bool shouldLogout = false;
+  //
+  //     if (_role == 'master') {
+  //       // 마스터 계정은 토큰 배열임
+  //       if (storedToken is List) {
+  //         if (!storedToken.contains(token)) {
+  //           shouldLogout = true;
+  //         }
+  //       } else {
+  //         // 혹시라도 단일 문자열로 잘못 저장된 경우
+  //         shouldLogout = true;
+  //       }
+  //     } else {
+  //       // 일반 선생님은 단일 토큰
+  //       if (storedToken is String) {
+  //         if (storedToken != token) {
+  //           shouldLogout = true;
+  //         }
+  //       } else {
+  //         shouldLogout = true;
+  //       }
+  //     }
+  //
+  //     if (shouldLogout) {
+  //       showDialog(
+  //         context: context,
+  //         barrierDismissible: false,
+  //         builder: (_) => AlertDialog(
+  //           title: const Text("로그아웃 안내"),
+  //           content: const Text("다른 기기에서 로그인되어 자동 로그아웃되었습니다."),
+  //           actions: [
+  //             TextButton(
+  //               onPressed: () {
+  //                 clearUser();
+  //                 Navigator.of(context).pushAndRemoveUntil(
+  //                   MaterialPageRoute(builder: (_) => const Login()),
+  //                       (route) => false,
+  //                 );
+  //               },
+  //               child: const Text("확인"),
+  //             )
+  //           ],
+  //         ),
+  //       );
+  //     }
+  //   });
+  // }
 
   void listenToStudentSchedules() {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
