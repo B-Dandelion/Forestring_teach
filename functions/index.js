@@ -23,8 +23,8 @@ exports.cleanupLeftoverLessons = cleanupLeftoverLessons;
 //exports.removeLessonsInHolidayRange = removeLessonsInHolidayRange;
 
 // 특정 기간 정규 수업 추가
-const { generateLessonsCustom } = require("./lesson/generateLessonsCustom");
-exports.generateLessonsCustom = generateLessonsCustom;
+const { manualCreateRestoredLessons } = require("./lesson/manualCreateRestoredLessons");
+exports.manualCreateRestoredLessons = manualCreateRestoredLessons;
 
 // 오전 12시로 잘못 생성된 수업 삭제 함수
 const { deleteMidnightLessons } = require("./lesson/deleteMidnightLessons");
