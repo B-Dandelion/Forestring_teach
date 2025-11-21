@@ -38,3 +38,7 @@ exports.fixLessonTimes = fixLessonTimes;
 const { deleteLessonsAfterDate } = require("./lesson/deleteLessonsAfterDate");
 exports.deleteLessonsAfterDate = deleteLessonsAfterDate;
 
+// 왜 탈퇴학생 수업 삭제가 안되냐
+const { cleanupStudentLessons } = require('./archive/LessonArchive');
+exports.cleanupStudentLessons = cleanupStudentLessons;
+

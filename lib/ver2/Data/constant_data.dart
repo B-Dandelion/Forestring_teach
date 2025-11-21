@@ -100,7 +100,6 @@ const Colors_list = [
   Color(0xff1565C0)
 ];
 
-
 const PRIMARY_COLOR = Color(0xff003717);
 const SECONDARY_COLOR = Color(0xff708C7A);
 const IBORY = Color(0xffFDF8E7);
@@ -1910,3 +1909,33 @@ Future<void> showNotificationPermissionDialog(BuildContext context) async {
     );
   }
 }
+
+// 11.17일 오류 확인용 함수
+// Future<void> debugInvalidStudentIdLessons() async {
+//   final firestore = FirebaseFirestore.instance;
+//
+//   // lessons 컬렉션 전체 조회
+//   final snap = await firestore.collection('lessons').get();
+//
+//   print('--- studentId 값이 이상한 문서들 ---');
+//   for (final doc in snap.docs) {
+//     final data = doc.data() as Map<String, dynamic>;
+//
+//     // studentId 값 꺼내기 (없으면 null)
+//     final studentId = data['studentId'];
+//
+//     // 이상한 경우:
+//     // 1) 필드 없음 / null
+//     // 2) String 타입이 아님
+//     // 3) 빈 문자열("") 이거나 공백뿐인 문자열
+//     final isInvalid =
+//         studentId == null ||
+//             studentId is! String ||
+//             (studentId as String).trim().isEmpty;
+//
+//     if (isInvalid) {
+//       print('lesson ${doc.id} => $data');
+//     }
+//   }
+// }
+

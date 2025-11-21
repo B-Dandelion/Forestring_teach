@@ -126,31 +126,82 @@ class _Manage extends State<Manage> {
       ),
     );
   }
-
   // 캘린더에 표시할 예약된 슬롯 변환
+  // 11.14일 수정 전
+  // List<Meeting> _getMeetings(Map<String, Map<String, dynamic>> schedules) {
+  //   final List<Meeting> meetings = <Meeting>[];
+  //   final provider = Provider.of<MasterProvider>(context, listen: false);
+  //
+  //   for (var entry in schedules.entries) {
+  //     Map<String, dynamic> lesson = entry.value;
+  //
+  //     // String status = lesson['status']; // lesson['status'] 값이 null이 들어왔다는거라고? 그게 가능함?
+  //     String status = (lesson['status'] ?? 'unknown') as String; //11.17일 수정
+  //     if (status == "canceled") continue; // 취소된 수업은 스킵
+  //
+  //     DateTime startTime = lesson["date"];
+  //     DateTime endTime = startTime.add(Duration(minutes: lesson["duration"]));
+  //     bool isRescheduled = lesson['isRescheduled'];
+  //
+  //     String studentName = provider.getDisplayName(lesson["studentId"], isTeacher: false);
+  //
+  //     // 상태에 따른 색상 설정
+  //     Color lessonColor = PRIMARY_COLOR;
+  //     if (status == 'ban') {
+  //       studentName = 'X';
+  //       lessonColor = Colors.black54;
+  //     } else if (isRescheduled) {
+  //       lessonColor = Color(0xff708C7A);
+  //     }
+  //
+  //     meetings.add(Meeting(
+  //       studentName,
+  //       startTime,
+  //       endTime,
+  //       lessonColor,
+  //       status,
+  //       isRescheduled,
+  //     ));
+  //   }
+  //
+  //   return meetings;
+  // }
   List<Meeting> _getMeetings(Map<String, Map<String, dynamic>> schedules) {
     final List<Meeting> meetings = <Meeting>[];
     final provider = Provider.of<MasterProvider>(context, listen: false);
 
     for (var entry in schedules.entries) {
-      Map<String, dynamic> lesson = entry.value;
+      final lesson = entry.value;
 
-      String status = lesson['status'];
-      if (status == "canceled") continue; // 취소된 수업은 스킵
+      final rawStatus = lesson['status'];
+      final status = (rawStatus is String && rawStatus.isNotEmpty)
+          ? rawStatus
+          : 'unknown';
 
-      DateTime startTime = lesson["date"];
-      DateTime endTime = startTime.add(Duration(minutes: lesson["duration"]));
-      bool isRescheduled = lesson['isRescheduled'];
+      if (status == "canceled") continue;
 
-      String studentName = provider.getDisplayName(lesson["studentId"], isTeacher: false);
+      final startTime = lesson["date"] as DateTime;
+      final duration = (lesson["duration"] as int?) ?? 0;
+      final endTime = startTime.add(Duration(minutes: duration));
+      final isRescheduled = (lesson['isRescheduled'] as bool?) ?? false;
 
-      // 상태에 따른 색상 설정
+      final rawStudentId = lesson["studentId"];
+
+      // studentId 이상하면 로그 찍고 스킵 or 기본값
+      if (rawStudentId == null || rawStudentId is! String) {
+        print('[Manage] 잘못된 studentId: lesson = $lesson');
+        continue; // 혹은 그냥 "이름 없음"으로 표시하고 진행해도 됨
+      }
+
+      String studentName =
+      provider.getDisplayName(rawStudentId, isTeacher: false);
+
       Color lessonColor = PRIMARY_COLOR;
       if (status == 'ban') {
         studentName = 'X';
         lessonColor = Colors.black54;
       } else if (isRescheduled) {
-        lessonColor = Color(0xff708C7A);
+        lessonColor = const Color(0xff708C7A);
       }
 
       meetings.add(Meeting(
