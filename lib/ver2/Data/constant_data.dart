@@ -474,7 +474,7 @@ class SlotProvider with ChangeNotifier {
 
 //학기 관련 전역 변수와 함수
 
-// 전년도 부터 내년도 학기 정보 불러오기
+// 전년도 부터 내년도 학기 정보 불러오기 2025-12-30 수정
 Future<void> fetchSemesterInfo() async {
   FirebaseFirestore firestore = FirebaseFirestore.instance;
 
