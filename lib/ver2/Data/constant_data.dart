@@ -519,19 +519,30 @@ Future<void> fetchSemesterInfo() async {
     // 기존 데이터 초기화 후 업데이트
     SemesterTerm.clear();
     SemesterTerm.addAll(semesterData);
+
     // 현재 학기 설정
     nowsemester = now;
-    for (String semesterId in semesterData.keys) {
-      DateTime start = semesterData[semesterId]!['startDate'];  // Map으로 저장했으므로 키를 직접 사용
-      DateTime end = semesterData[semesterId]!['endDate'];
-      if (start.isBefore(now) && end.isAfter(now)) {
-        nowsemester = DateTime(now.year, int.parse(semesterId.split('-')[1]), 1);
+
+    for (final entry in semesterData.entries) {
+      final semesterId = entry.key; // "2026-01"
+      final start = entry.value['startDate'] as DateTime;
+      final end = entry.value['endDate'] as DateTime;
+
+      // endDate가 00:00으로 저장된 케이스까지 포함하려고 +1day
+      final endExclusive = end.add(const Duration(days: 1));
+
+      if (!now.isBefore(start) && now.isBefore(endExclusive)) {
+        final parts = semesterId.split('-');
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        nowsemester = DateTime(y, m, 1);
         break;
       }
     }
-    // 이전 학기, 다음 학기 설정
+
+    // 이전/다음 학기 설정 (DateTime은 month overflow 자동 처리됨)
     previoussemester = DateTime(nowsemester.year, nowsemester.month - 1, 1);
-    nextsemester = DateTime(nowsemester.year, nowsemester.month + 1, 1);
+    nextsemester     = DateTime(nowsemester.year, nowsemester.month + 1, 1);
     print("학기 정보 불러오기 완료!");
 
   } catch (e) {

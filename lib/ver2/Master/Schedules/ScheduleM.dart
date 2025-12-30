@@ -16,11 +16,12 @@ class _ScheduleM extends State<ScheduleM> {
   final ValueNotifier<List<Map<String, dynamic>>> lessonsNotifier = ValueNotifier([]);
   // 선택된 선생님 ID 저장 (기본값: 모든 선생님)
   String selectedTeacherId = 'all';
+  int _tabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _filterLessonsByTeacherAndSemester(0); // 초기값: 이번 학기 수업 표시
+    _filterLessonsByTeacherAndSemester(_tabIndex); // 초기값: 이번 학기 수업 표시
   }
 
   @override
@@ -71,7 +72,7 @@ class _ScheduleM extends State<ScheduleM> {
                 onChanged: (newValue) {
                   setState(() {
                     selectedTeacherId = newValue!;
-                    _filterLessonsByTeacherAndSemester(DefaultTabController.of(context).index ?? 0);
+                    _filterLessonsByTeacherAndSemester(_tabIndex);
                   });
                 },
               ),
@@ -88,6 +89,7 @@ class _ScheduleM extends State<ScheduleM> {
                       labelStyle: style,
                       indicatorColor: PRIMARY_COLOR,
                       onTap: (index) {
+                        setState(() => _tabIndex = index);
                         _filterLessonsByTeacherAndSemester(index);
                       },
                       tabs: [
@@ -684,13 +686,12 @@ class _ScheduleM extends State<ScheduleM> {
     final provider = Provider.of<MasterProvider>(context, listen: false);
     List<Map<String, dynamic>> allLessons = provider.lessons;
 
-    // 학기 정보 가져오기
+    // 학기 키
     String currentSemesterKey = "${nowsemester.year}-${nowsemester.month.toString().padLeft(2, '0')}";
     String pSemesterKey = "${previoussemester.year}-${previoussemester.month.toString().padLeft(2, '0')}";
     String nSemesterKey = "${nextsemester.year}-${nextsemester.month.toString().padLeft(2, '0')}";
 
     DateTime startDate, endDate;
-
     if (semesterIndex == 0) { // 이전 학기
       startDate = SemesterTerm[pSemesterKey]!['startDate'];
       endDate = SemesterTerm[pSemesterKey]!['endDate'].add(const Duration(days: 1));
@@ -701,6 +702,17 @@ class _ScheduleM extends State<ScheduleM> {
       startDate = SemesterTerm[nSemesterKey]!['startDate'];
       endDate = SemesterTerm[nSemesterKey]!['endDate'].add(const Duration(days: 1));
     }
+
+    DateTime asDate(dynamic raw) => raw is Timestamp ? raw.toDate() : raw as DateTime;
+
+    // ---- 디버그: 현재 탭/범위/키/데이터량 ----
+    debugPrint(
+        "[ScheduleM] tab=$semesterIndex teacher=$selectedTeacherId | "
+            "keys(prev=$pSemesterKey, cur=$currentSemesterKey, next=$nSemesterKey) | "
+            "range=${DateFormat('yyyy-MM-dd HH:mm').format(startDate)} ~ ${DateFormat('yyyy-MM-dd HH:mm').format(endDate)} | "
+            "allLessons=${allLessons.length}"
+    );
+
     // 해당 기간에 속하는 레슨 필터링
     List<Map<String, dynamic>> filteredLessons = allLessons.where((lesson) {
       DateTime lessonDate = lesson['date'];
