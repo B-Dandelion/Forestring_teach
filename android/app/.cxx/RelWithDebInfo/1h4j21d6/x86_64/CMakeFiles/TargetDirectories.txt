@@ -1,0 +1,2 @@
+/Users/minging/StudioProjects/forestring_teacher_2/android/app/.cxx/RelWithDebInfo/1h4j21d6/x86_64/CMakeFiles/edit_cache.dir
+/Users/minging/StudioProjects/forestring_teacher_2/android/app/.cxx/RelWithDebInfo/1h4j21d6/x86_64/CMakeFiles/rebuild_cache.dir
