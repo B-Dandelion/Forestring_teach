@@ -42,3 +42,14 @@ exports.deleteLessonsAfterDate = deleteLessonsAfterDate;
 const { cleanupStudentLessons } = require('./archive/LessonArchive');
 exports.cleanupStudentLessons = cleanupStudentLessons;
 
+const { deleteFriday3pmLessons } = require("./lesson/deleteFriday3pmLessons");
+exports.deleteFriday3pmLessons = deleteFriday3pmLessons;
+
+const { applyScheduleChangeFromDate } = require("./lesson/applyScheduleChangeFromDate");
+exports.applyScheduleChangeFromDate = applyScheduleChangeFromDate;
+
+const { repairBookedSlotsForRun } = require("./lesson/repairBookedSlotsForRun");
+exports.repairBookedSlotsForRun = repairBookedSlotsForRun;
+
+const { backfillSemesterLessons } = require("./lesson/backfillSemesterLessons");
+exports.backfillSemesterLessons = backfillSemesterLessons;

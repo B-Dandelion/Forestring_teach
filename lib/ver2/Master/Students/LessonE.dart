@@ -22,7 +22,7 @@ class EditLessonPage extends StatefulWidget {
   final Function(Map<String, dynamic>) onSave;
   final bool isNewLesson; // 새 수업 추가 여부
 
-  EditLessonPage({
+  const EditLessonPage({super.key, 
     required this.studentName,
     required this.teacherName,
     this.index,
@@ -240,7 +240,7 @@ class LessonPreviewWidget extends StatelessWidget {
   final String student;
   final String teacher;
 
-  LessonPreviewWidget({
+  const LessonPreviewWidget({super.key, 
     required this.selectedDate,
     required this.selectedTime,
     required this.selectedDuration,

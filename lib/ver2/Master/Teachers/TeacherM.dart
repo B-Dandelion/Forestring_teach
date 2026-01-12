@@ -189,10 +189,10 @@ void showDeleteTeacherDialog(BuildContext context, String teacherName, String te
                   deleteTeacher(context, teacherId, teacherName, selectedDate!); // 삭제 함수 실행
                   Navigator.pop(context); // 다이얼로그 닫기
                 },
-                child: Text("삭제하기", style: style.copyWith(fontSize: 14, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: selectedDate == null ? Colors.grey : Colors.redAccent,
                 ),
+                child: Text("삭제하기", style: style.copyWith(fontSize: 14, color: Colors.white)),
               ),
             ],
           );
@@ -412,7 +412,7 @@ void _showTeacherDetails(BuildContext context, Map<String, dynamic> teacher,
                                   style: style.copyWith(fontSize: 14),
                                 ),
                               );
-                            }).toList(),
+                            }),
                         ],
                       ),
                     );
@@ -480,7 +480,7 @@ class TeacherCard extends StatelessWidget {
   final Map<String, Map<String, dynamic>> schedules;
   final Map<String, dynamic> workschedule;
 
-  TeacherCard({
+  const TeacherCard({super.key, 
     required this.teacherName,
     required this.classCount,
     required this.cardColor,
@@ -520,7 +520,7 @@ class TeacherCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        teacherName + ' 선생님',
+                        '$teacherName 선생님',
                         style: style.copyWith(color: cardColor, fontSize: 20, fontWeight: FontWeight.w500),
                       ),
                       Text(

@@ -10,7 +10,6 @@ import 'package:forestring_teacher_2/ver2/Master/Setting/Menu.dart';
 import 'package:forestring_teacher_2/ver2/Master/Students/StudentM.dart';
 import 'package:forestring_teacher_2/ver2/Master/Teachers/TeacherM.dart';
 import 'package:forestring_teacher_2/ver2/Teacher/Home.dart';
-import 'package:forestring_teacher_2/ver2/Teacher/MyPage.dart';
 import 'package:forestring_teacher_2/ver2/Teacher/WeekSchedule.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -1182,8 +1181,8 @@ class MasterProvider with ChangeNotifier {
   List<Map<String, dynamic>> _students = [];
   List<Map<String, dynamic>> _lessons = [];
   // 선생님별 예약된 슬롯을 저장하는 변수 변경
-  Map<String, Map<String, Map<String, dynamic>>> _bookedSlots = {}; // {teacherId: {lessonId: {lessonData}}}
-  Map<String, Map<String, dynamic>> _workSchedule = {}; // 선생님별 근무 일정
+  final Map<String, Map<String, Map<String, dynamic>>> _bookedSlots = {}; // {teacherId: {lessonId: {lessonData}}}
+  final Map<String, Map<String, dynamic>> _workSchedule = {}; // 선생님별 근무 일정
   Map<String, String> _archivedUsers = {};
   Map<String, String> _teacherNames = {}; // 선생님 ID → 이름
   Map<String, String> _studentNames = {}; // 학생 ID → 이름
@@ -1373,7 +1372,7 @@ class MasterProvider with ChangeNotifier {
   void listenToAvailableSlotsUpdates() {
     _availableSlotsSubscription = _firestore.collection('availableSlots').snapshots().listen((snapshot) {
       for (var doc in snapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
+        var data = doc.data();
         String teacherId = doc.id;
 
         // 예약된 슬롯 실시간 업데이트 (3중 Map 유지)
@@ -1411,7 +1410,7 @@ class MasterProvider with ChangeNotifier {
   void listenToLessonsUpdates() {
     _lessonsSubscription = _firestore.collection('lessons').snapshots().listen((snapshot) {
       List<Map<String, dynamic>> updatedLessons = snapshot.docs.map((doc) {
-        var data = doc.data() as Map<String, dynamic>;
+        var data = doc.data();
         DateTime lessonDate = (data['date'] as Timestamp).toDate();
         DateTime createdAt = (data['createdAt'] as Timestamp).toDate();
         DateTime updatedAt = (data['updatedAt'] as Timestamp).toDate();
@@ -1439,7 +1438,7 @@ class MasterProvider with ChangeNotifier {
       Map<String, String> newStudentNames = {};
 
       for (var doc in snapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
+        var data = doc.data();
         String role = data['role'] ?? '';
 
         if (role == 'teacher') {
@@ -1907,11 +1906,9 @@ Future<void> showNotificationPermissionDialog(BuildContext context) async {
   final userProvider = Provider.of<UserProvider>(context, listen: false);
   final userId = userProvider.userID;
 
-  if (userId != null) {
-    await FirebaseFirestore.instance.collection('users')
-        .doc(userId)
-        .update({'notificationPermission': result == true});
-  }
+  await FirebaseFirestore.instance.collection('users')
+      .doc(userId)
+      .update({'notificationPermission': result == true});
 
   if (result == true) {
     await FirebaseMessaging.instance.requestPermission(

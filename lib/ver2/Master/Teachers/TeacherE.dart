@@ -6,7 +6,7 @@ class EditTeacherPage extends StatefulWidget {
   final Map<String, dynamic> teacher;
   final Map<String, dynamic> workschedule;
 
-  EditTeacherPage({required this.teacher, required this.workschedule});
+  const EditTeacherPage({super.key, required this.teacher, required this.workschedule});
 
   @override
   _EditTeacherPageState createState() => _EditTeacherPageState();
@@ -212,8 +212,8 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                                 Text("시작 시간: ${workschedule[firestoreKey]!['startTime']}", style: style),
                                 ElevatedButton(
                                   onPressed: () => _selectTime(context, firestoreKey, 'startTime'),
-                                  child: Icon(Icons.more_time_rounded, color: Colors.white),
                                   style: ElevatedButton.styleFrom(backgroundColor: Color(0xff3E6F58)),
+                                  child: Icon(Icons.more_time_rounded, color: Colors.white),
                                 ),
                               ],
                             ),
@@ -223,8 +223,8 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                                 Text("종료 시간: ${workschedule[firestoreKey]!['endTime']}", style: style),
                                 ElevatedButton(
                                   onPressed: () => _selectTime(context, firestoreKey, 'endTime'),
-                                  child: Icon(Icons.more_time_rounded, color: Colors.white),
                                   style: ElevatedButton.styleFrom(backgroundColor: Color(0xff3E6F58)),
+                                  child: Icon(Icons.more_time_rounded, color: Colors.white),
                                 ),
                               ],
                             ),

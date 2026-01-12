@@ -3,158 +3,265 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 const db = admin.firestore();
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+// 요일 코드 → 숫자 매핑 ("MO" → 1)
+const dayMap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+// KST 기준 요일(0=일..6=토)
+function getKstDay(date) {
+  return new Date(date.getTime() + KST_OFFSET_MS).getUTCDay();
+}
+
+// KST 기준으로 startDate 이후 "요일"이 dayCode인 첫 날짜(‘KST 날짜’만 맞춘 기준점) 반환
+function getFirstDateMatchingDayKST(startDate, dayCode) {
+  const targetDay = dayMap[dayCode];
+  const d = new Date(startDate.getTime());
+  while (getKstDay(d) !== targetDay) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return d;
+}
+
+// 기준점 Date에서 “KST의 연/월/일”만 뽑기
+function getKstYmd(date) {
+  const k = new Date(date.getTime() + KST_OFFSET_MS);
+  return {
+    y: k.getUTCFullYear(),
+    m: k.getUTCMonth(), // 0-based
+    d: k.getUTCDate(),
+  };
+}
+
+// KST (y,m,d + HH:mm)을 “정확한 UTC instant Date”로 생성
+function makeDateFromKst(y, m0, d, startTime) {
+  const [hhRaw, mmRaw] = String(startTime).split(":");
+  const hh = Number(hhRaw);
+  const mm = Number(mmRaw);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) {
+    throw new Error(`invalid startTime: ${startTime}`);
+  }
+  // KST = UTC+9 → UTC 시간은 hh-9
+  return new Date(Date.UTC(y, m0, d, hh - 9, mm, 0, 0));
+}
+
+// 휴일 여부 확인 (end exclusive)
+function isHoliday(date, holidays) {
+  return holidays.some(h => date >= h.start && date < h.end);
+}
+
+// 날짜 더하기(UTC day 기준)
+function addDaysUTC(date, days) {
+  const d = new Date(date.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
 const autoFillFutureLessons = onSchedule(
-  { schedule: "0 4 1 * *", timeZone: "Asia/Seoul", timeoutSeconds: 300},
+  { schedule: "0 4 1 * *", timeZone: "Asia/Seoul", timeoutSeconds: 300 },
   async () => {
     const now = new Date();
+    const runId = `autoFill_${now.toISOString().slice(0, 10)}_${Date.now()}`;
+    console.log(`[autoFill] runId=${runId} start`);
+
     const threeMonthsLater = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
 
-    // 1. 모든 학생 불러오기
-    const studentsSnap = await db.collection("users")
-      .where("role", "==", "student").get();
+    const studentsSnap = await db.collection("users").where("role", "==", "student").get();
+
+    const semesterSnap = await db.collection("semesters").orderBy("startDate").get();
+    const allSemesters = semesterSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     for (const doc of studentsSnap.docs) {
       const studentId = doc.id;
       const student = doc.data();
+
       const teacherId = student.teacherId;
       const schedule = student.weeklySchedule;
 
-      if (!schedule || schedule.length === 0) {
-        console.warn(`스케줄 없음: ${studentId}`);
+      if (!teacherId) {
+        console.warn(`[autoFill][${runId}] teacherId 없음: ${studentId}`);
+        continue;
+      }
+      if (!Array.isArray(schedule) || schedule.length === 0) {
+        console.warn(`[autoFill][${runId}] 스케줄 없음: ${studentId}`);
         continue;
       }
 
-      // 2. 가장 미래 수업 날짜 확인
       const lessonSnap = await db.collection(`users/${studentId}/lessons`).get();
+
       let latestDate = null;
+      const existingTimeKeys = new Set();
+
       for (const l of lessonSnap.docs) {
-        const date = l.data().date.toDate();
-        if (!latestDate || date > latestDate) latestDate = date;
+        const raw = l.data().date;
+        if (!raw || typeof raw.toDate !== "function") continue;
+
+        const d = raw.toDate();
+        if (!latestDate || d > latestDate) latestDate = d;
+
+        existingTimeKeys.add(Math.floor(d.getTime() / 60000));
       }
 
       if (latestDate && latestDate > threeMonthsLater) {
-        console.log(`수업 충분: ${studentId}`);
+        console.log(`[autoFill][${runId}] 수업 충분: ${studentId} latest=${latestDate.toISOString()}`);
         continue;
       }
-      // 3. 생성 대상: 이후 3개 학기만큼 수업 생성
-      const lessonBase = latestDate || now;
-      const semesterSnap = await db.collection("semesters").orderBy("startDate").get();
 
-      // 3-1. 마지막 수업 학기 이후 학기 3개 추출
-      const futureSemesters = semesterSnap.docs.filter(doc => doc.data().startDate.toDate() > lessonBase).slice(0, 3);
+      const lessonBase = latestDate || now;
+
+      const futureSemesters = allSemesters
+        .filter(s => {
+          const end = s.endDate?.toDate ? s.endDate.toDate() : null;
+          return end && end > lessonBase;
+        })
+        .slice(0, 3);
 
       if (futureSemesters.length === 0) {
-        console.warn(`생성할 학기 없음: ${studentId}`);
+        console.warn(`[autoFill][${runId}] 생성할 학기 없음: ${studentId} base=${lessonBase.toISOString()}`);
         continue;
       }
+
+      const createdLessonIds = [];
+      const skippedByExistingTime = [];
+      const skippedByExistingId = [];
+      const skippedByHoliday = [];
 
       const batch = db.batch();
 
       for (const semester of futureSemesters) {
         const semesterId = semester.id;
-        const { startDate, endDate, holidayPeriods } = semester.data();
-        const start = startDate.toDate();
-        const end = endDate.toDate();
-        const holidays = (holidayPeriods || []).map(h => ({
+
+        const start = semester.startDate.toDate();
+        const end = semester.endDate.toDate(); // exclusive
+
+        const holidays = (semester.holidayPeriods || []).map(h => ({
           start: h.startDate.toDate(),
-          end: h.endDate.toDate(),
+          end: h.endDate.toDate(), // exclusive
         }));
 
         for (const sched of schedule) {
-          const { day, startTime, duration, code } = sched;
+          const { day, startTime, duration, code } = sched || {};
+
+          if (!Object.prototype.hasOwnProperty.call(dayMap, day) || typeof startTime !== "string") {
+            console.warn(`[autoFill][${runId}] 잘못된 weeklySchedule: student=${studentId} sched=${JSON.stringify(sched)}`);
+            continue;
+          }
+
+          const dur = Number(duration) || 0;
           const baseCode = `${day}${startTime.replace(":", "")}`;
 
-          let lessonDate = getFirstDateMatchingDay(start, day);
-          const [hour, minute] = startTime.split(":").map(Number);
-          lessonDate.setUTCHours(hour - 9, minute, 0, 0);  // KST 기준 수업 시간
+          // 1) “KST 요일”에 맞는 첫 날짜(기준점)
+          const first = getFirstDateMatchingDayKST(start, day);
+
+          // 2) 그 날짜의 KST 연/월/일을 뽑아서, startTime으로 새 Date 생성 (setUTCHours 금지)
+          const { y, m, d } = getKstYmd(first);
+          let lessonDate = makeDateFromKst(y, m, d, startTime);
 
           let count = 1;
 
-          while (lessonDate <= end && count <= 4) {
-            if (!isHoliday(lessonDate, holidays)) {
-              const idSuffix = String(count).padStart(3, '0');
-              const lessonId = `${studentId}_${semesterId}_${baseCode}${idSuffix}`;
+          while (lessonDate < end && count <= 4) {
+            if (isHoliday(lessonDate, holidays)) {
+              skippedByHoliday.push(lessonDate.toISOString());
+              lessonDate = addDaysUTC(lessonDate, 7);
+              continue;
+            }
 
-              const lessonRef = db.collection("lessons").doc(lessonId);
-              const exists = await lessonRef.get();
-              if (!exists.exists) {
-                const lessonData = {
-                  code,
-                  date: lessonDate,
-                  duration,
-                  isRescheduled: false,
-                  status: "confirmed",
-                  studentId,
-                  teacherId,
-                  createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                };
+            const timeKey = Math.floor(lessonDate.getTime() / 60000);
+            if (existingTimeKeys.has(timeKey)) {
+              skippedByExistingTime.push(lessonDate.toISOString());
+              count++;
+              lessonDate = addDaysUTC(lessonDate, 7);
+              continue;
+            }
 
-                // 저장: lessons
-                batch.set(lessonRef, lessonData);
+            const idSuffix = String(count).padStart(3, "0");
+            const lessonId = `${studentId}_${semesterId}_${baseCode}${idSuffix}`;
 
-                // 저장: users/{studentId}/lessons
-                const studentRef = db.collection("users").doc(studentId)
-                  .collection("lessons").doc(lessonId);
-                batch.set(studentRef, lessonData);
+            const lessonRef = db.collection("lessons").doc(lessonId);
+            const exists = await lessonRef.get();
 
-                // 저장: availableSlots/{teacherId}/bookedSlots.{lessonId}
-                const teacherSlotRef = db.collection("availableSlots").doc(teacherId);
-                batch.set(teacherSlotRef, {
+            if (!exists.exists) {
+              const lessonData = {
+                code,
+                date: lessonDate,
+                duration: dur,
+                isRescheduled: false,
+                status: "confirmed",
+                studentId,
+                teacherId,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                autoFillRunId: runId,
+              };
+
+              batch.set(lessonRef, lessonData);
+
+              const studentRef = db.collection("users").doc(studentId).collection("lessons").doc(lessonId);
+              batch.set(studentRef, lessonData);
+
+              // 구버전: availableSlots/{teacherId}.bookedSlots[lessonId]
+              const teacherDocRef = db.collection("availableSlots").doc(teacherId);
+              batch.set(
+                teacherDocRef,
+                {
                   bookedSlots: {
                     [lessonId]: {
                       date: lessonDate,
-                      duration,
+                      duration: dur,
                       isRescheduled: false,
                       status: "confirmed",
-                      studentId
-                    }
-                  }
-                }, { merge: true });
+                      studentId,
+                      lessonId,
+                      teacherId,
+                    },
+                  },
+                },
+                { merge: true }
+              );
 
-                count++;
-              } else {
-                console.log(`이미 존재하는 수업: ${lessonId}`);
-                lessonDate = lessonDate.addDays(7);
-              }
+              createdLessonIds.push(lessonId);
+              existingTimeKeys.add(timeKey);
+
+              count++;
             } else {
-              console.log(`⛱ 휴일로 건너뜀: ${lessonDate}`);
+              skippedByExistingId.push(lessonId);
+              count++;
             }
-            lessonDate = lessonDate.addDays(7);
+
+            lessonDate = addDaysUTC(lessonDate, 7);
           }
         }
       }
 
       await batch.commit();
-      console.log(`${studentId} → 미래 수업 생성 완료`);
+
+      console.log(
+        `[autoFill][${runId}] ${studentId} → created=${createdLessonIds.length}, skipTime=${skippedByExistingTime.length}, skipId=${skippedByExistingId.length}, skipHoliday=${skippedByHoliday.length}`
+      );
+
+      await db
+        .collection("adminLogs")
+        .doc("autoFillFutureLessons")
+        .collection("runs")
+        .doc(runId)
+        .collection("students")
+        .doc(studentId)
+        .set(
+          {
+            studentId,
+            teacherId,
+            createdLessonIds,
+            skippedByExistingTime,
+            skippedByExistingId,
+            skippedByHoliday,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
     }
-    console.log("수업 자동 생성 함수 종료");
+
+    console.log(`[autoFill] runId=${runId} end`);
   }
 );
-
-// 요일 코드 → 숫자 매핑 ("MO" → 1)
-const dayMap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
-
-// 주어진 요일부터 시작하는 날짜 반환
-function getFirstDateMatchingDay(startDate, dayCode) {
-  const targetDay = dayMap[dayCode];
-  const date = new Date(startDate);
-  while (date.getDay() !== targetDay) {
-    date.setDate(date.getDate() + 1);
-  }
-  return date;
-}
-
-// 휴일 여부 확인 함수
-function isHoliday(date, holidays) {
-  return holidays.some(h => date >= h.start && date <= h.end);
-}
-
-// 날짜 더하기 함수
-Date.prototype.addDays = function(days) {
-  const date = new Date(this.valueOf());
-  date.setDate(date.getDate() + days);
-  return date;
-};
 
 module.exports = { autoFillFutureLessons };

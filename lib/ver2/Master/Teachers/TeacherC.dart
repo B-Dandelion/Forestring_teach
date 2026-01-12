@@ -241,8 +241,8 @@ class _TeacherCalendarState extends State<TeacherCalendar> {
                           });
                         }
                       },
-                      child: Icon(Icons.calendar_today, color: Colors.white, size: 20),
                       style: ElevatedButton.styleFrom(backgroundColor: Color(0xff3E6F58)),
+                      child: Icon(Icons.calendar_today, color: Colors.white, size: 20),
                     ),
                   ],
                 ),
@@ -264,8 +264,8 @@ class _TeacherCalendarState extends State<TeacherCalendar> {
                           });
                         }
                       },
-                      child: Icon(Icons.access_time_rounded, color: Colors.white, size: 20),
                       style: ElevatedButton.styleFrom(backgroundColor: Color(0xff3E6F58)),
+                      child: Icon(Icons.access_time_rounded, color: Colors.white, size: 20),
                     ),
                   ],
                 ),
@@ -368,10 +368,10 @@ class _TeacherCalendarState extends State<TeacherCalendar> {
                     );
                   }
                 },
-                child: Text("수업 취소", style: style.copyWith(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                 ),
+                child: Text("수업 취소", style: style.copyWith(color: Colors.white)),
               ),
               // 취소 버튼
               TextButton(

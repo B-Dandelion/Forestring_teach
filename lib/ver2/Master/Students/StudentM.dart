@@ -70,7 +70,7 @@ class _StudentM extends State<StudentM> {
                       child: ListTile(
                         leading: Icon(Icons.person, color: teacherColor),
                         title: Text(studentname, style: style.copyWith(fontSize: 18)),
-                        subtitle: Text("${teacherName} 선생님", style: style.copyWith(fontSize: 12),),
+                        subtitle: Text("$teacherName 선생님", style: style.copyWith(fontSize: 12),),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () {
@@ -120,7 +120,7 @@ class _StudentM extends State<StudentM> {
               (s) => s['id'] == studentId, orElse: () => {}
       );
 
-      if (student != null && student.containsKey('weeklySchedule')) {
+      if (student.containsKey('weeklySchedule')) {
         List<Map<String, dynamic>> schedule = List<Map<String, dynamic>>.from(student['weeklySchedule']);
 
         for (var lesson in schedule) {
@@ -241,8 +241,8 @@ class _StudentM extends State<StudentM> {
                                             });
                                           }
                                         },
-                                        child: Icon(Icons.calendar_today, color: Colors.white, size: 20),
                                         style: ElevatedButton.styleFrom(backgroundColor: Color(0xff3E6F58)),
+                                        child: Icon(Icons.calendar_today, color: Colors.white, size: 20),
                                       ),
                                     ],
                                   ),
@@ -264,8 +264,8 @@ class _StudentM extends State<StudentM> {
                                             });
                                           }
                                         },
-                                        child: Icon(Icons.access_time_rounded, color: Colors.white, size: 20),
                                         style: ElevatedButton.styleFrom(backgroundColor: Color(0xff3E6F58)),
+                                        child: Icon(Icons.access_time_rounded, color: Colors.white, size: 20),
                                       ),
                                     ],
                                   ),
@@ -655,7 +655,7 @@ class _StudentM extends State<StudentM> {
 String _generateStudentID() {
   String date = DateTime.now().toString().split(" ")[0].replaceAll("-", "").substring(2); // 240301
   String randomPart = (100 + DateTime.now().millisecond % 900).toString(); // 랜덤 2자리
-  return "STU_${date}${randomPart}";
+  return "STU_$date$randomPart";
 }
 String _getDayCode(int weekday) {
   Map<int, String> dayMap = {

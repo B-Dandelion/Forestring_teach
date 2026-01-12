@@ -8,7 +8,7 @@ import 'LessonE.dart';
 class EditStudentPage extends StatefulWidget {
   final Map<String, dynamic> student;
 
-  EditStudentPage({required this.student});
+  const EditStudentPage({super.key, required this.student});
 
   @override
   _EditStudentPageState createState() => _EditStudentPageState();
@@ -575,8 +575,8 @@ class _EditStudentPageState extends State<EditStudentPage> {
                               });
                             }
                           },
-                          child: Icon(Icons.calendar_today, color: Colors.white, size: 20),
                           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff3E6F58)),
+                          child: Icon(Icons.calendar_today, color: Colors.white, size: 20),
                         ),
                       ],
                     ),

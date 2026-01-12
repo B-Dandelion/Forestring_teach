@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -7,7 +6,6 @@ import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
 import 'package:forestring_teacher_2/ver2/Master/Manage.dart';
 import 'package:forestring_teacher_2/ver2/Teacher/Home.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -69,7 +67,7 @@ class _Login extends State<Login> {
       }
 
       // 3. 역할 체크 (role이 "teacher"인지 확인)
-      if (userData!['role'] != "teacher" && userData!['role'] != "master") {
+      if (userData!['role'] != "teacher" && userData['role'] != "master") {
         _showLoginError("접근 권한이 없습니다.\n선생님 계정으로 로그인하세요.");
         return;
       }
@@ -104,7 +102,7 @@ class _Login extends State<Login> {
       // 6. 로그인 성공 → 유저 정보 저장
       await userProvider.setUser(
         matchedUserId,
-        userData!['name'],
+        userData['name'],
         userData['password'],
         userData['role'],
       );

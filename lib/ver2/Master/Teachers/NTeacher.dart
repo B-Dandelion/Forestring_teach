@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
 
 class NewTeacherDialog extends StatefulWidget {
+  const NewTeacherDialog({super.key});
+
   @override
   _NewTeacherDialogState createState() => _NewTeacherDialogState();
 }
@@ -237,7 +239,7 @@ class _NewTeacherDialogState extends State<NewTeacherDialog> {
 String _generateTeacherID() {
   String date = DateTime.now().toString().split(" ")[0].replaceAll("-", "").substring(2); // 240301
   String randomPart = (100 + DateTime.now().millisecond % 900).toString(); // 랜덤 2자리
-  return "TCH_${date}${randomPart}";
+  return "TCH_$date$randomPart";
 }
 
 // 버튼을 누르면 창을 띄우는 코드

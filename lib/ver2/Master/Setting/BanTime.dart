@@ -170,6 +170,8 @@ void _saveBanTime(String teacherId, DateTime date, TimeOfDay startTime, TimeOfDa
 }
 
 class BanTimeManagementPage extends StatefulWidget {
+  const BanTimeManagementPage({super.key});
+
   @override
   _BanTimeManagementPageState createState() => _BanTimeManagementPageState();
 }
