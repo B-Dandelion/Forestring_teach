@@ -53,3 +53,6 @@ exports.repairBookedSlotsForRun = repairBookedSlotsForRun;
 
 const { backfillSemesterLessons } = require("./lesson/backfillSemesterLessons");
 exports.backfillSemesterLessons = backfillSemesterLessons;
+
+const { rebuildCode0LessonsFrom20260119 } = require("./lesson/rebuildCode0LessonsFrom20260119");
+exports.rebuildCode0LessonsFrom20260119 = rebuildCode0LessonsFrom20260119;
