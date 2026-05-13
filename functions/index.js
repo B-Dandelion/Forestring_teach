@@ -19,8 +19,8 @@ const { cleanupLeftoverLessons } = require("./lesson/cleanupLeftoverLessons");
 exports.cleanupLeftoverLessons = cleanupLeftoverLessons;
 
 // 휴원 기간과 겹치는 수업 제거
-//const { removeLessonsInHolidayRange } = require("./lesson/removeLessonsInHolidayRange");
-//exports.removeLessonsInHolidayRange = removeLessonsInHolidayRange;
+const { removeLessonsInHolidayRange } = require("./lesson/removeLessonsInHolidayRange");
+exports.removeLessonsInHolidayRange = removeLessonsInHolidayRange;
 
 // 특정 기간 정규 수업 추가
 const { manualCreateRestoredLessons } = require("./lesson/manualCreateRestoredLessons");
