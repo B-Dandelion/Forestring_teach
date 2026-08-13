@@ -44,3 +44,12 @@ app.*.map.json
 
 # Firebase Admin local credential
 functions/serviceAccountKey.json
+
+# Node dependencies
+node_modules/
+functions/node_modules/
+
+# iOS generated dependencies/build
+ios/Pods/
+ios/build/
+ios/.symlinks/
