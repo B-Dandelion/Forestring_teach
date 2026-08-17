@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:forestring_teacher_2/core/config/app_config.dart';
+import 'package:forestring_teacher_2/features/auth/data/auth_repository.dart';
+import 'package:forestring_teacher_2/features/auth/presentation/auth_controller.dart';
+import 'package:forestring_teacher_2/features/auth/presentation/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
-import 'package:forestring_teacher_2/ver2/Intro.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -19,26 +21,30 @@ void main() async {
 
   await Firebase.initializeApp();
   runApp(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (context) => UserProvider()), // UserProvider 등록
-          ChangeNotifierProvider(create: (_) => LessonProvider()), // LessonProvider 등록
-          ChangeNotifierProvider(create: (context) => SlotProvider()), // SlotProvider 추가!
-          ChangeNotifierProvider(create: (context) => MasterProvider()),
-        ],
-        child: const Forestring_teacher(),
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthController(AuthRepository())),
+        ChangeNotifierProvider(
+            create: (context) => UserProvider()), // UserProvider 등록
+        ChangeNotifierProvider(
+            create: (_) => LessonProvider()), // LessonProvider 등록
+        ChangeNotifierProvider(
+            create: (context) => SlotProvider()), // SlotProvider 추가!
+        ChangeNotifierProvider(create: (context) => MasterProvider()),
+      ],
+      child: const ForestringTeacher(),
+    ),
   );
 }
 
-class Forestring_teacher extends StatelessWidget {
-  const Forestring_teacher({super.key});
+class ForestringTeacher extends StatelessWidget {
+  const ForestringTeacher({super.key});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: (){
+        onTap: () {
           FocusManager.instance.primaryFocus?.unfocus();
         },
         child: MaterialApp(
@@ -58,7 +64,6 @@ class Forestring_teacher extends StatelessWidget {
               colorScheme: ColorScheme.fromSeed(seedColor: PRIMARY_COLOR),
               useMaterial3: true,
             ),
-            home: const Intro())
-    );
+            home: const LoginPage()));
   }
 }
