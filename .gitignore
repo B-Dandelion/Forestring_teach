@@ -53,3 +53,6 @@ functions/node_modules/
 ios/Pods/
 ios/build/
 ios/.symlinks/
+
+# Local environment config
+env/dev.json

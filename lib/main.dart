@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:forestring_teacher_2/core/config/app_config.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
 import 'package:forestring_teacher_2/ver2/Intro.dart';
@@ -7,6 +9,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  AppConfig.validate();
+
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    publishableKey: AppConfig.supabasePublishableKey,
+  );
+
   await Firebase.initializeApp();
   runApp(
       MultiProvider(
