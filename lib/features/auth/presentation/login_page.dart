@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'auth_controller.dart';
+import '../../teachers/presentation/create_teacher_smoke_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -161,6 +162,19 @@ class _SignedInView extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const CreateTeacherSmokePage(),
+              ),
+            );
+          },
+          child: const Text(
+            '선생님 생성 Smoke Test',
+          ),
+        ),
+        const SizedBox(height: 12),
         OutlinedButton(
           onPressed: () async {
             await onSignOut();
