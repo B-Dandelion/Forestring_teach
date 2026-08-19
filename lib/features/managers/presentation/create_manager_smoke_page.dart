@@ -3,27 +3,31 @@ import 'package:flutter/services.dart';
 
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
-import '../data/teacher_repository.dart';
+import '../data/manager_repository.dart';
 
-class CreateTeacherSmokePage extends StatefulWidget {
-  const CreateTeacherSmokePage({
+class CreateManagerSmokePage extends StatefulWidget {
+  const CreateManagerSmokePage({
     super.key,
   });
 
   @override
-  State<CreateTeacherSmokePage> createState() => _CreateTeacherSmokePageState();
+  State<CreateManagerSmokePage> createState() => _CreateManagerSmokePageState();
 }
 
-class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
+class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
   final _nameController = TextEditingController();
+
   final _pinController = TextEditingController();
 
-  final _repository = TeacherRepository();
+  final _repository = ManagerRepository();
+
   final _branchRepository = BranchRepository();
 
   List<AcademyBranch> _branches = const [];
 
   String? _branchId;
+
+  bool _canTeach = false;
 
   int _weekday = 1;
 
@@ -90,7 +94,8 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
       }
 
       setState(() {
-        _resultMessage = '지점 목록 조회 실패\n${error.message}';
+        _resultMessage = '지점 목록 조회 실패\n'
+            '${error.message}';
       });
     } finally {
       if (mounted) {
@@ -144,7 +149,7 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
     });
   }
 
-  Future<void> _createTeacher() async {
+  Future<void> _createManager() async {
     FocusManager.instance.primaryFocus?.unfocus();
 
     final branchId = _branchId;
@@ -157,24 +162,31 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
       return;
     }
 
-    if (!_is15MinuteAligned(_startTime) || !_is15MinuteAligned(_endTime)) {
-      setState(() {
-        _resultMessage = '근무시간은 15분 단위로 선택해주세요.';
-      });
+    if (_canTeach) {
+      if (!_is15MinuteAligned(
+            _startTime,
+          ) ||
+          !_is15MinuteAligned(
+            _endTime,
+          )) {
+        setState(() {
+          _resultMessage = '근무시간은 15분 단위로 선택해주세요.';
+        });
 
-      return;
-    }
+        return;
+      }
 
-    final startMinutes = _startTime.hour * 60 + _startTime.minute;
+      final startMinutes = _startTime.hour * 60 + _startTime.minute;
 
-    final endMinutes = _endTime.hour * 60 + _endTime.minute;
+      final endMinutes = _endTime.hour * 60 + _endTime.minute;
 
-    if (startMinutes >= endMinutes) {
-      setState(() {
-        _resultMessage = '종료시간은 시작시간보다 뒤여야 합니다.';
-      });
+      if (startMinutes >= endMinutes) {
+        setState(() {
+          _resultMessage = '종료시간은 시작시간보다 뒤여야 합니다.';
+        });
 
-      return;
+        return;
+      }
     }
 
     setState(() {
@@ -183,17 +195,24 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
     });
 
     try {
-      final teacher = await _repository.createTeacher(
+      final manager = await _repository.createManager(
         name: _nameController.text,
         pin: _pinController.text,
         branchId: branchId,
-        workHours: [
-          TeacherWorkHourInput(
-            weekday: _weekday,
-            startTime: _formatTime(_startTime),
-            endTime: _formatTime(_endTime),
-          ),
-        ],
+        canTeach: _canTeach,
+        workHours: _canTeach
+            ? [
+                ManagerWorkHourInput(
+                  weekday: _weekday,
+                  startTime: _formatTime(
+                    _startTime,
+                  ),
+                  endTime: _formatTime(
+                    _endTime,
+                  ),
+                ),
+              ]
+            : const [],
       );
 
       if (!mounted) {
@@ -212,18 +231,20 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
       setState(() {
         _resultMessage = '생성 성공\n'
             '지점: ${branchName ?? '-'}\n'
-            '선생님: ${teacher.displayName}\n'
-            '${teacher.id}';
+            '지점장: ${manager.displayName}\n'
+            '수업 기능: ${manager.canTeach ? 'ON' : 'OFF'}\n'
+            '${manager.id}';
 
         _pinController.clear();
       });
-    } on TeacherFailure catch (error) {
+    } on ManagerFailure catch (error) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _resultMessage = '생성 실패\n${error.message}';
+        _resultMessage = '생성 실패\n'
+            '${error.message}';
       });
     } finally {
       if (mounted) {
@@ -235,7 +256,9 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     const weekdays = {
       1: '월요일',
       2: '화요일',
@@ -249,21 +272,27 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '선생님 생성 Smoke Test',
+          '지점장 생성 Smoke Test',
         ),
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(
+            24,
+          ),
           children: [
             const Text(
-              '실제 Supabase DB에 테스트 선생님 계정을 생성합니다.',
+              '실제 Supabase DB에 지점장 계정을 생성합니다.',
             ),
-            const SizedBox(height: 24),
+            const SizedBox(
+              height: 24,
+            ),
             if (_isLoadingBranches)
               const Center(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(
+                    16,
+                  ),
                   child: CircularProgressIndicator(),
                 ),
               )
@@ -274,7 +303,9 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
                   const Text(
                     '등록된 활성 지점이 없습니다.',
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(
+                    height: 8,
+                  ),
                   OutlinedButton(
                     onPressed: _loadBranches,
                     child: const Text(
@@ -294,7 +325,9 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
                     .map(
                       (branch) => DropdownMenuItem<String>(
                         value: branch.id,
-                        child: Text(branch.name),
+                        child: Text(
+                          branch.name,
+                        ),
                       ),
                     )
                     .toList(),
@@ -304,15 +337,19 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
                   });
                 },
               ),
-            const SizedBox(height: 16),
+            const SizedBox(
+              height: 16,
+            ),
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: '선생님 이름',
+                labelText: '지점장 이름',
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(
+              height: 16,
+            ),
             TextField(
               controller: _pinController,
               keyboardType: TextInputType.number,
@@ -329,57 +366,93 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              value: _weekday,
-              decoration: const InputDecoration(
-                labelText: '근무 요일',
-                border: OutlineInputBorder(),
+            const SizedBox(
+              height: 8,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                '일반 선생님 기능도 사용',
               ),
-              items: weekdays.entries
-                  .map(
-                    (entry) => DropdownMenuItem<int>(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                  )
-                  .toList(),
+              subtitle: Text(
+                _canTeach ? '지점 관리와 수업을 함께 합니다.' : '지점 관리 기능만 사용합니다.',
+              ),
+              value: _canTeach,
               onChanged: (value) {
-                if (value == null) {
-                  return;
-                }
-
                 setState(() {
-                  _weekday = value;
+                  _canTeach = value;
                 });
               },
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: const Text('시작시간'),
-              subtitle: Text(
-                _formatTime(_startTime),
+            if (_canTeach) ...[
+              const SizedBox(
+                height: 16,
               ),
-              trailing: const Icon(
-                Icons.access_time,
+              DropdownButtonFormField<int>(
+                value: _weekday,
+                decoration: const InputDecoration(
+                  labelText: '근무 요일',
+                  border: OutlineInputBorder(),
+                ),
+                items: weekdays.entries
+                    .map(
+                      (entry) => DropdownMenuItem<int>(
+                        value: entry.key,
+                        child: Text(
+                          entry.value,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+
+                  setState(() {
+                    _weekday = value;
+                  });
+                },
               ),
-              onTap: _pickStartTime,
+              const SizedBox(
+                height: 16,
+              ),
+              ListTile(
+                title: const Text(
+                  '시작시간',
+                ),
+                subtitle: Text(
+                  _formatTime(
+                    _startTime,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.access_time,
+                ),
+                onTap: _pickStartTime,
+              ),
+              ListTile(
+                title: const Text(
+                  '종료시간',
+                ),
+                subtitle: Text(
+                  _formatTime(
+                    _endTime,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.access_time,
+                ),
+                onTap: _pickEndTime,
+              ),
+            ],
+            const SizedBox(
+              height: 24,
             ),
-            ListTile(
-              title: const Text('종료시간'),
-              subtitle: Text(
-                _formatTime(_endTime),
-              ),
-              trailing: const Icon(
-                Icons.access_time,
-              ),
-              onTap: _pickEndTime,
-            ),
-            const SizedBox(height: 24),
             FilledButton(
               onPressed: _isLoading || _isLoadingBranches || _branches.isEmpty
                   ? null
-                  : _createTeacher,
+                  : _createManager,
               child: _isLoading
                   ? const SizedBox(
                       width: 20,
@@ -389,11 +462,13 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
                       ),
                     )
                   : const Text(
-                      '테스트 선생님 생성',
+                      '테스트 지점장 생성',
                     ),
             ),
             if (_resultMessage != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(
+                height: 24,
+              ),
               SelectableText(
                 _resultMessage!,
               ),

@@ -434,3 +434,15 @@ entrypoint = "./functions/master-create-teacher/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/master-create-teacher/*.html" ]
+
+[functions.master-create-manager]
+enabled = true
+verify_jwt = false
+import_map = "./functions/master-create-manager/deno.json"
+entrypoint = "./functions/master-create-manager/index.ts"
+
+[functions.staff-create-student]
+enabled = true
+verify_jwt = false
+import_map = "./functions/staff-create-student/deno.json"
+entrypoint = "./functions/staff-create-student/index.ts"

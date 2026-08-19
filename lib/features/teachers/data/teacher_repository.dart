@@ -49,6 +49,7 @@ class TeacherRepository {
   Future<CreatedTeacher> createTeacher({
     required String name,
     required String pin,
+    required String branchId,
     required List<TeacherWorkHourInput> workHours,
   }) async {
     final normalizedName = name.normalizeName();
@@ -56,6 +57,12 @@ class TeacherRepository {
     if (normalizedName.isEmpty) {
       throw const TeacherFailure(
         '선생님 이름을 입력해주세요.',
+      );
+    }
+
+    if (branchId.isEmpty) {
+      throw const TeacherFailure(
+        '지점을 선택해주세요.',
       );
     }
 
@@ -82,6 +89,7 @@ class TeacherRepository {
         body: {
           'name': normalizedName,
           'pin': pin,
+          'branchId': branchId,
           'workHours': workHours.map((item) => item.toJson()).toList(),
         },
       );
