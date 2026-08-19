@@ -27,20 +27,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
 
   String? _branchId;
 
-  bool _canTeach = false;
-
-  int _weekday = 1;
-
-  TimeOfDay _startTime = const TimeOfDay(
-    hour: 9,
-    minute: 0,
-  );
-
-  TimeOfDay _endTime = const TimeOfDay(
-    hour: 18,
-    minute: 0,
-  );
-
   bool _isLoading = false;
   bool _isLoadingBranches = true;
 
@@ -106,49 +92,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
     }
   }
 
-  String _formatTime(
-    TimeOfDay value,
-  ) {
-    return '${value.hour.toString().padLeft(2, '0')}:'
-        '${value.minute.toString().padLeft(2, '0')}';
-  }
-
-  bool _is15MinuteAligned(
-    TimeOfDay value,
-  ) {
-    return value.minute % 15 == 0;
-  }
-
-  Future<void> _pickStartTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _startTime,
-    );
-
-    if (picked == null) {
-      return;
-    }
-
-    setState(() {
-      _startTime = picked;
-    });
-  }
-
-  Future<void> _pickEndTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _endTime,
-    );
-
-    if (picked == null) {
-      return;
-    }
-
-    setState(() {
-      _endTime = picked;
-    });
-  }
-
   Future<void> _createManager() async {
     FocusManager.instance.primaryFocus?.unfocus();
 
@@ -162,33 +105,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
       return;
     }
 
-    if (_canTeach) {
-      if (!_is15MinuteAligned(
-            _startTime,
-          ) ||
-          !_is15MinuteAligned(
-            _endTime,
-          )) {
-        setState(() {
-          _resultMessage = '근무시간은 15분 단위로 선택해주세요.';
-        });
-
-        return;
-      }
-
-      final startMinutes = _startTime.hour * 60 + _startTime.minute;
-
-      final endMinutes = _endTime.hour * 60 + _endTime.minute;
-
-      if (startMinutes >= endMinutes) {
-        setState(() {
-          _resultMessage = '종료시간은 시작시간보다 뒤여야 합니다.';
-        });
-
-        return;
-      }
-    }
-
     setState(() {
       _isLoading = true;
       _resultMessage = null;
@@ -199,20 +115,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
         name: _nameController.text,
         pin: _pinController.text,
         branchId: branchId,
-        canTeach: _canTeach,
-        workHours: _canTeach
-            ? [
-                ManagerWorkHourInput(
-                  weekday: _weekday,
-                  startTime: _formatTime(
-                    _startTime,
-                  ),
-                  endTime: _formatTime(
-                    _endTime,
-                  ),
-                ),
-              ]
-            : const [],
       );
 
       if (!mounted) {
@@ -232,7 +134,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
         _resultMessage = '생성 성공\n'
             '지점: ${branchName ?? '-'}\n'
             '지점장: ${manager.displayName}\n'
-            '수업 기능: ${manager.canTeach ? 'ON' : 'OFF'}\n'
             '${manager.id}';
 
         _pinController.clear();
@@ -259,16 +160,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
   Widget build(
     BuildContext context,
   ) {
-    const weekdays = {
-      1: '월요일',
-      2: '화요일',
-      3: '수요일',
-      4: '목요일',
-      5: '금요일',
-      6: '토요일',
-      7: '일요일',
-    };
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -369,83 +260,6 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
             const SizedBox(
               height: 8,
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                '일반 선생님 기능도 사용',
-              ),
-              subtitle: Text(
-                _canTeach ? '지점 관리와 수업을 함께 합니다.' : '지점 관리 기능만 사용합니다.',
-              ),
-              value: _canTeach,
-              onChanged: (value) {
-                setState(() {
-                  _canTeach = value;
-                });
-              },
-            ),
-            if (_canTeach) ...[
-              const SizedBox(
-                height: 16,
-              ),
-              DropdownButtonFormField<int>(
-                value: _weekday,
-                decoration: const InputDecoration(
-                  labelText: '근무 요일',
-                  border: OutlineInputBorder(),
-                ),
-                items: weekdays.entries
-                    .map(
-                      (entry) => DropdownMenuItem<int>(
-                        value: entry.key,
-                        child: Text(
-                          entry.value,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
-
-                  setState(() {
-                    _weekday = value;
-                  });
-                },
-              ),
-              const SizedBox(
-                height: 16,
-              ),
-              ListTile(
-                title: const Text(
-                  '시작시간',
-                ),
-                subtitle: Text(
-                  _formatTime(
-                    _startTime,
-                  ),
-                ),
-                trailing: const Icon(
-                  Icons.access_time,
-                ),
-                onTap: _pickStartTime,
-              ),
-              ListTile(
-                title: const Text(
-                  '종료시간',
-                ),
-                subtitle: Text(
-                  _formatTime(
-                    _endTime,
-                  ),
-                ),
-                trailing: const Icon(
-                  Icons.access_time,
-                ),
-                onTap: _pickEndTime,
-              ),
-            ],
             const SizedBox(
               height: 24,
             ),

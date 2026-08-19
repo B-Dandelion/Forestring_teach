@@ -34,13 +34,11 @@ class CreatedManager {
     required this.id,
     required this.displayName,
     required this.branchId,
-    required this.canTeach,
   });
 
   final String id;
   final String displayName;
   final String branchId;
-  final bool canTeach;
 }
 
 class ManagerRepository {
@@ -54,8 +52,7 @@ class ManagerRepository {
     required String name,
     required String pin,
     required String branchId,
-    required bool canTeach,
-    required List<ManagerWorkHourInput> workHours,
+    List<ManagerWorkHourInput> workHours = const [],
   }) async {
     final normalizedName = name.trim().replaceAll(
           RegExp(r'\s+'),
@@ -80,12 +77,6 @@ class ManagerRepository {
       );
     }
 
-    if (!canTeach && workHours.isNotEmpty) {
-      throw const ManagerFailure(
-        '수업 기능이 꺼진 지점장에게는 수업 근무시간을 설정할 수 없습니다.',
-      );
-    }
-
     final session = _client.auth.currentSession;
 
     if (session == null) {
@@ -104,7 +95,6 @@ class ManagerRepository {
           'name': normalizedName,
           'pin': pin,
           'branchId': branchId,
-          'canTeach': canTeach,
           'workHours': workHours
               .map(
                 (item) => item.toJson(),
@@ -137,7 +127,6 @@ class ManagerRepository {
             ? data['displayName']
             : normalizedName,
         branchId: data['branchId'] is String ? data['branchId'] : branchId,
-        canTeach: data['canTeach'] == true,
       );
     } on ManagerFailure {
       rethrow;

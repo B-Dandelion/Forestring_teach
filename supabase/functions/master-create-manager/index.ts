@@ -299,31 +299,12 @@ export default {
             ? body.branchId.trim()
             : ''
 
-        if (
-          typeof body.canTeach !==
-          'boolean'
-        ) {
-          return Response.json(
-            {
-              message:
-                '수업 기능 설정을 확인해주세요.',
-            },
-            {
-              status: 400,
-            },
-          )
-        }
-
-        const canTeach =
-          body.canTeach
-
         const workHours =
           Array.isArray(
             body.workHours,
           )
             ? body.workHours
             : []
-
 
         if (
           name.length === 0
@@ -388,23 +369,6 @@ export default {
             },
           )
         }
-
-
-        if (
-          !canTeach
-          && workHours.length > 0
-        ) {
-          return Response.json(
-            {
-              message:
-                '수업 기능이 꺼진 지점장에게는 수업 근무시간을 설정할 수 없습니다.',
-            },
-            {
-              status: 400,
-            },
-          )
-        }
-
 
         // ====================================================
         // PIN
@@ -520,14 +484,10 @@ export default {
               p_branch_id:
                 branchId,
 
-              p_can_teach:
-                canTeach,
-
               p_work_hours:
                 workHours,
             },
           )
-
 
         if (dataError) {
           console.error(
@@ -597,24 +557,6 @@ export default {
             )
           }
 
-
-          if (
-            message.includes(
-              'FORESTRING_NON_TEACHING_MANAGER_HAS_WORK_HOURS',
-            )
-          ) {
-            return Response.json(
-              {
-                message:
-                  '수업 기능이 꺼진 지점장에게는 수업 근무시간을 설정할 수 없습니다.',
-              },
-              {
-                status: 400,
-              },
-            )
-          }
-
-
           if (
             message.includes(
               'FORESTRING_WORK_HOURS_OVERLAP',
@@ -669,7 +611,6 @@ export default {
             managerId,
             displayName: name,
             branchId,
-            canTeach,
           },
           {
             status: 201,
