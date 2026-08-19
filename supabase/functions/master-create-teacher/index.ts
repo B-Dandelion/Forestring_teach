@@ -260,6 +260,11 @@ export default {
             ? body.pin
             : ''
 
+        const branchId =
+          typeof body.branchId === 'string'
+            ? body.branchId.trim()
+            : ''
+
         const workHours =
           Array.isArray(body.workHours)
             ? body.workHours
@@ -286,6 +291,18 @@ export default {
             {
               message:
                 'PIN은 4자리 숫자여야 합니다.',
+            },
+            {
+              status: 400,
+            },
+          )
+        }
+
+        if (branchId.length === 0) {
+          return Response.json(
+            {
+              message:
+                '지점을 선택해주세요.',
             },
             {
               status: 400,
@@ -418,6 +435,9 @@ export default {
               p_pin_fingerprint:
                 pinFingerprint,
 
+              p_branch_id:
+                branchId,
+
               p_work_hours:
                 workHours,
             },
@@ -468,6 +488,25 @@ export default {
               },
               {
                 status: 409,
+              },
+            )
+          }
+
+          if (
+            message.includes(
+              'FORESTRING_BRANCH_NOT_FOUND',
+            )
+            || message.includes(
+              'FORESTRING_BRANCH_REQUIRED',
+            )
+          ) {
+            return Response.json(
+              {
+                message:
+                  '선택한 지점을 확인해주세요.',
+              },
+              {
+                status: 400,
               },
             )
           }

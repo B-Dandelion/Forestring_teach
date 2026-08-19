@@ -1,13 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:forestring_teacher_2/core/config/app_config.dart';
-import 'package:forestring_teacher_2/features/auth/data/auth_repository.dart';
-import 'package:forestring_teacher_2/features/auth/presentation/auth_controller.dart';
-import 'package:forestring_teacher_2/features/auth/presentation/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:forestring_teacher_2/ver2/Data/constant_data.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'app/app_gate.dart';
+import 'core/config/app_config.dart';
+import 'features/auth/data/auth_repository.dart';
+import 'features/auth/presentation/auth_controller.dart';
+import 'ver2/Data/constant_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,17 +21,34 @@ void main() async {
   );
 
   await Firebase.initializeApp();
+
+  final authController = AuthController(
+    AuthRepository(),
+  );
+
+  await authController.initialize();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthController(AuthRepository())),
+        ChangeNotifierProvider.value(
+          value: authController,
+        ),
+
+        // v2 Firebase providers.
+        // Remove after the v3 migration is complete.
         ChangeNotifierProvider(
-            create: (context) => UserProvider()), // UserProvider 등록
+          create: (_) => UserProvider(),
+        ),
         ChangeNotifierProvider(
-            create: (_) => LessonProvider()), // LessonProvider 등록
+          create: (_) => LessonProvider(),
+        ),
         ChangeNotifierProvider(
-            create: (context) => SlotProvider()), // SlotProvider 추가!
-        ChangeNotifierProvider(create: (context) => MasterProvider()),
+          create: (_) => SlotProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => MasterProvider(),
+        ),
       ],
       child: const ForestringTeacher(),
     ),
@@ -38,32 +56,39 @@ void main() async {
 }
 
 class ForestringTeacher extends StatelessWidget {
-  const ForestringTeacher({super.key});
+  const ForestringTeacher({
+    super.key,
+  });
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return GestureDetector(
-        onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
-        },
-        child: MaterialApp(
-            locale: Locale('en', 'US'),
-            supportedLocales: const [
-              Locale('en', 'US'),
-              Locale('ko', 'KR'), // 한국어 지원 추가
-            ],
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate, // iOS 스타일 피커 지원
-            ],
-            debugShowCheckedModeBanner: false,
-            title: 'Forestring_teacher',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: PRIMARY_COLOR),
-              useMaterial3: true,
-            ),
-            home: const LoginPage()));
+      onTap: () {
+        FocusManager.instance.primaryFocus?.unfocus();
+      },
+      child: MaterialApp(
+        locale: const Locale('en', 'US'),
+        supportedLocales: const [
+          Locale('en', 'US'),
+          Locale('ko', 'KR'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        debugShowCheckedModeBanner: false,
+        title: 'Forestring_teacher',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: PRIMARY_COLOR,
+          ),
+          useMaterial3: true,
+        ),
+        home: const AppGate(),
+      ),
+    );
   }
 }

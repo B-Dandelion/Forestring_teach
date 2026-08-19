@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../domain/current_profile.dart';
+
 class AuthFailure implements Exception {
   const AuthFailure(this.message);
 
@@ -10,8 +12,9 @@ class AuthFailure implements Exception {
 }
 
 class AuthRepository {
-  AuthRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+  AuthRepository({
+    SupabaseClient? client,
+  }) : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
@@ -26,11 +29,15 @@ class AuthRepository {
     final normalizedName = name.trim();
 
     if (normalizedName.isEmpty) {
-      throw const AuthFailure('이름을 입력해주세요.');
+      throw const AuthFailure(
+        '이름을 입력해주세요.',
+      );
     }
 
     if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
-      throw const AuthFailure('PIN은 4자리 숫자로 입력해주세요.');
+      throw const AuthFailure(
+        'PIN은 4자리 숫자로 입력해주세요.',
+      );
     }
 
     dynamic response;
@@ -76,7 +83,8 @@ class AuthRepository {
       );
     } on AuthException catch (error) {
       throw AuthFailure(
-        '로그인 세션 생성에 실패했습니다: ${error.message}',
+        '로그인 세션 생성에 실패했습니다: '
+        '${error.message}',
       );
     }
 
@@ -89,6 +97,55 @@ class AuthRepository {
     }
 
     return session;
+  }
+
+  Future<CurrentProfile> fetchCurrentProfile() async {
+    final user = currentUser;
+
+    if (user == null) {
+      throw const AuthFailure(
+        '로그인이 필요합니다.',
+      );
+    }
+
+    try {
+      final data = await _client
+          .from('profiles')
+          .select(
+            'id, '
+            'display_name, '
+            'role, '
+            'branch_id, '
+            'is_active',
+          )
+          .eq(
+            'id',
+            user.id,
+          )
+          .single();
+
+      final profile = CurrentProfile.fromJson(
+        data,
+      );
+
+      if (!profile.isActive) {
+        throw const AuthFailure(
+          '비활성화된 계정입니다.',
+        );
+      }
+
+      return profile;
+    } on AuthFailure {
+      rethrow;
+    } on PostgrestException {
+      throw const AuthFailure(
+        '사용자 정보를 불러오지 못했습니다.',
+      );
+    } catch (_) {
+      throw const AuthFailure(
+        '사용자 정보를 확인하는 중 오류가 발생했습니다.',
+      );
+    }
   }
 
   Future<void> signOut() {
