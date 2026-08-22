@@ -14,7 +14,11 @@ type RateLimitState = {
 type Credential = {
   profile_id: string
   pin_hash: string
-  role: 'master' | 'teacher' | 'student'
+  role:
+    | 'master'
+    | 'manager'
+    | 'teacher'
+    | 'student'
   is_active: boolean
 }
 
@@ -271,44 +275,47 @@ export default {
         const {
           data: credentialData,
           error: credentialError,
-        } = await ctx.supabaseAdmin.rpc(
+        } = await (
+          ctx.supabaseAdmin as any
+        ).rpc(
           'auth_lookup_login_credential',
           {
             p_login_name_normalized:
               name,
+
             p_pin_fingerprint:
               pinFingerprint,
           },
         )
 
+
         if (credentialError) {
           throw credentialError
         }
 
+
         const credential: Credential | null =
-          Array.isArray(credentialData) &&
-          credentialData.length > 0
-            ? (credentialData[0] as Credential)
+          Array.isArray(credentialData)
+          && credentialData.length > 0
+            ? credentialData[0] as Credential
             : null
 
-        let authenticated = false
+
+        // ====================================================
+        // CREDENTIAL STATE
+        //
+        // Do not hide nullability behind a separate boolean.
+        // Returning here lets TypeScript and runtime both know
+        // that credential is valid below this point.
+        // ====================================================
 
         if (
-          credential?.is_active === true
-          && typeof credential.pin_hash
-            === 'string'
+          credential === null
+          || credential.is_active !== true
+          || typeof credential.pin_hash !==
+             'string'
         ) {
-          authenticated = await compare(
-            `${pin}:${pinPepper}`,
-            credential.pin_hash,
-          )
-        }
-
-        if (!authenticated) {
           await Promise.all([
-            // 같은 이름:
-            // 15분 안에 10번 실패 시
-            // 15분 잠금
             recordFailure(
               ctx.supabaseAdmin,
               nameBucket,
@@ -317,9 +324,6 @@ export default {
               15 * 60,
             ),
 
-            // 같은 IP:
-            // 15분 안에 30번 실패 시
-            // 30분 잠금
             recordFailure(
               ctx.supabaseAdmin,
               ipBucket,
@@ -328,9 +332,6 @@ export default {
               30 * 60,
             ),
 
-            // 같은 이름 + IP:
-            // 10분 안에 5번 실패 시
-            // 15분 잠금
             recordFailure(
               ctx.supabaseAdmin,
               pairBucket,
@@ -339,6 +340,7 @@ export default {
               15 * 60,
             ),
           ])
+
 
           return Response.json(
             {
@@ -351,82 +353,159 @@ export default {
           )
         }
 
-        const {
-          data: userData,
-          error: userError,
-        } =
-          await ctx.supabaseAdmin.auth.admin
-            .getUserById(
-              credential.profile_id,
-            )
 
-        if (
-          userError
-          || !userData.user
-          || !userData.user.email
-        ) {
-          throw (
-            userError
-            ?? new Error(
-              'Auth user email is missing.',
-            )
+        // ====================================================
+        // PIN VERIFICATION
+        // ====================================================
+
+        const authenticated =
+          await compare(
+            `${pin}:${pinPepper}`,
+            credential.pin_hash,
           )
-        }
 
-        const {
-          data: linkData,
-          error: linkError,
-        } =
-          await ctx.supabaseAdmin.auth.admin
-            .generateLink({
-              type: 'magiclink',
-              email: userData.user.email,
-            })
 
-        if (linkError) {
-          throw linkError
-        }
+                if (!authenticated) {
+                  await Promise.all([
+                    recordFailure(
+                      ctx.supabaseAdmin,
+                      nameBucket,
+                      15 * 60,
+                      10,
+                      15 * 60,
+                    ),
 
-        const tokenHash =
-          linkData.properties
-            ?.hashed_token
+                    recordFailure(
+                      ctx.supabaseAdmin,
+                      ipBucket,
+                      15 * 60,
+                      30,
+                      30 * 60,
+                    ),
 
-        if (!tokenHash) {
-          throw new Error(
-            'Supabase Auth did not return a token hash.',
-          )
-        }
+                    recordFailure(
+                      ctx.supabaseAdmin,
+                      pairBucket,
+                      10 * 60,
+                      5,
+                      15 * 60,
+                    ),
+                  ])
 
-        await Promise.all([
-          clearRateLimit(
-            ctx.supabaseAdmin,
-            nameBucket,
+
+                  return Response.json(
+                    {
+                      message:
+                        '이름 또는 PIN이 올바르지 않습니다.',
+                    },
+                    {
+                      status: 401,
+                    },
+                  )
+                }
+
+
+                // ====================================================
+                // HIDDEN SUPABASE AUTH USER
+                // ====================================================
+
+                const {
+                  data: userData,
+                  error: userError,
+                } =
+                  await ctx.supabaseAdmin.auth.admin
+                    .getUserById(
+                      credential.profile_id,
+                    )
+
+
+                if (
+                  userError
+                  || !userData.user
+                  || !userData.user.email
+                ) {
+                  throw (
+                    userError
+                    ?? new Error(
+                      'Auth user email is missing.',
+                    )
+                  )
+                }
+
+
+                // ====================================================
+                // LOGIN TOKEN
+                // ====================================================
+
+                const {
+                  data: linkData,
+                  error: linkError,
+                } =
+                  await ctx.supabaseAdmin.auth.admin
+                    .generateLink({
+                      type: 'magiclink',
+                      email: userData.user.email,
+                    })
+
+
+                if (linkError) {
+                  throw linkError
+                }
+
+
+                const tokenHash =
+                  linkData.properties
+                    ?.hashed_token
+
+
+                if (!tokenHash) {
+                  throw new Error(
+                    'Supabase Auth did not return a token hash.',
+                  )
+                }
+
+
+                // ====================================================
+                // SUCCESS -> CLEAR NAME-RELATED RATE LIMITS
+                //
+                // IP bucket intentionally remains because it represents
+                // aggregate activity from the client address.
+                // ====================================================
+
+                await Promise.all([
+                  clearRateLimit(
+                    ctx.supabaseAdmin,
+                    nameBucket,
+                  ),
+
+                  clearRateLimit(
+                    ctx.supabaseAdmin,
+                    pairBucket,
+                  ),
+                ])
+
+
+                return Response.json({
+                  tokenHash,
+                })
+
+              } catch (error) {
+                console.error(
+                  'login-with-pin failed:',
+                  error,
+                )
+
+
+                return Response.json(
+                  {
+                    message:
+                      '로그인 처리 중 오류가 발생했습니다.',
+                  },
+                  {
+                    status: 500,
+                  },
+                )
+              }
+            },
           ),
-          clearRateLimit(
-            ctx.supabaseAdmin,
-            pairBucket,
-          ),
-        ])
-
-        return Response.json({
-          tokenHash,
-        })
-      } catch (error) {
-        console.error(
-          'login-with-pin failed:',
-          error,
-        )
-
-        return Response.json(
-          {
-            message:
-              '로그인 처리 중 오류가 발생했습니다.',
-          },
-          {
-            status: 500,
-          },
-        )
-      }
-    },
-  ),
-}
+        }
