@@ -114,18 +114,29 @@ async function getRateLimit(
 async function recordFailure(
   supabaseAdmin: any,
   bucketKey: string,
+  subjectKey: string | null,
   windowSeconds: number,
   maxAttempts: number,
   lockSeconds: number,
 ): Promise<void> {
   const { error } =
     await supabaseAdmin.rpc(
-      'auth_record_login_failure',
+      'auth_record_login_failure_scoped',
       {
-        p_bucket_key: bucketKey,
-        p_window_seconds: windowSeconds,
-        p_max_attempts: maxAttempts,
-        p_lock_seconds: lockSeconds,
+        p_bucket_key:
+          bucketKey,
+
+        p_subject_key:
+          subjectKey,
+
+        p_window_seconds:
+          windowSeconds,
+
+        p_max_attempts:
+          maxAttempts,
+
+        p_lock_seconds:
+          lockSeconds,
       },
     )
 
@@ -238,6 +249,11 @@ export default {
           `pair:${name}:${ip}`,
         )
 
+        const subjectKey = await hmacHex(
+            ratePepper,
+            `subject:${name}`,
+        )
+
         const rateStates =
           await Promise.all([
             getRateLimit(
@@ -319,6 +335,7 @@ export default {
             recordFailure(
               ctx.supabaseAdmin,
               nameBucket,
+              subjectKey,
               15 * 60,
               10,
               15 * 60,
@@ -327,6 +344,7 @@ export default {
             recordFailure(
               ctx.supabaseAdmin,
               ipBucket,
+              null,
               15 * 60,
               30,
               30 * 60,
@@ -335,6 +353,7 @@ export default {
             recordFailure(
               ctx.supabaseAdmin,
               pairBucket,
+              subjectKey,
               10 * 60,
               5,
               15 * 60,
@@ -370,6 +389,7 @@ export default {
                     recordFailure(
                       ctx.supabaseAdmin,
                       nameBucket,
+                      subjectKey,
                       15 * 60,
                       10,
                       15 * 60,
@@ -378,6 +398,7 @@ export default {
                     recordFailure(
                       ctx.supabaseAdmin,
                       ipBucket,
+                      null,
                       15 * 60,
                       30,
                       30 * 60,
@@ -386,6 +407,7 @@ export default {
                     recordFailure(
                       ctx.supabaseAdmin,
                       pairBucket,
+                      subjectKey,
                       10 * 60,
                       5,
                       15 * 60,
