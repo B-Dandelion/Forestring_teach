@@ -191,52 +191,6 @@ class LessonRepository {
     }
   }
 
-  Future<List<LessonBookingOption>> getBookingOptions({
-    required String rightId,
-    required DateTime selectedDate,
-  }) async {
-    try {
-      final data = await _client.rpc(
-        'get_lesson_right_booking_options',
-        params: {
-          'p_right_id': rightId,
-          'p_selected_date': _dateText(selectedDate),
-        },
-      );
-
-      return (data as List)
-          .map(
-            (row) => LessonBookingOption.fromJson(
-              Map<String, dynamic>.from(row as Map),
-            ),
-          )
-          .toList();
-    } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
-    }
-  }
-
-  Future<void> bookLessonRight({
-    required String rightId,
-    required DateTime startsAt,
-  }) async {
-    try {
-      await _client.rpc(
-        'book_lesson_right',
-        params: {
-          'p_right_id': rightId,
-          'p_new_starts_at': startsAt.toUtc().toIso8601String(),
-        },
-      );
-    } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
-    }
-  }
-
   Future<Map<String, String>> _fetchVisibleProfileNames() async {
     final rows = await _client
         .from('profiles')
@@ -251,12 +205,6 @@ class LessonRepository {
   String? _nullIfBlank(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
-  }
-
-  String _dateText(DateTime date) {
-    return '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
   }
 
   String _friendlyDatabaseMessage(String message) {
