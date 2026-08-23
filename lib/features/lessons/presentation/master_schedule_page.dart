@@ -6,6 +6,7 @@ import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
 import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../branches/presentation/branch_management_page.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'widgets/lesson_action_dialog.dart';
@@ -35,9 +36,28 @@ class MasterSchedulePage extends StatelessWidget {
         roleLabel: '전체 관리자',
         items: [
           ForestringDrawerItem(
-            icon: Icons.calendar_month_outlined,
-            label: '수업 시간표',
+            icon: Icons.home,
+            label: '메인 페이지',
             onTap: () => Navigator.of(context).pop(),
+          ),
+          ForestringDrawerItem(
+            icon: Icons.calendar_month_outlined,
+            label: '수업 관리',
+            onTap: () => Navigator.of(context).pop(),
+          ),
+          ForestringDrawerItem(
+            icon: Icons.storefront_outlined,
+            label: '지점 관리',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => BranchManagementPage(
+                    profile: profile,
+                  ),
+                ),
+              );
+            },
           ),
         ],
         onLogout: () async {
@@ -64,9 +84,17 @@ class MasterSchedulePage extends StatelessWidget {
                 ),
               DropdownButtonFormField<String>(
                 value: selectedTeacherId,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '선생님 선택',
-                  border: OutlineInputBorder(),
+                  labelStyle: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                  ),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: primaryColor.withValues(alpha: 0.35),
+                    ),
+                  ),
                   filled: true,
                   fillColor: Colors.white,
                 ),
@@ -153,8 +181,10 @@ class MasterSchedulePage extends StatelessWidget {
                                 fontFamily: 'OpenSans',
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black,
+                                fontSize: 10,
                               ),
-                              timeInterval: Duration(minutes: 30),
+                              timeInterval: Duration(minutes: 5),
+                              timeIntervalHeight: 12,
                               timeFormat: 'H:mm',
                               startHour: 7,
                               endHour: 23,
