@@ -37,9 +37,38 @@ class ManagedStudent {
   bool get isRegular => studentType == 'regular';
   bool get isFlex => studentType == 'flex';
   bool get isActive => status == 'active' && profileIsActive;
+  bool get hasScheduledWithdrawal => isActive && withdrawalDate != null;
+
+  bool get withdrawalIsDue {
+    final date = withdrawalDate;
+    if (!hasScheduledWithdrawal || date == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final withdrawalDay = DateTime(date.year, date.month, date.day);
+    return !withdrawalDay.isAfter(today);
+  }
 
   String get typeLabel => isFlex ? '자율 예약 학생' : '정규 학생';
-  String get statusLabel => isActive ? '재원' : '퇴원';
+
+  String get statusLabel {
+    if (!isActive) return '퇴원';
+    if (hasScheduledWithdrawal) return '퇴원 예정';
+    return '재원';
+  }
+}
+
+class StudentWithdrawalResult {
+  const StudentWithdrawalResult({
+    required this.withdrawalDate,
+    required this.finalized,
+    this.deletedLessonCount = 0,
+    this.revokedRightCount = 0,
+  });
+
+  final DateTime withdrawalDate;
+  final bool finalized;
+  final int deletedLessonCount;
+  final int revokedRightCount;
 }
 
 class StudentManagementRepository {
@@ -234,5 +263,136 @@ class StudentManagementRepository {
       }
       throw const StudentManagementFailure('PIN을 변경하지 못했습니다.');
     }
+  }
+
+  Future<StudentWithdrawalResult> scheduleWithdrawal({
+    required String studentId,
+    required DateTime withdrawalDate,
+  }) async {
+    final day = DateTime(
+      withdrawalDate.year,
+      withdrawalDate.month,
+      withdrawalDate.day,
+    );
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (day.isBefore(today)) {
+      throw const StudentManagementFailure(
+        '과거 날짜로 퇴원 처리할 수 없습니다.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'schedule_student_withdrawal',
+        params: {
+          'p_student_id': studentId,
+          'p_withdrawal_date': _dateOnly(day),
+        },
+      );
+
+      if (day == today) {
+        return finalizeWithdrawal(studentId: studentId);
+      }
+
+      return StudentWithdrawalResult(
+        withdrawalDate: day,
+        finalized: false,
+      );
+    } on PostgrestException catch (error) {
+      throw StudentManagementFailure(
+        _friendlyWithdrawalMessage(error.message),
+      );
+    }
+  }
+
+  Future<StudentWithdrawalResult> finalizeWithdrawal({
+    required String studentId,
+  }) async {
+    try {
+      final result = await _client.rpc(
+        'finalize_student_withdrawal',
+        params: {'p_student_id': studentId},
+      );
+
+      if (result is! Map) {
+        throw const StudentManagementFailure(
+          '퇴원 처리 결과를 확인하지 못했습니다.',
+        );
+      }
+
+      final row = Map<String, dynamic>.from(result);
+      final withdrawalDateRaw = row['withdrawalDate'];
+      if (withdrawalDateRaw == null) {
+        throw const StudentManagementFailure(
+          '퇴원일을 확인하지 못했습니다.',
+        );
+      }
+
+      return StudentWithdrawalResult(
+        withdrawalDate: DateTime.parse(withdrawalDateRaw.toString()),
+        finalized: true,
+        deletedLessonCount: (row['deletedLessonCount'] as num?)?.toInt() ?? 0,
+        revokedRightCount: (row['revokedRightCount'] as num?)?.toInt() ?? 0,
+      );
+    } on StudentManagementFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw StudentManagementFailure(
+        _friendlyWithdrawalMessage(error.message),
+      );
+    }
+  }
+
+  Future<void> cancelWithdrawal({
+    required String studentId,
+  }) async {
+    try {
+      await _client.rpc(
+        'cancel_student_withdrawal',
+        params: {'p_student_id': studentId},
+      );
+    } on PostgrestException catch (error) {
+      throw StudentManagementFailure(
+        _friendlyWithdrawalMessage(error.message),
+      );
+    }
+  }
+
+  String _dateOnly(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  String _friendlyWithdrawalMessage(String message) {
+    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_DATE_IN_PAST')) {
+      return '과거 날짜로 퇴원 처리할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_FORBIDDEN') ||
+        message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+      return '이 수강생의 퇴원 처리 권한이 없습니다.';
+    }
+    if (message.contains('FORESTRING_STUDENT_NOT_ACTIVE')) {
+      return '이미 퇴원했거나 현재 재원 상태가 아닌 수강생입니다.';
+    }
+    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_NOT_READY')) {
+      return '아직 퇴원 예정일이 되지 않았습니다.';
+    }
+    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_ALREADY_EFFECTIVE')) {
+      return '퇴원 예정일이 이미 도래했습니다. 퇴원 확정을 진행해주세요.';
+    }
+    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_DATE_REQUIRED')) {
+      return '퇴원일을 먼저 지정해주세요.';
+    }
+    if (message.contains('FORESTRING_STUDENT_NOT_FOUND')) {
+      return '수강생 정보를 찾지 못했습니다.';
+    }
+    if (message.contains('FORESTRING_')) {
+      return '퇴원 처리를 완료하지 못했습니다. ($message)';
+    }
+    return '퇴원 처리를 완료하지 못했습니다.';
   }
 }
