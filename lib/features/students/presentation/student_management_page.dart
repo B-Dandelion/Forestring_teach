@@ -9,6 +9,7 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/student_management_repository.dart';
 import 'student_create_page.dart';
+import 'student_regular_schedule_page.dart';
 import 'student_teacher_change_dialog.dart';
 
 class StudentManagementPage extends StatefulWidget {
@@ -475,6 +476,26 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                   ),
                 if (student.isActive) ...[
                   const SizedBox(height: 16),
+                  if (student.isRegular) ...[
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.of(sheetContext).pop();
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 220),
+                        );
+                        if (!mounted) return;
+                        await _openRegularScheduleManagement(student);
+                      },
+                      icon: const Icon(Icons.edit_calendar_outlined),
+                      label: const Text('정규 일정 관리'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        side: const BorderSide(color: primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.of(sheetContext).pop();
@@ -527,6 +548,18 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
         );
       },
     );
+  }
+
+  Future<void> _openRegularScheduleManagement(ManagedStudent student) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentRegularSchedulePage(student: student),
+      ),
+    );
+
+    if (mounted) {
+      await _loadStudents();
+    }
   }
 
   Future<void> _openTeacherChange(ManagedStudent student) async {
