@@ -33,6 +33,7 @@ class CurrentProfile {
     required this.role,
     required this.isActive,
     this.branchId,
+    this.isReviewAccount = false,
   });
 
   final String id;
@@ -40,6 +41,7 @@ class CurrentProfile {
   final AppRole role;
   final String? branchId;
   final bool isActive;
+  final bool isReviewAccount;
 
   bool get isMaster => role == AppRole.master;
   bool get isManager => role == AppRole.manager;
@@ -57,6 +59,7 @@ class CurrentProfile {
       ),
       branchId: json['branch_id'] as String?,
       isActive: json['is_active'] as bool,
+      isReviewAccount: json['is_review_account'] == true,
     );
   }
 }
