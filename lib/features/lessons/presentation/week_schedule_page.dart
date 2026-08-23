@@ -8,6 +8,7 @@ import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
+import 'widgets/lesson_calendar_appointment.dart';
 import 'widgets/lesson_info_dialog.dart';
 
 class WeekSchedulePage extends StatelessWidget {
@@ -85,6 +86,20 @@ class WeekSchedulePage extends StatelessWidget {
                         showNavigationArrow: true,
                         cellEndPadding: 0,
                         dataSource: _LessonDataSource(meetings),
+                        appointmentBuilder: (context, details) {
+                          if (details.appointments.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final meeting = details.appointments.first;
+                          if (meeting is! _LessonMeeting) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return LessonCalendarAppointment(
+                            lesson: meeting.lesson,
+                          );
+                        },
                         specialRegions: _timeRegions(
                           controller.workHoursFor(teacherId),
                         ),
