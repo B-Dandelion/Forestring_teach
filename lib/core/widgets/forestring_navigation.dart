@@ -18,7 +18,7 @@ class ForestringAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const ForestringAppBar({
     super.key,
-    this.title = 'FORESTRING',
+    this.title = '포레스트링',
     this.actions,
   });
 
@@ -40,10 +40,9 @@ class ForestringAppBar extends StatelessWidget
         title,
         style: const TextStyle(
           color: Colors.white,
-          fontFamily: 'OpenSans',
+          fontFamily: 'ELAND',
           fontSize: 23,
           fontWeight: FontWeight.w500,
-          letterSpacing: 1.1,
         ),
       ),
       actions: actions,
