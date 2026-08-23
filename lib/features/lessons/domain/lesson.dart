@@ -42,6 +42,7 @@ class Lesson {
     required this.type,
     required this.status,
     this.occurrenceAt,
+    this.rescheduledBy,
     this.lessonRightId,
     this.branchId,
     this.studentName,
@@ -57,6 +58,7 @@ class Lesson {
   final LessonType type;
   final LessonStatus status;
   final DateTime? occurrenceAt;
+  final String? rescheduledBy;
   final String? lessonRightId;
   final String? branchId;
   final String? studentName;
@@ -64,13 +66,32 @@ class Lesson {
 
   bool get isCanceled => status == LessonStatus.canceled;
 
-  bool get isRescheduled {
-    final original = occurrenceAt;
-    if (original == null) {
-      return false;
-    }
+  bool get isStudentRebooked =>
+      rescheduledBy != null && rescheduledBy == studentId;
 
-    return original.toUtc().difference(startsAt.toUtc()).inMinutes != 0;
+  bool get isStaffChanged =>
+      rescheduledBy != null && rescheduledBy != studentId;
+
+  bool get isRescheduled => isStudentRebooked || isStaffChanged;
+
+  String get displayTypeLabel {
+    if (isStudentRebooked) {
+      return '재예약 수업';
+    }
+    if (isStaffChanged) {
+      return '변경 수업';
+    }
+    return type.label;
+  }
+
+  String? get changeBadgeLabel {
+    if (isStudentRebooked) {
+      return '재예약';
+    }
+    if (isStaffChanged) {
+      return '변경';
+    }
+    return null;
   }
 
   Lesson copyWithNames({
@@ -87,6 +108,7 @@ class Lesson {
       type: type,
       status: status,
       occurrenceAt: occurrenceAt,
+      rescheduledBy: rescheduledBy,
       lessonRightId: lessonRightId,
       branchId: branchId,
       studentName: studentName ?? this.studentName,
@@ -122,6 +144,7 @@ class Lesson {
       occurrenceAt: parseNullableDate(
         json['occurrence_at'],
       ),
+      rescheduledBy: json['rescheduled_by'] as String?,
       lessonRightId: json['lesson_right_id'] as String?,
       branchId: json['branch_id'] as String?,
     );
