@@ -34,7 +34,8 @@ class MasterSchedulePage extends StatelessWidget {
       appBar: const ForestringAppBar(),
       drawer: ForestringDrawer(
         displayName: profile.displayName,
-        roleLabel: profile.isMaster ? '전체 관리자' : '지점장',
+        nameSuffix: profile.isManager ? '지점장님' : '선생님',
+        roleLabel: profile.isMaster ? '전체 관리자' : '환영합니다',
         showHeart: profile.isMaster,
         items: [
           ForestringDrawerItem(
