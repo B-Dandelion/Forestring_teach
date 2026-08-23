@@ -126,8 +126,8 @@ Future<void> showLessonActionDialog({
                     const SizedBox(height: 14),
                     Text(
                       lesson.lessonRightId == null
-                          ? '이 수업에는 다시 예약할 수 있는 수업권이 없습니다.'
-                          : '취소로 반환된 수업권을 사용해 보강 시간을 예약할 수 있습니다.',
+                          ? '이 수업에는 반환된 수업권이 없습니다.'
+                          : '취소로 반환된 수업권의 보강 예약은 현재 학생용 앱에서 진행합니다.',
                       style: forestringTextStyle.copyWith(
                         color: Colors.black54,
                         fontSize: 13,
@@ -143,9 +143,7 @@ Future<void> showLessonActionDialog({
                   onPressed: isSaving
                       ? null
                       : () async {
-                          final confirmed = await _confirmCancel(
-                            context,
-                          );
+                          final confirmed = await _confirmCancel(context);
                           if (!confirmed || !context.mounted) {
                             return;
                           }
@@ -179,20 +177,6 @@ Future<void> showLessonActionDialog({
                     '수업 취소',
                     style: TextStyle(color: Colors.redAccent),
                   ),
-                ),
-              if (lesson.isCanceled && lesson.lessonRightId != null)
-                FilledButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          Navigator.of(dialogContext).pop();
-                          await showMakeupBookingDialog(
-                            context: context,
-                            lesson: lesson,
-                            controller: controller,
-                          );
-                        },
-                  child: const Text('보강 예약'),
                 ),
               TextButton(
                 onPressed: isSaving
@@ -285,180 +269,6 @@ Future<void> showLessonActionDialog({
                     style: const TextStyle(color: primaryColor),
                   ),
                 ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
-
-Future<void> showMakeupBookingDialog({
-  required BuildContext context,
-  required Lesson lesson,
-  required LessonController controller,
-}) async {
-  DateTime selectedDate = DateTime.now();
-  List<LessonBookingOption> options = const [];
-  bool isLoading = true;
-  String? errorMessage;
-
-  Future<void> loadOptions(
-    void Function(void Function()) setState,
-  ) async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
-
-    try {
-      final loaded = await controller.getBookingOptions(
-        lesson: lesson,
-        selectedDate: selectedDate,
-      );
-      setState(() {
-        options = loaded;
-        isLoading = false;
-      });
-    } catch (error) {
-      setState(() {
-        errorMessage = error.toString();
-        isLoading = false;
-      });
-    }
-  }
-
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      var firstBuild = true;
-
-      return StatefulBuilder(
-        builder: (context, setState) {
-          if (firstBuild) {
-            firstBuild = false;
-            Future.microtask(() => loadOptions(setState));
-          }
-
-          return AlertDialog(
-            title: Text(
-              '보강 예약',
-              style: forestringTextStyle.copyWith(
-                color: primaryColor,
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          DateFormat('yyyy년 M월 d일').format(selectedDate),
-                          style: forestringTextStyle,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 1),
-                            ),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 180),
-                            ),
-                          );
-                          if (picked != null) {
-                            selectedDate = picked;
-                            await loadOptions(setState);
-                          }
-                        },
-                        icon: const Icon(Icons.calendar_today),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else if (errorMessage != null)
-                    Text(
-                      errorMessage!,
-                      style: forestringTextStyle.copyWith(
-                        color: Colors.redAccent,
-                      ),
-                    )
-                  else if (options.isEmpty)
-                    Text(
-                      '예약 가능한 시간이 없습니다.',
-                      style: forestringTextStyle,
-                    )
-                  else
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 330),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: options.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final option = options[index];
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              '${DateFormat('HH:mm').format(option.startsAt)} '
-                              '~ ${DateFormat('HH:mm').format(option.endsAt)}',
-                              style: forestringTextStyle.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () async {
-                              final ok = await controller.bookLessonRight(
-                                lesson: lesson,
-                                option: option,
-                              );
-
-                              if (!context.mounted) {
-                                return;
-                              }
-
-                              if (ok) {
-                                Navigator.of(dialogContext).pop();
-                                _showMessage(
-                                  context,
-                                  '보강 수업이 예약되었습니다.',
-                                );
-                              } else {
-                                _showMessage(
-                                  context,
-                                  controller.errorMessage ??
-                                      '보강 수업을 예약하지 못했습니다.',
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('닫기'),
-              ),
             ],
           );
         },
