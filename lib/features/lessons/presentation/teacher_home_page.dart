@@ -10,8 +10,8 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'week_schedule_page.dart';
-import 'widgets/lesson_action_dialog.dart';
 import 'widgets/lesson_card.dart';
+import 'widgets/lesson_info_dialog.dart';
 
 class TeacherHomePage extends StatefulWidget {
   const TeacherHomePage({
@@ -217,11 +217,9 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
                               return LessonCard(
                                 lesson: lesson,
                                 personName: lesson.studentName ?? '학생',
-                                onTap: () => showLessonActionDialog(
+                                onTap: () => showLessonInfoDialog(
                                   context: context,
                                   lesson: lesson,
-                                  controller:
-                                      context.read<LessonController>(),
                                 ),
                               );
                             },
