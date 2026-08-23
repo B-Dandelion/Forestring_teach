@@ -39,7 +39,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
       appBar: const ForestringAppBar(),
       drawer: ForestringDrawer(
         displayName: widget.profile.displayName,
-        roleLabel: '선생님',
+        roleLabel: '환영합니다',
         items: [
           ForestringDrawerItem(
             icon: Icons.home_outlined,
@@ -47,7 +47,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
             onTap: () => Navigator.of(context).pop(),
           ),
           ForestringDrawerItem(
-            icon: Icons.calendar_view_week_outlined,
+            icon: Icons.event_note_outlined,
             label: '주간 시간표',
             onTap: () {
               Navigator.of(context).pop();
@@ -88,13 +88,23 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
               onPageChanged: (focusedDay) {
                 _focusedDate = focusedDay;
               },
-              headerStyle: const HeaderStyle(
+              headerStyle: HeaderStyle(
                 titleCentered: true,
                 formatButtonVisible: false,
-                titleTextStyle: TextStyle(
-                  fontFamily: 'OpenSans',
+                titleTextFormatter: (date, locale) => '${date.month}월',
+                titleTextStyle: const TextStyle(
+                  color: primaryColor,
+                  fontFamily: 'ELAND',
                   fontWeight: FontWeight.w500,
                   fontSize: 20,
+                ),
+                leftChevronIcon: const Icon(
+                  Icons.chevron_left,
+                  color: primaryColor,
+                ),
+                rightChevronIcon: const Icon(
+                  Icons.chevron_right,
+                  color: primaryColor,
                 ),
               ),
               calendarStyle: const CalendarStyle(
@@ -113,12 +123,22 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
               ),
               calendarBuilders: CalendarBuilders(
                 dowBuilder: (context, day) {
-                  final text = DateFormat.E().format(day);
+                  final text = switch (day.weekday) {
+                    DateTime.monday => '월',
+                    DateTime.tuesday => '화',
+                    DateTime.wednesday => '수',
+                    DateTime.thursday => '목',
+                    DateTime.friday => '금',
+                    DateTime.saturday => '토',
+                    DateTime.sunday => '일',
+                    _ => '',
+                  };
+
                   return Center(
                     child: Text(
                       text,
                       style: TextStyle(
-                        fontFamily: 'OpenSans',
+                        fontFamily: 'ELAND',
                         fontWeight: FontWeight.w500,
                         color: day.weekday == DateTime.sunday
                             ? Colors.red
@@ -196,8 +216,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
                               final lesson = selectedLessons[index];
                               return LessonCard(
                                 lesson: lesson,
-                                personName:
-                                    lesson.studentName ?? '학생',
+                                personName: lesson.studentName ?? '학생',
                                 onTap: () => showLessonActionDialog(
                                   context: context,
                                   lesson: lesson,
