@@ -82,7 +82,7 @@ class LessonRepository {
     try {
       final rows = await _client
           .from('profiles')
-          .select('id, display_name, role, is_active')
+          .select('id, display_name, branch_id, role, is_active')
           .inFilter('role', ['teacher', 'manager'])
           .eq('is_active', true)
           .order('display_name');
@@ -92,6 +92,7 @@ class LessonRepository {
             (row) => VisibleTeacher(
               id: row['id'] as String,
               displayName: row['display_name'] as String,
+              branchId: row['branch_id'] as String?,
             ),
           )
           .toList();
