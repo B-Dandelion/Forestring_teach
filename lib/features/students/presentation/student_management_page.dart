@@ -11,6 +11,7 @@ import '../data/student_management_repository.dart';
 import 'student_create_page.dart';
 import 'student_regular_schedule_page.dart';
 import 'student_teacher_change_dialog.dart';
+import 'student_withdrawal_dialog.dart';
 
 class StudentManagementPage extends StatefulWidget {
   const StudentManagementPage({
@@ -411,18 +412,20 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
   }
 
   Widget _statusBadge(ManagedStudent student) {
+    final color = student.isActive
+        ? (student.hasScheduledWithdrawal ? Colors.orange.shade700 : primaryColor)
+        : Colors.black45;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: student.isActive
-            ? primaryColor.withValues(alpha: 0.09)
-            : Colors.black.withValues(alpha: 0.06),
+        color: color.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         student.statusLabel,
         style: forestringTextStyle.copyWith(
-          color: student.isActive ? primaryColor : Colors.black45,
+          color: color,
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
@@ -471,7 +474,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                 ),
                 if (student.withdrawalDate != null)
                   _detailRow(
-                    '퇴원일',
+                    student.isActive ? '퇴원 예정일' : '퇴원일',
                     DateFormat('yyyy.MM.dd').format(student.withdrawalDate!),
                   ),
                 if (student.isActive) ...[
@@ -535,6 +538,67 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  if (student.withdrawalIsDue)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.of(sheetContext).pop();
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 220),
+                        );
+                        if (!mounted) return;
+                        await _finalizeWithdrawal(student);
+                      },
+                      icon: const Icon(Icons.person_off_outlined),
+                      label: const Text('퇴원 확정'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                    )
+                  else ...[
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.of(sheetContext).pop();
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 220),
+                        );
+                        if (!mounted) return;
+                        await _openWithdrawal(student);
+                      },
+                      icon: const Icon(Icons.person_off_outlined),
+                      label: Text(
+                        student.hasScheduledWithdrawal
+                            ? '퇴원 예정일 변경'
+                            : '퇴원 처리',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                    ),
+                    if (student.hasScheduledWithdrawal) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () async {
+                          Navigator.of(sheetContext).pop();
+                          await Future<void>.delayed(
+                            const Duration(milliseconds: 220),
+                          );
+                          if (!mounted) return;
+                          await _cancelWithdrawal(student);
+                        },
+                        icon: const Icon(Icons.undo_rounded),
+                        label: const Text('퇴원 예약 취소'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.black54,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
                 const SizedBox(height: 10),
                 FilledButton(
@@ -579,6 +643,136 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _openWithdrawal(ManagedStudent student) async {
+    final result = await showStudentWithdrawalDialog(
+      context: context,
+      student: student,
+      repository: _repository,
+    );
+
+    if (!mounted || result == null) return;
+
+    await _loadStudents();
+    if (!mounted) return;
+
+    final message = result.finalized
+        ? '퇴원 처리가 완료되었습니다. 미래 수업 ${result.deletedLessonCount}개가 정리되었습니다.'
+        : '${DateFormat('yyyy.MM.dd').format(result.withdrawalDate)} 퇴원 예정으로 저장되었습니다.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _finalizeWithdrawal(ManagedStudent student) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('퇴원 확정'),
+        content: Text(
+          '${student.displayName} 학생의 퇴원을 확정합니다.\n\n'
+          '퇴원일 이후 수업은 제거되고 남아 있는 사용 가능한 수강권은 회수되며, 학생 계정은 비활성화됩니다. 과거 수업 기록은 유지됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('퇴원 확정'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    try {
+      final result = await _repository.finalizeWithdrawal(
+        studentId: student.id,
+      );
+      if (!mounted) return;
+
+      await _loadStudents();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '퇴원 처리가 완료되었습니다. 미래 수업 ${result.deletedLessonCount}개가 정리되었습니다.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _cancelWithdrawal(ManagedStudent student) async {
+    final date = student.withdrawalDate;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('퇴원 예약 취소'),
+        content: Text(
+          date == null
+              ? '${student.displayName} 학생의 퇴원 예약을 취소할까요?'
+              : '${student.displayName} 학생의 ${DateFormat('yyyy.MM.dd').format(date)} 퇴원 예약을 취소할까요?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('아니요'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: primaryColor),
+            child: const Text('예약 취소'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    try {
+      await _repository.cancelWithdrawal(studentId: student.id);
+      if (!mounted) return;
+
+      await _loadStudents();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('퇴원 예약이 취소되었습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _showPinResetDialog(ManagedStudent student) async {
