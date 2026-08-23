@@ -155,10 +155,12 @@ class VisibleTeacher {
   const VisibleTeacher({
     required this.id,
     required this.displayName,
+    this.branchId,
   });
 
   final String id;
   final String displayName;
+  final String? branchId;
 }
 
 class LessonMutationResult {
