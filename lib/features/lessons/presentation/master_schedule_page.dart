@@ -7,6 +7,7 @@ import '../../../core/widgets/forestring_navigation.dart';
 import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../branches/presentation/branch_management_page.dart';
+import '../../students/presentation/student_registration_page.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'widgets/lesson_action_dialog.dart';
@@ -66,6 +67,20 @@ class MasterSchedulePage extends StatelessWidget {
             icon: Icons.calendar_month_outlined,
             label: '수업 관리',
             onTap: () => Navigator.of(context).pop(),
+          ),
+          ForestringDrawerItem(
+            icon: Icons.person_add_alt_1_outlined,
+            label: '수강생 등록',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StudentRegistrationPage(
+                    profile: profile,
+                  ),
+                ),
+              );
+            },
           ),
           if (profile.isMaster)
             ForestringDrawerItem(
