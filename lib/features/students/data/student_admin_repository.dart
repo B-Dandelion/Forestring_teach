@@ -34,7 +34,16 @@ class StudentSemesterOption {
   final DateTime startsOn;
   final DateTime endsOn;
 
-  String get label => '${startsOn.year}년 ${startsOn.month}월 학기';
+  String get label {
+    final parts = code.split('-');
+    if (parts.length == 2) {
+      final month = int.tryParse(parts[1]);
+      if (month != null) {
+        return '${parts[0]}년 $month월 학기';
+      }
+    }
+    return '$code 학기';
+  }
 }
 
 class StudentAdminRepository {
