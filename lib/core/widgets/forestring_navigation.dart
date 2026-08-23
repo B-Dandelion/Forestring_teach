@@ -68,6 +68,8 @@ class ForestringDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shouldShowHeart = showHeart || roleLabel == '전체 관리자';
+
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.78,
       backgroundColor: neutralIvory,
@@ -104,7 +106,7 @@ class ForestringDrawer extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      if (showHeart) ...[
+                      if (shouldShowHeart) ...[
                         const Text(
                           '💚',
                           style: TextStyle(fontSize: 19),
