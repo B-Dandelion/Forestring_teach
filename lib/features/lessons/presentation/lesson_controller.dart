@@ -185,48 +185,6 @@ class LessonController extends ChangeNotifier {
     }
   }
 
-  Future<List<LessonBookingOption>> getBookingOptions({
-    required Lesson lesson,
-    required DateTime selectedDate,
-  }) async {
-    final rightId = lesson.lessonRightId;
-    if (rightId == null || rightId.isEmpty) {
-      throw const LessonFailure(
-        '이 수업에는 다시 예약할 수 있는 수업권이 없습니다.',
-      );
-    }
-
-    return _repository.getBookingOptions(
-      rightId: rightId,
-      selectedDate: selectedDate,
-    );
-  }
-
-  Future<bool> bookLessonRight({
-    required Lesson lesson,
-    required LessonBookingOption option,
-  }) async {
-    final rightId = lesson.lessonRightId;
-    if (rightId == null || rightId.isEmpty) {
-      _errorMessage = '이 수업에는 다시 예약할 수 있는 수업권이 없습니다.';
-      notifyListeners();
-      return false;
-    }
-
-    try {
-      await _repository.bookLessonRight(
-        rightId: rightId,
-        startsAt: option.startsAt,
-      );
-      await reload();
-      return true;
-    } on LessonFailure catch (error) {
-      _errorMessage = error.message;
-      notifyListeners();
-      return false;
-    }
-  }
-
   void clearError() {
     if (_errorMessage == null) {
       return;
