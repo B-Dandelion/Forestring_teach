@@ -57,12 +57,14 @@ class ForestringDrawer extends StatelessWidget {
     required this.roleLabel,
     required this.items,
     required this.onLogout,
+    this.showHeart = false,
   });
 
   final String displayName;
   final String roleLabel;
   final List<ForestringDrawerItem> items;
   final VoidCallback onLogout;
+  final bool showHeart;
 
   @override
   Widget build(BuildContext context) {
@@ -102,18 +104,23 @@ class ForestringDrawer extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Text(
-                        '💚',
-                        style: TextStyle(fontSize: 19),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        roleLabel,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontFamily: 'ELAND',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
+                      if (showHeart) ...[
+                        const Text(
+                          '💚',
+                          style: TextStyle(fontSize: 19),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          roleLabel,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontFamily: 'ELAND',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w300,
+                          ),
                         ),
                       ),
                     ],
