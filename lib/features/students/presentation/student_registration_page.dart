@@ -475,11 +475,10 @@ class _StudentRegistrationPageState extends State<StudentRegistrationPage> {
 }
 
 class _ScheduleDraft {
-  _ScheduleDraft({
-    this.weekday = 1,
-    this.time = const TimeOfDay(hour: 10, minute: 0),
-    this.durationMinutes = 30,
-  });
+  _ScheduleDraft()
+      : weekday = 1,
+        time = const TimeOfDay(hour: 10, minute: 0),
+        durationMinutes = 30;
 
   int weekday;
   TimeOfDay time;
