@@ -116,7 +116,8 @@ class AuthRepository {
             'display_name, '
             'role, '
             'branch_id, '
-            'is_active',
+            'is_active, '
+            'is_review_account',
           )
           .eq(
             'id',
