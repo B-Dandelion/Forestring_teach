@@ -34,8 +34,8 @@ class WeekSchedulePage extends StatelessWidget {
         roleLabel: '선생님',
         items: [
           ForestringDrawerItem(
-            icon: Icons.home_outlined,
-            label: '홈',
+            icon: Icons.home,
+            label: '메인 페이지',
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).maybePop();
@@ -116,8 +116,10 @@ class WeekSchedulePage extends StatelessWidget {
                             fontFamily: 'OpenSans',
                             fontWeight: FontWeight.w500,
                             color: Colors.black,
+                            fontSize: 10,
                           ),
-                          timeInterval: Duration(minutes: 30),
+                          timeInterval: Duration(minutes: 5),
+                          timeIntervalHeight: 12,
                           timeFormat: 'H:mm',
                           startHour: 7,
                           endHour: 23,
