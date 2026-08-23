@@ -89,11 +89,13 @@ class WeekSchedulePage extends StatelessWidget {
                           controller.workHoursFor(teacherId),
                         ),
                         viewHeaderHeight: 50,
+                        headerDateFormat: 'M월',
                         headerStyle: const CalendarHeaderStyle(
                           backgroundColor: Colors.transparent,
                           textAlign: TextAlign.center,
                           textStyle: TextStyle(
-                            fontFamily: 'OpenSans',
+                            color: primaryColor,
+                            fontFamily: 'ELAND',
                             fontWeight: FontWeight.w500,
                             fontSize: 20,
                           ),
@@ -119,7 +121,7 @@ class WeekSchedulePage extends StatelessWidget {
                             fontSize: 11,
                           ),
                           timeInterval: Duration(minutes: 15),
-                          timeIntervalHeight: 42,
+                          timeIntervalHeight: 36,
                           timeFormat: 'H:mm',
                           startHour: 7,
                           endHour: 23,
