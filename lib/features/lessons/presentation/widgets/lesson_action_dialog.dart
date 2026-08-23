@@ -47,7 +47,7 @@ Future<void> showLessonActionDialog({
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '${lesson.studentName ?? '학생'} · ${lesson.type.label}',
+                    '${lesson.studentName ?? '학생'} · ${lesson.displayTypeLabel}',
                     style: forestringTextStyle.copyWith(fontSize: 17),
                   ),
                   const SizedBox(height: 14),
@@ -129,7 +129,7 @@ Future<void> showLessonActionDialog({
                     Text(
                       lesson.lessonRightId == null
                           ? '이 수업에는 반환된 수업권이 없습니다.'
-                          : '취소로 반환된 수업권의 보강 예약은 현재 학생용 앱에서 진행합니다.',
+                          : '취소로 반환된 수업권의 예약 변경은 학생용 앱에서 진행합니다.',
                       style: forestringTextStyle.copyWith(
                         color: Colors.black54,
                         fontSize: 13,
@@ -165,18 +165,14 @@ Future<void> showLessonActionDialog({
                           if (ok) {
                             Navigator.of(dialogContext).pop();
                             if (hostContext.mounted) {
-                              _showMessage(
-                                hostContext,
-                                '수업이 취소되었습니다.',
-                              );
+                              _showMessage(hostContext, '수업이 취소되었습니다.');
                             }
                           } else {
                             setState(() => isSaving = false);
                             if (hostContext.mounted) {
                               _showMessage(
                                 hostContext,
-                                controller.errorMessage ??
-                                    '수업을 취소하지 못했습니다.',
+                                controller.errorMessage ?? '수업을 취소하지 못했습니다.',
                               );
                             }
                           }
@@ -223,8 +219,7 @@ Future<void> showLessonActionDialog({
                             if (hostContext.mounted) {
                               _showMessage(
                                 hostContext,
-                                controller.errorMessage ??
-                                    '수업을 수정하지 못했습니다.',
+                                controller.errorMessage ?? '수업을 수정하지 못했습니다.',
                               );
                             }
                             return;
@@ -260,8 +255,7 @@ Future<void> showLessonActionDialog({
                             if (hostContext.mounted) {
                               _showMessage(
                                 hostContext,
-                                controller.errorMessage ??
-                                    '수업을 수정하지 못했습니다.',
+                                controller.errorMessage ?? '수업을 수정하지 못했습니다.',
                               );
                             }
                             return;
