@@ -57,11 +57,13 @@ class ForestringDrawer extends StatelessWidget {
     required this.roleLabel,
     required this.items,
     required this.onLogout,
+    this.nameSuffix = '선생님',
     this.showHeart = false,
   });
 
   final String displayName;
   final String roleLabel;
+  final String nameSuffix;
   final List<ForestringDrawerItem> items;
   final VoidCallback onLogout;
   final bool showHeart;
@@ -95,7 +97,7 @@ class ForestringDrawer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$displayName 선생님',
+                    '$displayName $nameSuffix',
                     style: const TextStyle(
                       color: Colors.white,
                       fontFamily: 'ELAND',
