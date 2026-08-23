@@ -34,6 +34,39 @@ class _LoginPageState extends State<LoginPage> {
         );
   }
 
+  InputDecoration _inputDecoration({
+    required String label,
+    required VoidCallback onClear,
+  }) {
+    return InputDecoration(
+      counterText: '',
+      filled: true,
+      fillColor: Colors.white,
+      labelText: label,
+      labelStyle: const TextStyle(
+        color: Colors.black,
+        fontFamily: 'ELAND',
+      ),
+      enabledBorder: const OutlineInputBorder(
+        borderSide: BorderSide(
+          color: Colors.black,
+          width: 1.2,
+        ),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderSide: BorderSide(
+          color: Colors.black,
+          width: 1.8,
+        ),
+      ),
+      suffixIcon: IconButton(
+        onPressed: onClear,
+        icon: const Icon(Icons.close),
+        color: Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
@@ -73,31 +106,12 @@ class _LoginPageState extends State<LoginPage> {
                     controller: _nameController,
                     textInputAction: TextInputAction.next,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontFamily: 'ELAND',
                     ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: secondaryColor,
-                      labelText: '이름',
-                      labelStyle: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'ELAND',
-                      ),
-                      enabledBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                      ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.white,
-                          width: 1.5,
-                        ),
-                      ),
-                      suffixIcon: IconButton(
-                        onPressed: _nameController.clear,
-                        icon: const Icon(Icons.close),
-                        color: Colors.white,
-                      ),
+                    decoration: _inputDecoration(
+                      label: '이름',
+                      onClear: _nameController.clear,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -113,32 +127,12 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                     onSubmitted: (_) => _login(),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontFamily: 'ELAND',
                     ),
-                    decoration: InputDecoration(
-                      counterText: '',
-                      filled: true,
-                      fillColor: secondaryColor,
-                      labelText: '4자리 PIN',
-                      labelStyle: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'ELAND',
-                      ),
-                      enabledBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                      ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.white,
-                          width: 1.5,
-                        ),
-                      ),
-                      suffixIcon: IconButton(
-                        onPressed: _pinController.clear,
-                        icon: const Icon(Icons.close),
-                        color: Colors.white,
-                      ),
+                    decoration: _inputDecoration(
+                      label: '비밀번호',
+                      onClear: _pinController.clear,
                     ),
                   ),
                   if (auth.errorMessage != null) ...[
@@ -183,16 +177,6 @@ class _LoginPageState extends State<LoginPage> {
                                 fontSize: 18,
                               ),
                             ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    '로그인 상태는 안전하게 유지됩니다.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontFamily: 'ELAND',
-                      fontSize: 12,
                     ),
                   ),
                 ],
