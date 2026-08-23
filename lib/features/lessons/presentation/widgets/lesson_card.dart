@@ -36,7 +36,7 @@ class LessonCard extends StatelessWidget {
             border: Border.all(
               color: lesson.isCanceled
                   ? Colors.black12
-                  : primaryColor.withOpacity(0.25),
+                  : primaryColor.withValues(alpha: 0.25),
             ),
             borderRadius: BorderRadius.circular(14),
           ),
@@ -48,7 +48,7 @@ class LessonCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: lesson.isCanceled
                       ? Colors.black12
-                      : primaryColor.withOpacity(0.08),
+                      : primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
