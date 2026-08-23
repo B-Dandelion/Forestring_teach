@@ -7,6 +7,7 @@ import '../features/auth/domain/current_profile.dart';
 import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/lessons/data/lesson_repository.dart';
+import '../features/lessons/data/review_lesson_repository.dart';
 import '../features/lessons/presentation/lesson_controller.dart';
 import '../features/lessons/presentation/master_schedule_page.dart';
 import '../features/lessons/presentation/teacher_home_page.dart';
@@ -32,6 +33,27 @@ class AppGate extends StatelessWidget {
 
     if (!auth.isSignedIn || profile == null) {
       return const LoginPage();
+    }
+
+    if (profile.isReviewAccount) {
+      final reviewProfile = CurrentProfile(
+        id: profile.id,
+        displayName: '박지은',
+        role: AppRole.teacher,
+        isActive: true,
+        isReviewAccount: true,
+      );
+
+      return _LessonEntry(
+        profile: reviewProfile,
+        repository: ReviewLessonRepository(
+          teacherId: reviewProfile.id,
+          teacherName: reviewProfile.displayName,
+        ),
+        child: TeacherHomePage(
+          profile: reviewProfile,
+        ),
+      );
     }
 
     return switch (profile.role) {
@@ -60,16 +82,18 @@ class _LessonEntry extends StatelessWidget {
   const _LessonEntry({
     required this.profile,
     required this.child,
+    this.repository,
   });
 
   final CurrentProfile profile;
   final Widget child;
+  final LessonRepository? repository;
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => LessonController(
-        LessonRepository(),
+        repository ?? LessonRepository(),
         profile,
       )..initialize(),
       child: child,
