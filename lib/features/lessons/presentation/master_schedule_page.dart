@@ -10,6 +10,7 @@ import '../../branches/presentation/branch_management_page.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'widgets/lesson_action_dialog.dart';
+import 'widgets/lesson_calendar_appointment.dart';
 
 class MasterSchedulePage extends StatelessWidget {
   const MasterSchedulePage({
@@ -177,6 +178,20 @@ class MasterSchedulePage extends StatelessWidget {
                             showNavigationArrow: true,
                             cellEndPadding: 0,
                             dataSource: _MasterDataSource(meetings),
+                            appointmentBuilder: (context, details) {
+                              if (details.appointments.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              final meeting = details.appointments.first;
+                              if (meeting is! _MasterMeeting) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return LessonCalendarAppointment(
+                                lesson: meeting.lesson,
+                              );
+                            },
                             specialRegions: _timeRegions(
                               controller.workHoursFor(
                                 selectedTeacherId,
