@@ -51,13 +51,13 @@ Future<void> showLessonInfoDialog({
             ),
             const SizedBox(height: 8),
             Text(
-              '수업 종류  ${lesson.type.label}',
+              '수업 종류  ${lesson.displayTypeLabel}',
               style: forestringTextStyle,
             ),
-            if (lesson.isRescheduled) ...[
+            if (lesson.changeBadgeLabel != null) ...[
               const SizedBox(height: 8),
               Text(
-                '변경된 수업',
+                lesson.changeBadgeLabel!,
                 style: forestringTextStyle.copyWith(
                   color: secondaryColor,
                   fontWeight: FontWeight.w500,
