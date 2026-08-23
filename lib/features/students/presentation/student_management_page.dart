@@ -7,7 +7,7 @@ import '../../auth/domain/current_profile.dart';
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/student_management_repository.dart';
-import 'student_registration_page.dart';
+import 'student_create_page.dart';
 
 class StudentManagementPage extends StatefulWidget {
   const StudentManagementPage({
@@ -140,7 +140,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
   Future<void> _openRegistration() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => StudentRegistrationPage(profile: widget.profile),
+        builder: (_) => StudentCreatePage(profile: widget.profile),
       ),
     );
 
