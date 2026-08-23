@@ -31,7 +31,7 @@ class WeekSchedulePage extends StatelessWidget {
       appBar: const ForestringAppBar(),
       drawer: ForestringDrawer(
         displayName: profile.displayName,
-        roleLabel: '선생님',
+        roleLabel: '환영합니다',
         items: [
           ForestringDrawerItem(
             icon: Icons.home,
@@ -42,7 +42,7 @@ class WeekSchedulePage extends StatelessWidget {
             },
           ),
           ForestringDrawerItem(
-            icon: Icons.calendar_view_week_outlined,
+            icon: Icons.event_note_outlined,
             label: '주간 시간표',
             onTap: () => Navigator.of(context).pop(),
           ),
@@ -108,7 +108,7 @@ class WeekSchedulePage extends StatelessWidget {
                           ),
                           dayTextStyle: TextStyle(
                             color: Colors.black,
-                            fontFamily: 'OpenSans',
+                            fontFamily: 'ELAND',
                             fontWeight: FontWeight.w500,
                           ),
                         ),
