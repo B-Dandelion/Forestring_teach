@@ -22,6 +22,7 @@ class MasterSchedulePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<LessonController>();
+    final selectedBranchId = controller.selectedBranchId;
     final selectedTeacherId = controller.selectedTeacherId;
     final meetings = controller.visibleLessons
         .where((lesson) => !lesson.isCanceled)
@@ -82,38 +83,60 @@ class MasterSchedulePage extends StatelessWidget {
                     ),
                   ),
                 ),
-              DropdownButtonFormField<String>(
-                value: selectedTeacherId,
-                decoration: InputDecoration(
-                  labelText: '선생님 선택',
-                  labelStyle: forestringTextStyle.copyWith(
-                    color: primaryColor,
-                  ),
-                  border: const OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: primaryColor.withValues(alpha: 0.35),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedBranchId,
+                      decoration: _selectorDecoration('지점 선택'),
+                      items: controller.branches
+                          .map(
+                            (branch) => DropdownMenuItem<String>(
+                              value: branch.id,
+                              child: Text(
+                                branch.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: forestringTextStyle.copyWith(
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.selectBranch(value);
+                        }
+                      },
                     ),
                   ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                items: controller.teachers
-                    .map(
-                      (teacher) => DropdownMenuItem<String>(
-                        value: teacher.id,
-                        child: Text(
-                          teacher.displayName,
-                          style: forestringTextStyle,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    controller.selectTeacher(value);
-                  }
-                },
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedTeacherId,
+                      decoration: _selectorDecoration('선생님 선택'),
+                      items: controller.branchTeachers
+                          .map(
+                            (teacher) => DropdownMenuItem<String>(
+                              value: teacher.id,
+                              child: Text(
+                                teacher.displayName,
+                                overflow: TextOverflow.ellipsis,
+                                style: forestringTextStyle.copyWith(
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.selectTeacher(value);
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -125,7 +148,9 @@ class MasterSchedulePage extends StatelessWidget {
                     : selectedTeacherId == null
                         ? Center(
                             child: Text(
-                              '등록된 선생님이 없습니다.',
+                              selectedBranchId == null
+                                  ? '등록된 지점이 없습니다.'
+                                  : '선택한 지점에 선생님이 없습니다.',
                               style: forestringTextStyle,
                             ),
                           )
@@ -214,6 +239,29 @@ class MasterSchedulePage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  InputDecoration _selectorDecoration(String label) {
+    return InputDecoration(
+      isDense: true,
+      labelText: label,
+      labelStyle: forestringTextStyle.copyWith(
+        color: primaryColor,
+        fontSize: 12,
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 12,
+      ),
+      border: const OutlineInputBorder(),
+      enabledBorder: OutlineInputBorder(
+        borderSide: BorderSide(
+          color: primaryColor.withValues(alpha: 0.35),
+        ),
+      ),
+      filled: true,
+      fillColor: Colors.white,
     );
   }
 
