@@ -86,7 +86,7 @@ class LessonCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$start ~ $end · ${lesson.type.label}',
+                      '$start ~ $end · ${lesson.displayTypeLabel}',
                       style: forestringTextStyle.copyWith(
                         fontSize: 13,
                         color: Colors.black54,
@@ -103,9 +103,9 @@ class LessonCard extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 )
-              else if (lesson.isRescheduled)
+              else if (lesson.changeBadgeLabel != null)
                 Text(
-                  '변경',
+                  lesson.changeBadgeLabel!,
                   style: forestringTextStyle.copyWith(
                     color: secondaryColor,
                     fontWeight: FontWeight.w500,
