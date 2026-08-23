@@ -32,7 +32,25 @@ class MasterSchedulePage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: neutralIvory,
-      appBar: const ForestringAppBar(),
+      appBar: ForestringAppBar(
+        actions: [
+          IconButton(
+            tooltip: '새로고침',
+            onPressed: controller.isLoading ? null : controller.reload,
+            icon: controller.isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       drawer: ForestringDrawer(
         displayName: profile.displayName,
         nameSuffix: profile.isManager ? '지점장님' : '선생님',
