@@ -27,7 +27,7 @@ class LessonRepository {
       dynamic query = _client.from('lessons').select(
             'id, student_id, teacher_id, occurrence_at, starts_at, '
             'duration_minutes, ends_at, lesson_type, status, branch_id, '
-            'lesson_right_id',
+            'lesson_right_id, rescheduled_by',
           );
 
       if (from != null) {
