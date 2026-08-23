@@ -161,30 +161,6 @@ class VisibleTeacher {
   final String displayName;
 }
 
-class LessonBookingOption {
-  const LessonBookingOption({
-    required this.startsAt,
-    required this.endsAt,
-    required this.teacherId,
-  });
-
-  final DateTime startsAt;
-  final DateTime endsAt;
-  final String teacherId;
-
-  factory LessonBookingOption.fromJson(Map<String, dynamic> json) {
-    return LessonBookingOption(
-      startsAt: DateTime.parse(
-        json['starts_at'].toString(),
-      ).toLocal(),
-      endsAt: DateTime.parse(
-        json['ends_at'].toString(),
-      ).toLocal(),
-      teacherId: json['teacher_id'] as String,
-    );
-  }
-}
-
 class LessonMutationResult {
   const LessonMutationResult({
     required this.changed,
