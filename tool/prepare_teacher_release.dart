@@ -22,7 +22,12 @@ void main() {
 
   final cleanedLines = project
       .split('\n')
-      .where((line) => !line.contains('GoogleService-Info.plist'))
+      .where(
+        (line) =>
+            !line.contains('GoogleService-Info.plist') &&
+            !line.contains('FLUTTER_BUILD_NAME =') &&
+            !line.contains('FLUTTER_BUILD_NUMBER ='),
+      )
       .toList();
   projectFile.writeAsStringSync('${cleanedLines.join('\n').trimRight()}\n');
 
@@ -48,6 +53,10 @@ void main() {
   if (result.contains('GoogleService-Info.plist')) {
     errors.add('Firebase plist reference remains in the Xcode project.');
   }
+  if (result.contains('FLUTTER_BUILD_NAME =') ||
+      result.contains('FLUTTER_BUILD_NUMBER =')) {
+    errors.add('Hardcoded Flutter iOS version override remains.');
+  }
   if (firebasePlist.existsSync()) {
     errors.add('Firebase plist file still exists.');
   }
@@ -63,4 +72,5 @@ void main() {
   stdout.writeln('Teacher release cleanup complete.');
   stdout.writeln('iOS bundle id: forestring.teacher.app');
   stdout.writeln('Legacy Firebase iOS references: removed');
+  stdout.writeln('Hardcoded Flutter iOS version overrides: removed');
 }
