@@ -36,9 +36,11 @@ class LessonController extends ChangeNotifier {
   String? get selectedTeacherId => _selectedTeacherId;
 
   bool get isMaster => _profile.role == AppRole.master;
+  bool get isManager => _profile.role == AppRole.manager;
+  bool get canManageLessons => isMaster || isManager;
 
   List<VisibleTeacher> get branchTeachers {
-    if (!isMaster || _selectedBranchId == null) {
+    if (!canManageLessons || _selectedBranchId == null) {
       return _teachers;
     }
 
@@ -49,7 +51,7 @@ class LessonController extends ChangeNotifier {
 
   List<Lesson> get visibleLessons {
     final teacherId = _selectedTeacherId;
-    if (!isMaster || teacherId == null || teacherId.isEmpty) {
+    if (!canManageLessons || teacherId == null || teacherId.isEmpty) {
       return _lessons;
     }
 
@@ -84,7 +86,7 @@ class LessonController extends ChangeNotifier {
         1,
       );
 
-      if (isMaster) {
+      if (canManageLessons) {
         final results = await Future.wait<dynamic>([
           _repository.fetchVisibleLessons(
             from: from,
@@ -95,23 +97,51 @@ class LessonController extends ChangeNotifier {
           _branchRepository.fetchBranches(),
         ]);
 
-        _lessons = results[0] as List<Lesson>;
-
-        _teachers = List<VisibleTeacher>.from(
+        final loadedLessons = results[0] as List<Lesson>;
+        final loadedTeachers = List<VisibleTeacher>.from(
           results[1] as List<VisibleTeacher>,
-        )..sort(
-            (a, b) => a.displayName.compareTo(b.displayName),
-          );
+        );
+        final loadedBranches = (results[3] as List<AcademyBranch>)
+            .where((branch) => branch.isActive)
+            .toList();
+
+        if (isManager) {
+          final branchId = _profile.branchId;
+          if (branchId == null) {
+            _lessons = const [];
+            _teachers = const [];
+            _branches = const [];
+            _workHours = const {};
+            _selectedBranchId = null;
+            _selectedTeacherId = null;
+            _errorMessage = '지점 정보가 없는 지점장 계정입니다.';
+            return;
+          }
+
+          _lessons = loadedLessons
+              .where((lesson) => lesson.branchId == branchId)
+              .toList();
+          _teachers = loadedTeachers
+              .where((teacher) => teacher.branchId == branchId)
+              .toList();
+          _branches = loadedBranches
+              .where((branch) => branch.id == branchId)
+              .toList();
+        } else {
+          _lessons = loadedLessons;
+          _teachers = loadedTeachers;
+          _branches = loadedBranches;
+        }
+
+        _teachers.sort(
+          (a, b) => a.displayName.compareTo(b.displayName),
+        );
+        _branches.sort(
+          (a, b) => a.name.compareTo(b.name),
+        );
 
         _workHours =
             results[2] as Map<String, List<TeacherWorkHour>>;
-
-        _branches = (results[3] as List<AcademyBranch>)
-            .where((branch) => branch.isActive)
-            .toList()
-          ..sort(
-            (a, b) => a.name.compareTo(b.name),
-          );
 
         final branchStillExists = _selectedBranchId != null &&
             _branches.any((branch) => branch.id == _selectedBranchId);
@@ -163,6 +193,10 @@ class LessonController extends ChangeNotifier {
       return;
     }
 
+    if (isManager && branchId != _profile.branchId) {
+      return;
+    }
+
     _selectedBranchId = branchId;
     _selectedTeacherId = null;
     _ensureTeacherSelectionForBranch();
@@ -171,6 +205,11 @@ class LessonController extends ChangeNotifier {
 
   void selectTeacher(String teacherId) {
     if (_selectedTeacherId == teacherId) {
+      return;
+    }
+
+    if (canManageLessons &&
+        !branchTeachers.any((teacher) => teacher.id == teacherId)) {
       return;
     }
 
@@ -206,6 +245,12 @@ class LessonController extends ChangeNotifier {
     Lesson lesson, {
     String? reason,
   }) async {
+    if (!canManageLessons) {
+      _errorMessage = '일반 선생님은 수업을 조회만 할 수 있습니다.';
+      notifyListeners();
+      return false;
+    }
+
     try {
       await _repository.cancelLesson(
         lessonId: lesson.id,
@@ -227,6 +272,12 @@ class LessonController extends ChangeNotifier {
     bool confirmWarnings = false,
     String? reason,
   }) async {
+    if (!canManageLessons) {
+      _errorMessage = '일반 선생님은 수업을 조회만 할 수 있습니다.';
+      notifyListeners();
+      return null;
+    }
+
     try {
       final result = await _repository.updateLessonOnce(
         lessonId: lesson.id,
