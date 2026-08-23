@@ -175,24 +175,14 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 20, 18, 10),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new),
-                    color: primaryColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '지점 관리',
-                    style: forestringTextStyle.copyWith(
-                      color: primaryColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(22, 22, 18, 10),
+              child: Text(
+                '지점 관리',
+                style: forestringTextStyle.copyWith(
+                  color: primaryColor,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             Expanded(child: _buildBody()),
