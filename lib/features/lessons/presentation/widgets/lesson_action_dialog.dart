@@ -10,22 +10,26 @@ Future<void> showLessonActionDialog({
   required Lesson lesson,
   required LessonController controller,
 }) async {
-  DateTime selectedDate = DateTime(
+  final hostContext = context;
+  var selectedDate = DateTime(
     lesson.startsAt.year,
     lesson.startsAt.month,
     lesson.startsAt.day,
   );
-  TimeOfDay selectedTime = TimeOfDay.fromDateTime(
-    lesson.startsAt,
-  );
-  int selectedDuration = lesson.durationMinutes;
-  bool isSaving = false;
+  var selectedTime = TimeOfDay.fromDateTime(lesson.startsAt);
+  var selectedDuration = lesson.durationMinutes;
+  var isSaving = false;
+
+  final durations = <int>{15, 30, 45, 60, 75, 90, selectedDuration}
+      .where((value) => value > 0 && value <= 720)
+      .toList()
+    ..sort();
 
   await showDialog<void>(
-    context: context,
+    context: hostContext,
     builder: (dialogContext) {
       return StatefulBuilder(
-        builder: (context, setState) {
+        builder: (dialogBodyContext, setState) {
           final canEdit = !lesson.isCanceled;
 
           return AlertDialog(
@@ -44,9 +48,7 @@ Future<void> showLessonActionDialog({
                 children: [
                   Text(
                     '${lesson.studentName ?? '학생'} · ${lesson.type.label}',
-                    style: forestringTextStyle.copyWith(
-                      fontSize: 17,
-                    ),
+                    style: forestringTextStyle.copyWith(fontSize: 17),
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -61,7 +63,7 @@ Future<void> showLessonActionDialog({
                         onPressed: canEdit && !isSaving
                             ? () async {
                                 final picked = await showDatePicker(
-                                  context: context,
+                                  context: dialogBodyContext,
                                   initialDate: selectedDate,
                                   firstDate: DateTime(2024, 1, 1),
                                   lastDate: DateTime(2035, 12, 31),
@@ -79,7 +81,7 @@ Future<void> showLessonActionDialog({
                     children: [
                       Expanded(
                         child: Text(
-                          '시간  ${selectedTime.format(context)}',
+                          '시간  ${selectedTime.format(dialogBodyContext)}',
                           style: forestringTextStyle,
                         ),
                       ),
@@ -87,7 +89,7 @@ Future<void> showLessonActionDialog({
                         onPressed: canEdit && !isSaving
                             ? () async {
                                 final picked = await showTimePicker(
-                                  context: context,
+                                  context: dialogBodyContext,
                                   initialTime: selectedTime,
                                 );
                                 if (picked != null) {
@@ -106,7 +108,7 @@ Future<void> showLessonActionDialog({
                       labelText: '수업 길이',
                       border: OutlineInputBorder(),
                     ),
-                    items: const [15, 30, 45, 60, 75, 90]
+                    items: durations
                         .map(
                           (minutes) => DropdownMenuItem<int>(
                             value: minutes,
@@ -143,8 +145,10 @@ Future<void> showLessonActionDialog({
                   onPressed: isSaving
                       ? null
                       : () async {
-                          final confirmed = await _confirmCancel(context);
-                          if (!confirmed || !context.mounted) {
+                          final confirmed = await _confirmCancel(
+                            dialogBodyContext,
+                          );
+                          if (!confirmed || !dialogBodyContext.mounted) {
                             return;
                           }
 
@@ -154,23 +158,27 @@ Future<void> showLessonActionDialog({
                             reason: '앱에서 수업 취소',
                           );
 
-                          if (!context.mounted) {
+                          if (!dialogBodyContext.mounted) {
                             return;
                           }
 
                           if (ok) {
                             Navigator.of(dialogContext).pop();
-                            _showMessage(
-                              context,
-                              '수업이 취소되었습니다.',
-                            );
+                            if (hostContext.mounted) {
+                              _showMessage(
+                                hostContext,
+                                '수업이 취소되었습니다.',
+                              );
+                            }
                           } else {
                             setState(() => isSaving = false);
-                            _showMessage(
-                              context,
-                              controller.errorMessage ??
-                                  '수업을 취소하지 못했습니다.',
-                            );
+                            if (hostContext.mounted) {
+                              _showMessage(
+                                hostContext,
+                                controller.errorMessage ??
+                                    '수업을 취소하지 못했습니다.',
+                              );
+                            }
                           }
                         },
                   child: const Text(
@@ -206,28 +214,30 @@ Future<void> showLessonActionDialog({
                             reason: '앱에서 수업 1회 수정',
                           );
 
-                          if (!context.mounted) {
+                          if (!dialogBodyContext.mounted) {
                             return;
                           }
 
                           if (result == null) {
                             setState(() => isSaving = false);
-                            _showMessage(
-                              context,
-                              controller.errorMessage ??
-                                  '수업을 수정하지 못했습니다.',
-                            );
+                            if (hostContext.mounted) {
+                              _showMessage(
+                                hostContext,
+                                controller.errorMessage ??
+                                    '수업을 수정하지 못했습니다.',
+                              );
+                            }
                             return;
                           }
 
                           if (result.requiresConfirmation) {
-                            final confirmWarnings =
-                                await _confirmWarnings(
-                              context,
+                            final confirmWarnings = await _confirmWarnings(
+                              dialogBodyContext,
                               result.warningCodes,
                             );
 
-                            if (!confirmWarnings || !context.mounted) {
+                            if (!confirmWarnings ||
+                                !dialogBodyContext.mounted) {
                               setState(() => isSaving = false);
                               return;
                             }
@@ -241,28 +251,31 @@ Future<void> showLessonActionDialog({
                             );
                           }
 
-                          if (!context.mounted) {
+                          if (!dialogBodyContext.mounted) {
                             return;
                           }
 
-                          if (result == null ||
-                              result.requiresConfirmation) {
+                          if (result == null || result.requiresConfirmation) {
                             setState(() => isSaving = false);
-                            _showMessage(
-                              context,
-                              controller.errorMessage ??
-                                  '수업을 수정하지 못했습니다.',
-                            );
+                            if (hostContext.mounted) {
+                              _showMessage(
+                                hostContext,
+                                controller.errorMessage ??
+                                    '수업을 수정하지 못했습니다.',
+                              );
+                            }
                             return;
                           }
 
                           Navigator.of(dialogContext).pop();
-                          _showMessage(
-                            context,
-                            result.changed
-                                ? '수업이 수정되었습니다.'
-                                : '변경된 내용이 없습니다.',
-                          );
+                          if (hostContext.mounted) {
+                            _showMessage(
+                              hostContext,
+                              result.changed
+                                  ? '수업이 수정되었습니다.'
+                                  : '변경된 내용이 없습니다.',
+                            );
+                          }
                         },
                   child: Text(
                     isSaving ? '저장 중...' : '저장',
@@ -318,9 +331,7 @@ Future<bool> _confirmWarnings(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('확인이 필요합니다'),
-          content: Text(
-            '$messages\n\n그래도 변경하시겠습니까?',
-          ),
+          content: Text('$messages\n\n그래도 변경하시겠습니까?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
