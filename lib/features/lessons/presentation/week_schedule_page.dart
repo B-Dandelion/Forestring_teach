@@ -8,7 +8,7 @@ import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
-import 'widgets/lesson_action_dialog.dart';
+import 'widgets/lesson_info_dialog.dart';
 
 class WeekSchedulePage extends StatelessWidget {
   const WeekSchedulePage({
@@ -137,10 +137,9 @@ class WeekSchedulePage extends StatelessWidget {
                             return;
                           }
 
-                          showLessonActionDialog(
+                          showLessonInfoDialog(
                             context: context,
                             lesson: meeting.lesson,
-                            controller: context.read<LessonController>(),
                           );
                         },
                       ),
