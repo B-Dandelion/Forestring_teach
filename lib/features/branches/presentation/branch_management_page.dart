@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/forestring_theme.dart';
+import '../../../core/widgets/forestring_navigation.dart';
+import '../../auth/domain/current_profile.dart';
 import '../data/branch_repository.dart';
 import '../domain/academy_branch.dart';
 
 class BranchManagementPage extends StatefulWidget {
   const BranchManagementPage({
     super.key,
+    required this.profile,
   });
+
+  final CurrentProfile profile;
 
   @override
   State<BranchManagementPage> createState() => _BranchManagementPageState();
@@ -23,7 +29,6 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
   @override
   void initState() {
     super.initState();
-
     _load();
   }
 
@@ -61,57 +66,70 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
   }
 
   Future<void> _showCreateDialog() async {
-    String branchName = '';
+    final controller = TextEditingController();
 
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
+          backgroundColor: neutralIvory,
+          title: Text(
             '지점 추가',
+            style: forestringTextStyle.copyWith(
+              color: primaryColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           content: TextField(
+            controller: controller,
             autofocus: true,
             textInputAction: TextInputAction.done,
+            style: forestringTextStyle,
             decoration: const InputDecoration(
               labelText: '지점명',
               hintText: '예: 포레스트링 키즈',
               border: OutlineInputBorder(),
             ),
-            onChanged: (value) {
-              branchName = value;
-            },
             onSubmitted: (value) {
               Navigator.of(dialogContext).pop(value);
             },
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('취소'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                '취소',
+                style: forestringTextStyle.copyWith(
+                  color: Colors.black54,
+                ),
+              ),
             ),
-            FilledButton(
+            TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(branchName);
+                Navigator.of(dialogContext).pop(controller.text);
               },
-              child: const Text('추가'),
+              child: Text(
+                '추가',
+                style: forestringTextStyle.copyWith(
+                  color: primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         );
       },
     );
 
+    controller.dispose();
+
     if (name == null || name.trim().isEmpty) {
       return;
     }
 
     try {
-      await _repository.createBranch(
-        name: name,
-      );
-
+      await _repository.createBranch(name: name);
       await _load();
 
       if (!mounted) {
@@ -120,9 +138,7 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            '지점을 추가했습니다.',
-          ),
+          content: Text('지점을 추가했습니다.'),
         ),
       );
     } on BranchFailure catch (error) {
@@ -131,41 +147,64 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.message,
-          ),
-        ),
+        SnackBar(content: Text(error.message)),
       );
     }
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('지점 관리'),
-      ),
+      backgroundColor: neutralIvory,
+      appBar: const ForestringAppBar(),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
         onPressed: _showCreateDialog,
-        icon: const Icon(
-          Icons.add,
+        icon: const Icon(Icons.add),
+        label: Text(
+          '지점 추가',
+          style: forestringTextStyle.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        label: const Text('지점 추가'),
       ),
       body: SafeArea(
-        child: _buildBody(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 10),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_ios_new),
+                    color: primaryColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '지점 관리',
+                    style: forestringTextStyle.copyWith(
+                      color: primaryColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_errorMessage != null) {
@@ -178,11 +217,10 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
+                style: forestringTextStyle,
               ),
-              const SizedBox(
-                height: 16,
-              ),
-              FilledButton(
+              const SizedBox(height: 16),
+              OutlinedButton(
                 onPressed: _load,
                 child: const Text('다시 시도'),
               ),
@@ -193,9 +231,10 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
     }
 
     if (_branches.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '등록된 지점이 없습니다.',
+          style: forestringTextStyle,
         ),
       );
     }
@@ -203,29 +242,52 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          100,
-        ),
+        padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
         itemCount: _branches.length,
-        separatorBuilder: (_, __) => const Divider(
-          height: 1,
-        ),
-        itemBuilder: (
-          context,
-          index,
-        ) {
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
           final branch = _branches[index];
 
-          return ListTile(
-            leading: Icon(
-              branch.isActive ? Icons.storefront_outlined : Icons.storefront,
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: primaryColor.withValues(alpha: 0.28),
+              ),
             ),
-            title: Text(branch.name),
-            subtitle: Text(
-              branch.isActive ? '운영 중' : '비활성',
+            child: ListTile(
+              minTileHeight: 72,
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: primaryColor,
+                ),
+              ),
+              title: Text(
+                branch.name,
+                style: forestringTextStyle.copyWith(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                branch.isActive ? '운영 중' : '비활성',
+                style: forestringTextStyle.copyWith(
+                  fontSize: 13,
+                  color: branch.isActive ? secondaryColor : Colors.black45,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: primaryColor,
+              ),
             ),
           );
         },
