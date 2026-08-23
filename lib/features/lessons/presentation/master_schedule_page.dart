@@ -34,7 +34,8 @@ class MasterSchedulePage extends StatelessWidget {
       appBar: const ForestringAppBar(),
       drawer: ForestringDrawer(
         displayName: profile.displayName,
-        roleLabel: '전체 관리자',
+        roleLabel: profile.isMaster ? '전체 관리자' : '지점장',
+        showHeart: profile.isMaster,
         items: [
           ForestringDrawerItem(
             icon: Icons.home,
@@ -46,20 +47,21 @@ class MasterSchedulePage extends StatelessWidget {
             label: '수업 관리',
             onTap: () => Navigator.of(context).pop(),
           ),
-          ForestringDrawerItem(
-            icon: Icons.storefront_outlined,
-            label: '지점 관리',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => BranchManagementPage(
-                    profile: profile,
+          if (profile.isMaster)
+            ForestringDrawerItem(
+              icon: Icons.storefront_outlined,
+              label: '지점 관리',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BranchManagementPage(
+                      profile: profile,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
         ],
         onLogout: () async {
           Navigator.of(context).pop();
@@ -103,11 +105,13 @@ class MasterSchedulePage extends StatelessWidget {
                             ),
                           )
                           .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          controller.selectBranch(value);
-                        }
-                      },
+                      onChanged: profile.isManager
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                controller.selectBranch(value);
+                              }
+                            },
                     ),
                   ),
                   const SizedBox(width: 8),
