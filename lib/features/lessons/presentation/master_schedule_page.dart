@@ -211,7 +211,7 @@ class MasterSchedulePage extends StatelessWidget {
         ),
         recurrenceRule:
             'FREQ=WEEKLY;BYDAY=${_weekdayCode(workHour.weekday)}',
-        color: primaryColor.withOpacity(0.12),
+        color: primaryColor.withValues(alpha: 0.12),
       );
     }).toList();
   }
