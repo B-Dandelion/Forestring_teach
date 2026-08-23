@@ -9,6 +9,7 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/student_management_repository.dart';
 import 'student_create_page.dart';
+import 'student_teacher_change_dialog.dart';
 
 class StudentManagementPage extends StatefulWidget {
   const StudentManagementPage({
@@ -82,9 +83,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
       await _loadStudents();
     } catch (error) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = error.toString();
-      });
+      setState(() => _errorMessage = error.toString());
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -440,8 +439,13 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
       ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              24 + MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -475,7 +479,29 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                     onPressed: () async {
                       Navigator.of(sheetContext).pop();
                       await Future<void>.delayed(
-                        const Duration(milliseconds: 250),
+                        const Duration(milliseconds: 220),
+                      );
+                      if (!mounted) return;
+                      await _openTeacherChange(student);
+                    },
+                    icon: const Icon(Icons.manage_accounts_outlined),
+                    label: Text(
+                      student.teacherId == null
+                          ? '담당 선생님 지정'
+                          : '담당 선생님 변경',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      side: const BorderSide(color: primaryColor),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 220),
                       );
                       if (!mounted) return;
                       await _showPinResetDialog(student);
@@ -500,6 +526,25 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _openTeacherChange(ManagedStudent student) async {
+    final changed = await showStudentTeacherChangeDialog(
+      context: context,
+      student: student,
+    );
+
+    if (!mounted || changed != true) return;
+
+    await _loadStudents();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('담당 선생님 변경이 저장되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
