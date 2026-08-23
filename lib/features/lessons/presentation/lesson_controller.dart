@@ -96,12 +96,22 @@ class LessonController extends ChangeNotifier {
         ]);
 
         _lessons = results[0] as List<Lesson>;
-        _teachers = results[1] as List<VisibleTeacher>;
+
+        _teachers = List<VisibleTeacher>.from(
+          results[1] as List<VisibleTeacher>,
+        )..sort(
+            (a, b) => a.displayName.compareTo(b.displayName),
+          );
+
         _workHours =
             results[2] as Map<String, List<TeacherWorkHour>>;
+
         _branches = (results[3] as List<AcademyBranch>)
             .where((branch) => branch.isActive)
-            .toList();
+            .toList()
+          ..sort(
+            (a, b) => a.name.compareTo(b.name),
+          );
 
         final branchStillExists = _selectedBranchId != null &&
             _branches.any((branch) => branch.id == _selectedBranchId);
