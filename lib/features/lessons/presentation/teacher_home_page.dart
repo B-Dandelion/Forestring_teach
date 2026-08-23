@@ -166,8 +166,8 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
               child: RefreshIndicator(
                 onRefresh: controller.reload,
                 child: controller.isLoading && controller.lessons.isEmpty
-                    ? const ListView(
-                        children: [
+                    ? ListView(
+                        children: const [
                           SizedBox(height: 120),
                           Center(child: CircularProgressIndicator()),
                         ],
