@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -6,11 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app_gate.dart';
 import 'core/config/app_config.dart';
+import 'core/theme/forestring_theme.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
-import 'ver2/Data/constant_data.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   AppConfig.validate();
@@ -20,8 +19,6 @@ void main() async {
     publishableKey: AppConfig.supabasePublishableKey,
   );
 
-  await Firebase.initializeApp();
-
   final authController = AuthController(
     AuthRepository(),
   );
@@ -29,27 +26,8 @@ void main() async {
   await authController.initialize();
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(
-          value: authController,
-        ),
-
-        // v2 Firebase providers.
-        // Remove after the v3 migration is complete.
-        ChangeNotifierProvider(
-          create: (_) => UserProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => LessonProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => SlotProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => MasterProvider(),
-        ),
-      ],
+    ChangeNotifierProvider.value(
+      value: authController,
       child: const ForestringTeacher(),
     ),
   );
@@ -61,18 +39,16 @@ class ForestringTeacher extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: MaterialApp(
-        locale: const Locale('en', 'US'),
+        locale: const Locale('ko', 'KR'),
         supportedLocales: const [
-          Locale('en', 'US'),
           Locale('ko', 'KR'),
+          Locale('en', 'US'),
         ],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
@@ -80,13 +56,8 @@ class ForestringTeacher extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         debugShowCheckedModeBanner: false,
-        title: 'Forestring_teacher',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: PRIMARY_COLOR,
-          ),
-          useMaterial3: true,
-        ),
+        title: '포레스트링 선생님',
+        theme: buildForestringTheme(),
         home: const AppGate(),
       ),
     );
