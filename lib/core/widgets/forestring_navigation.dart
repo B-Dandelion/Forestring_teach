@@ -31,13 +31,19 @@ class ForestringAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
       centerTitle: true,
+      elevation: 0,
       title: Text(
         title,
-        style: forestringTextStyle.copyWith(
-          color: primaryColor,
-          fontSize: 20,
+        style: const TextStyle(
+          color: Colors.white,
+          fontFamily: 'OpenSans',
+          fontSize: 23,
           fontWeight: FontWeight.w500,
+          letterSpacing: 1.1,
         ),
       ),
       actions: actions,
@@ -62,79 +68,116 @@ class ForestringDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      width: MediaQuery.of(context).size.width * 0.78,
+      backgroundColor: neutralIvory,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+      ),
       child: SafeArea(
         child: Column(
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              color: primaryColor,
+              padding: const EdgeInsets.fromLTRB(18, 42, 18, 22),
+              decoration: const BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.only(
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'FORESTRING',
-                    style: TextStyle(
+                  Text(
+                    '$displayName 선생님',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontFamily: 'ELAND',
-                      fontSize: 21,
+                      fontSize: 27,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    '$displayName님',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'ELAND',
-                      fontSize: 17,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    roleLabel,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontFamily: 'ELAND',
-                      fontSize: 13,
-                    ),
+                  Row(
+                    children: [
+                      const Text(
+                        '💚',
+                        style: TextStyle(fontSize: 19),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        roleLabel,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontFamily: 'ELAND',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
             ...items.map(
-              (item) => ListTile(
-                leading: Icon(
-                  item.icon,
-                  color: primaryColor,
-                ),
-                title: Text(
-                  item.label,
-                  style: forestringTextStyle.copyWith(
-                    fontSize: 16,
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ListTile(
+                  minTileHeight: 58,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  leading: Icon(
+                    item.icon,
+                    color: primaryColor,
+                    size: 27,
                   ),
+                  title: Text(
+                    item.label,
+                    style: forestringTextStyle.copyWith(
+                      color: Colors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: primaryColor,
+                    size: 28,
+                  ),
+                  onTap: item.onTap,
                 ),
-                onTap: item.onTap,
               ),
             ),
             const Spacer(),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(
-                Icons.logout,
-                color: Colors.redAccent,
-              ),
-              title: Text(
-                '로그아웃',
-                style: forestringTextStyle.copyWith(
-                  fontSize: 16,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+              child: ListTile(
+                minTileHeight: 58,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                leading: const Icon(
+                  Icons.logout,
+                  color: primaryColor,
+                  size: 27,
                 ),
+                title: Text(
+                  '로그 아웃',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.redAccent,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: primaryColor,
+                  size: 28,
+                ),
+                onTap: onLogout,
               ),
-              onTap: onLogout,
             ),
-            const SizedBox(height: 8),
           ],
         ),
       ),
