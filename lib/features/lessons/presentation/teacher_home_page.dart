@@ -1,0 +1,217 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:table_calendar/table_calendar.dart';
+
+import '../../../core/theme/forestring_theme.dart';
+import '../../../core/widgets/forestring_navigation.dart';
+import '../../auth/domain/current_profile.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../domain/lesson.dart';
+import 'lesson_controller.dart';
+import 'week_schedule_page.dart';
+import 'widgets/lesson_action_dialog.dart';
+import 'widgets/lesson_card.dart';
+
+class TeacherHomePage extends StatefulWidget {
+  const TeacherHomePage({
+    super.key,
+    required this.profile,
+  });
+
+  final CurrentProfile profile;
+
+  @override
+  State<TeacherHomePage> createState() => _TeacherHomePageState();
+}
+
+class _TeacherHomePageState extends State<TeacherHomePage> {
+  DateTime _selectedDate = DateTime.now();
+  DateTime _focusedDate = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<LessonController>();
+    final selectedLessons = controller.lessonsOn(_selectedDate);
+    final now = DateTime.now();
+
+    return Scaffold(
+      appBar: const ForestringAppBar(),
+      drawer: ForestringDrawer(
+        displayName: widget.profile.displayName,
+        roleLabel: '선생님',
+        items: [
+          ForestringDrawerItem(
+            icon: Icons.home_outlined,
+            label: '홈',
+            onTap: () => Navigator.of(context).pop(),
+          ),
+          ForestringDrawerItem(
+            icon: Icons.calendar_view_week_outlined,
+            label: '주간 시간표',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChangeNotifierProvider.value(
+                    value: context.read<LessonController>(),
+                    child: WeekSchedulePage(
+                      profile: widget.profile,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+        onLogout: () async {
+          Navigator.of(context).pop();
+          await context.read<AuthController>().signOut();
+        },
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            TableCalendar<Lesson>(
+              firstDay: DateTime(now.year, now.month - 2, 1),
+              lastDay: DateTime(now.year, now.month + 4, 0),
+              focusedDay: _focusedDate,
+              selectedDayPredicate: (day) =>
+                  isSameDay(_selectedDate, day),
+              eventLoader: controller.lessonsOn,
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDate = selectedDay;
+                  _focusedDate = focusedDay;
+                });
+              },
+              onPageChanged: (focusedDay) {
+                _focusedDate = focusedDay;
+              },
+              headerStyle: const HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
+                titleTextStyle: TextStyle(
+                  fontFamily: 'OpenSans',
+                  fontWeight: FontWeight.w500,
+                  fontSize: 20,
+                ),
+              ),
+              calendarStyle: const CalendarStyle(
+                todayDecoration: BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                selectedDecoration: BoxDecoration(
+                  color: secondaryColor,
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: BoxDecoration(
+                  color: Color(0xff2E8B57),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              calendarBuilders: CalendarBuilders(
+                dowBuilder: (context, day) {
+                  final text = DateFormat.E().format(day);
+                  return Center(
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        fontFamily: 'OpenSans',
+                        fontWeight: FontWeight.w500,
+                        color: day.weekday == DateTime.sunday
+                            ? Colors.red
+                            : day.weekday == DateTime.saturday
+                                ? Colors.blue
+                                : Colors.black,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: neutralIvory,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${DateFormat('M월 d일').format(_selectedDate)} · '
+                '${selectedLessons.where((e) => !e.isCanceled).length}개 수업',
+                style: forestringTextStyle.copyWith(
+                  color: primaryColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (controller.errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  controller.errorMessage!,
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: controller.reload,
+                child: controller.isLoading && controller.lessons.isEmpty
+                    ? const ListView(
+                        children: [
+                          SizedBox(height: 120),
+                          Center(child: CircularProgressIndicator()),
+                        ],
+                      )
+                    : selectedLessons.isEmpty
+                        ? ListView(
+                            padding: const EdgeInsets.all(24),
+                            children: [
+                              const SizedBox(height: 70),
+                              Text(
+                                '예약된 수업이 없습니다.',
+                                textAlign: TextAlign.center,
+                                style: forestringTextStyle.copyWith(
+                                  color: Colors.black54,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                            itemCount: selectedLessons.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final lesson = selectedLessons[index];
+                              return LessonCard(
+                                lesson: lesson,
+                                personName:
+                                    lesson.studentName ?? '학생',
+                                onTap: () => showLessonActionDialog(
+                                  context: context,
+                                  lesson: lesson,
+                                  controller:
+                                      context.read<LessonController>(),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
