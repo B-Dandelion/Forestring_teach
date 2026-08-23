@@ -1,0 +1,681 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../core/theme/forestring_theme.dart';
+import '../../../core/widgets/forestring_navigation.dart';
+import '../data/student_management_repository.dart';
+import '../data/student_regular_schedule_repository.dart';
+
+class StudentRegularSchedulePage extends StatefulWidget {
+  const StudentRegularSchedulePage({
+    super.key,
+    required this.student,
+  });
+
+  final ManagedStudent student;
+
+  @override
+  State<StudentRegularSchedulePage> createState() =>
+      _StudentRegularSchedulePageState();
+}
+
+class _StudentRegularSchedulePageState
+    extends State<StudentRegularSchedulePage> {
+  final _repository = StudentRegularScheduleRepository();
+
+  List<ManagedRegularSchedule> _schedules = const [];
+  bool _loading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final schedules = await _repository.fetchSchedules(widget.student.id);
+      if (!mounted) return;
+      setState(() => _schedules = schedules);
+    } on StudentRegularScheduleFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _schedules = const [];
+        _errorMessage = error.message;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _edit(ManagedRegularSchedule schedule) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _RegularScheduleEditPage(
+          student: widget.student,
+          schedule: schedule,
+          repository: _repository,
+        ),
+      ),
+    );
+
+    if (!mounted || changed != true) return;
+    await _load();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('정규 일정이 변경되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: neutralIvory,
+      appBar: ForestringAppBar(
+        title: '정규 일정 관리',
+        actions: [
+          IconButton(
+            tooltip: '새로고침',
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              _studentHeader(),
+              const SizedBox(height: 16),
+              if (_errorMessage != null) ...[
+                _messageBox(_errorMessage!, isError: true),
+                const SizedBox(height: 12),
+              ],
+              if (_loading && _schedules.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 70),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_schedules.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 50),
+                  child: Center(
+                    child: Text(
+                      '현재 관리할 정규 일정이 없습니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                )
+              else ...[
+                Text(
+                  '현재 정규 수업 ${_schedules.length}개',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...List.generate(
+                  _schedules.length,
+                  (index) => _scheduleCard(index, _schedules[index]),
+                ),
+              ],
+              const SizedBox(height: 12),
+              _messageBox(
+                '여기서는 기존 정규 수업의 요일, 시작 시간, 수업 길이를 변경합니다. '
+                '수업 한 번만 옮기는 기능과는 별개이며, 변경 적용일 이후의 기본 정규 일정에 반영됩니다.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _studentHeader() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.student.displayName,
+            style: forestringTextStyle.copyWith(
+              color: primaryColor,
+              fontSize: 21,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${widget.student.branchName} · '
+            '${widget.student.teacherName ?? '담당 선생님 미배정'}',
+            style: forestringTextStyle.copyWith(
+              color: Colors.black54,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scheduleCard(int index, ManagedRegularSchedule schedule) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: primaryColor.withValues(alpha: 0.16)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '정규 수업 ${index + 1}',
+                    style: forestringTextStyle.copyWith(
+                      color: primaryColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (schedule.hasFutureVersion)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: secondaryColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '변경 예정 있음',
+                      style: forestringTextStyle.copyWith(
+                        color: secondaryColor,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _row('요일', schedule.weekdayLabel),
+            _row('시간', schedule.timeLabel),
+            _row('수업 길이', '${schedule.durationMinutes}분'),
+            _row('담당 선생님', schedule.teacherName),
+            _row(
+              '현재 규칙 시작',
+              DateFormat('yyyy.MM.dd').format(schedule.effectiveFrom),
+            ),
+            if (schedule.nextVersionDate != null)
+              _row(
+                '다음 변경 예정',
+                DateFormat('yyyy.MM.dd').format(schedule.nextVersionDate!),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : () => _edit(schedule),
+              icon: const Icon(Icons.edit_calendar_outlined),
+              label: const Text('요일 · 시간 · 수업 길이 변경'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryColor,
+                side: const BorderSide(color: primaryColor),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: forestringTextStyle.copyWith(
+                color: Colors.black54,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _messageBox(String message, {bool isError = false}) {
+    final color = isError ? Colors.redAccent : primaryColor;
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        message,
+        style: forestringTextStyle.copyWith(
+          color: isError ? Colors.redAccent : Colors.black87,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _RegularScheduleEditPage extends StatefulWidget {
+  const _RegularScheduleEditPage({
+    required this.student,
+    required this.schedule,
+    required this.repository,
+  });
+
+  final ManagedStudent student;
+  final ManagedRegularSchedule schedule;
+  final StudentRegularScheduleRepository repository;
+
+  @override
+  State<_RegularScheduleEditPage> createState() =>
+      _RegularScheduleEditPageState();
+}
+
+class _RegularScheduleEditPageState extends State<_RegularScheduleEditPage> {
+  late int _weekday;
+  late int _durationMinutes;
+  int? _startMinutes;
+  late DateTime _effectiveOn;
+
+  RegularScheduleTeacher? _teacher;
+  List<TeacherWorkWindow> _workHours = const [];
+  bool _loadingContext = true;
+  bool _saving = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _effectiveOn = widget.schedule.slotStartsOn.isAfter(today)
+        ? widget.schedule.slotStartsOn
+        : today;
+    _weekday = widget.schedule.weekday;
+    _durationMinutes = widget.schedule.durationMinutes;
+    _startMinutes = widget.schedule.startMinutes;
+    _loadTeacherContext(keepCurrentTime: true);
+  }
+
+  Future<void> _loadTeacherContext({bool keepCurrentTime = false}) async {
+    setState(() {
+      _loadingContext = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final teacher = await widget.repository.fetchTeacherAtDate(
+        studentId: widget.student.id,
+        date: _effectiveOn,
+      );
+      final workHours = await widget.repository.fetchTeacherWorkHours(teacher.id);
+
+      if (!mounted) return;
+      setState(() {
+        _teacher = teacher;
+        _workHours = workHours;
+        _loadingContext = false;
+      });
+
+      _ensureValidStart(keepCurrent: keepCurrentTime);
+    } on StudentRegularScheduleFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _teacher = null;
+        _workHours = const [];
+        _loadingContext = false;
+        _errorMessage = error.message;
+      });
+    }
+  }
+
+  List<int> get _availableStartMinutes {
+    final result = <int>{};
+    for (final window in _workHours.where((item) => item.weekday == _weekday)) {
+      var minute = ((window.startMinutes + 14) ~/ 15) * 15;
+      while (minute + _durationMinutes <= window.endMinutes) {
+        result.add(minute);
+        minute += 15;
+      }
+    }
+    final list = result.toList()..sort();
+    return list;
+  }
+
+  void _ensureValidStart({bool keepCurrent = false}) {
+    if (!mounted) return;
+    final options = _availableStartMinutes;
+    final current = _startMinutes;
+    setState(() {
+      if (options.isEmpty) {
+        _startMinutes = null;
+      } else if (keepCurrent && current != null && options.contains(current)) {
+        _startMinutes = current;
+      } else if (current == null || !options.contains(current)) {
+        _startMinutes = options.first;
+      }
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final firstDate = widget.schedule.slotStartsOn.isAfter(today)
+        ? widget.schedule.slotStartsOn
+        : today;
+    final defaultLast = DateTime(today.year + 3, 12, 31);
+    final lastDate = widget.schedule.slotEndsOn != null &&
+            widget.schedule.slotEndsOn!.isBefore(defaultLast)
+        ? widget.schedule.slotEndsOn!
+        : defaultLast;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _effectiveOn,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: '정규 일정 변경 적용일',
+      cancelText: '취소',
+      confirmText: '선택',
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() => _effectiveOn = picked);
+    await _loadTeacherContext(keepCurrentTime: true);
+  }
+
+  Future<void> _save() async {
+    final teacher = _teacher;
+    final startMinutes = _startMinutes;
+    if (teacher == null || startMinutes == null) {
+      setState(() => _errorMessage = '선택한 조건으로 사용할 수 있는 정규 시간이 없습니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.repository.changeSchedule(
+        scheduleSlotId: widget.schedule.slotId,
+        teacherId: teacher.id,
+        weekday: _weekday,
+        startMinutes: startMinutes,
+        durationMinutes: _durationMinutes,
+        effectiveOn: _effectiveOn,
+      );
+
+      final changed = result['changed'] == true;
+      if (!mounted) return;
+      if (!changed) {
+        setState(() {
+          _saving = false;
+          _errorMessage = '현재 정규 일정과 동일합니다. 변경할 내용을 선택해주세요.';
+        });
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } on StudentRegularScheduleFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _errorMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeOptions = _availableStartMinutes;
+    final durationOptions = <int>{15, 30, 45, 60, 75, 90, widget.schedule.durationMinutes}
+        .toList()
+      ..sort();
+
+    return Scaffold(
+      backgroundColor: neutralIvory,
+      appBar: const ForestringAppBar(title: '정규 일정 변경'),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              widget.student.displayName,
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 21,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '현재 ${widget.schedule.weekdayLabel} '
+              '${widget.schedule.timeLabel} · ${widget.schedule.durationMinutes}분',
+              style: forestringTextStyle.copyWith(
+                color: Colors.black54,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 18),
+            InkWell(
+              onTap: _saving ? null : _pickDate,
+              borderRadius: BorderRadius.circular(8),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '변경 적용일',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_today_outlined),
+                ),
+                child: Text(DateFormat('yyyy.MM.dd').format(_effectiveOn)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            InputDecorator(
+              decoration: const InputDecoration(
+                labelText: '적용일 담당 선생님',
+                border: OutlineInputBorder(),
+              ),
+              child: _loadingContext
+                  ? const SizedBox(
+                      height: 20,
+                      child: LinearProgressIndicator(),
+                    )
+                  : Text(_teacher?.displayName ?? '확인 불가'),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<int>(
+              value: _weekday,
+              decoration: const InputDecoration(
+                labelText: '요일',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 1, child: Text('월요일')),
+                DropdownMenuItem(value: 2, child: Text('화요일')),
+                DropdownMenuItem(value: 3, child: Text('수요일')),
+                DropdownMenuItem(value: 4, child: Text('목요일')),
+                DropdownMenuItem(value: 5, child: Text('금요일')),
+                DropdownMenuItem(value: 6, child: Text('토요일')),
+                DropdownMenuItem(value: 7, child: Text('일요일')),
+              ],
+              onChanged: _saving || _loadingContext
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() => _weekday = value);
+                      _ensureValidStart();
+                    },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<int>(
+              value: durationOptions.contains(_durationMinutes)
+                  ? _durationMinutes
+                  : null,
+              decoration: const InputDecoration(
+                labelText: '수업 길이',
+                border: OutlineInputBorder(),
+              ),
+              items: durationOptions
+                  .map(
+                    (minutes) => DropdownMenuItem(
+                      value: minutes,
+                      child: Text('$minutes분'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving || _loadingContext
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() => _durationMinutes = value);
+                      _ensureValidStart(keepCurrent: true);
+                    },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<int>(
+              value: _startMinutes != null && timeOptions.contains(_startMinutes)
+                  ? _startMinutes
+                  : null,
+              decoration: const InputDecoration(
+                labelText: '시작 시간',
+                border: OutlineInputBorder(),
+              ),
+              items: timeOptions
+                  .map(
+                    (minutes) => DropdownMenuItem(
+                      value: minutes,
+                      child: Text(_formatMinutes(minutes)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving || _loadingContext || timeOptions.isEmpty
+                  ? null
+                  : (value) => setState(() => _startMinutes = value),
+            ),
+            if (!_loadingContext && timeOptions.isEmpty) ...[
+              const SizedBox(height: 8),
+              _editMessageBox(
+                '선택한 요일에는 담당 선생님의 근무시간이 없거나, '
+                '선택한 수업 길이를 배치할 수 없습니다.',
+                isError: true,
+              ),
+            ],
+            const SizedBox(height: 14),
+            _editMessageBox(
+              '적용일 이후 아직 개별 변경·취소되지 않은 정규 수업만 새 기본 일정에 맞춰 조정됩니다. '
+              '이미 취소했거나 한 번씩 따로 옮긴 수업은 그대로 보존됩니다.',
+            ),
+            if (widget.schedule.hasFutureVersion &&
+                widget.schedule.nextVersionDate != null) ...[
+              const SizedBox(height: 10),
+              _editMessageBox(
+                '${DateFormat('yyyy.MM.dd').format(widget.schedule.nextVersionDate!)}부터 '
+                '적용될 다른 정규 일정 변경이 이미 예정되어 있습니다. '
+                '적용일에 따라 서버에서 중복 변경을 막을 수 있습니다.',
+                isError: true,
+              ),
+            ],
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 10),
+              _editMessageBox(_errorMessage!, isError: true),
+            ],
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: _saving ||
+                      _loadingContext ||
+                      _teacher == null ||
+                      _startMinutes == null
+                  ? null
+                  : _save,
+              style: FilledButton.styleFrom(
+                backgroundColor: primaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(_saving ? '변경 중...' : '정규 일정 변경'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _editMessageBox(String message, {bool isError = false}) {
+    final color = isError ? Colors.redAccent : primaryColor;
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        message,
+        style: forestringTextStyle.copyWith(
+          color: isError ? Colors.redAccent : Colors.black87,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+
+  String _formatMinutes(int minutes) {
+    final hour = (minutes ~/ 60).toString().padLeft(2, '0');
+    final minute = (minutes % 60).toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+}
