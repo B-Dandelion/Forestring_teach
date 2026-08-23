@@ -103,13 +103,13 @@ class StudentManagementRepository {
               .order('name'),
       ]);
 
-      final studentRows = (results[0] as List)
+      final studentRows = results[0]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
-      final assignmentRows = (results[1] as List)
+      final assignmentRows = results[1]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
-      final branchRows = (results[2] as List)
+      final branchRows = results[2]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
 
@@ -197,6 +197,42 @@ class StudentManagementRepository {
       throw StudentManagementFailure(
         '수강생 목록을 불러오지 못했습니다.\n$error',
       );
+    }
+  }
+
+  Future<void> resetStudentPin({
+    required String studentId,
+    required String pin,
+  }) async {
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      throw const StudentManagementFailure(
+        'PIN은 4자리 숫자로 입력해주세요.',
+      );
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'staff-reset-account-pin',
+        body: {
+          'profileId': studentId,
+          'pin': pin,
+        },
+      );
+
+      final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw StudentManagementFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : 'PIN을 변경하지 못했습니다.',
+        );
+      }
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw StudentManagementFailure(details['message'].toString());
+      }
+      throw const StudentManagementFailure('PIN을 변경하지 못했습니다.');
     }
   }
 }
