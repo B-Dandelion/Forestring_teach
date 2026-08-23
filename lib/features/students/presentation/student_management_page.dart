@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/forestring_theme.dart';
@@ -437,7 +438,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -468,9 +469,22 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                     '퇴원일',
                     DateFormat('yyyy.MM.dd').format(student.withdrawalDate!),
                   ),
-                const SizedBox(height: 12),
+                if (student.isActive) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () => _showPinResetDialog(student),
+                    icon: const Icon(Icons.lock_reset_outlined),
+                    label: const Text('PIN 재설정'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      side: const BorderSide(color: primaryColor),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
                 FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => Navigator.of(sheetContext).pop(),
                   style: FilledButton.styleFrom(backgroundColor: primaryColor),
                   child: const Text('확인'),
                 ),
@@ -480,6 +494,142 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
         );
       },
     );
+  }
+
+  Future<void> _showPinResetDialog(ManagedStudent student) async {
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+    var saving = false;
+    String? validationMessage;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('PIN 재설정'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${student.displayName} 학생의 로그인 PIN을 변경합니다.',
+                      style: forestringTextStyle.copyWith(fontSize: 14),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: pinController,
+                      enabled: !saving,
+                      autofocus: true,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        labelText: '새 PIN (4자리)',
+                        counterText: '',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: confirmController,
+                      enabled: !saving,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        labelText: '새 PIN 확인',
+                        counterText: '',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (validationMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        validationMessage!,
+                        style: forestringTextStyle.copyWith(
+                          color: Colors.redAccent,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('취소'),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final pin = pinController.text.trim();
+                          final confirmPin = confirmController.text.trim();
+
+                          if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+                            setDialogState(() {
+                              validationMessage = 'PIN은 4자리 숫자로 입력해주세요.';
+                            });
+                            return;
+                          }
+                          if (pin != confirmPin) {
+                            setDialogState(() {
+                              validationMessage = 'PIN 확인 값이 일치하지 않습니다.';
+                            });
+                            return;
+                          }
+
+                          setDialogState(() {
+                            saving = true;
+                            validationMessage = null;
+                          });
+
+                          try {
+                            await _repository.resetStudentPin(
+                              studentId: student.id,
+                              pin: pin,
+                            );
+
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop();
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('PIN이 변경되었습니다.'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          } on StudentManagementFailure catch (error) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() {
+                              saving = false;
+                              validationMessage = error.message;
+                            });
+                          }
+                        },
+                  style: FilledButton.styleFrom(backgroundColor: primaryColor),
+                  child: Text(saving ? '변경 중...' : '변경'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    pinController.dispose();
+    confirmController.dispose();
   }
 
   Widget _detailRow(String label, String value) {
