@@ -35,7 +35,7 @@ class AppGate extends StatelessWidget {
     }
 
     return switch (profile.role) {
-      AppRole.master => _LessonEntry(
+      AppRole.master || AppRole.manager => _LessonEntry(
           profile: profile,
           child: MasterSchedulePage(
             profile: profile,
@@ -46,11 +46,6 @@ class AppGate extends StatelessWidget {
           child: TeacherHomePage(
             profile: profile,
           ),
-        ),
-      AppRole.manager => _UnavailableRolePage(
-          profile: profile,
-          title: '지점 관리자',
-          message: '지점 관리자 화면은 다음 업데이트에서 제공됩니다.',
         ),
       AppRole.student => _UnavailableRolePage(
           profile: profile,
