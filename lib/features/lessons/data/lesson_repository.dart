@@ -22,12 +22,14 @@ class LessonRepository {
     DateTime? from,
     DateTime? to,
     String? teacherId,
+    String? studentId,
   }) async {
     try {
       dynamic query = _client.from('lessons').select(
             'id, student_id, teacher_id, occurrence_at, starts_at, '
             'duration_minutes, ends_at, lesson_type, status, branch_id, '
-            'lesson_right_id, rescheduled_by',
+            'lesson_right_id, rescheduled_by, canceled_at, '
+            'cancellation_reason',
           );
 
       if (from != null) {
@@ -46,6 +48,10 @@ class LessonRepository {
 
       if (teacherId != null && teacherId.isNotEmpty) {
         query = query.eq('teacher_id', teacherId);
+      }
+
+      if (studentId != null && studentId.isNotEmpty) {
+        query = query.eq('student_id', studentId);
       }
 
       final rows = await query.order('starts_at');
