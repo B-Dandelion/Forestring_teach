@@ -175,6 +175,39 @@ class TeacherLessonStats {
   }
 }
 
+class StaffDepartureState {
+  const StaffDepartureState({
+    required this.staffId,
+    required this.withdrawalDate,
+    required this.assignmentCount,
+    required this.seriesCount,
+    required this.scheduledLessonCount,
+    required this.canFinalize,
+  });
+
+  final String staffId;
+  final DateTime withdrawalDate;
+  final int assignmentCount;
+  final int seriesCount;
+  final int scheduledLessonCount;
+  final bool canFinalize;
+
+  int get totalBlockerCount =>
+      assignmentCount + seriesCount + scheduledLessonCount;
+
+  factory StaffDepartureState.fromJson(Map<String, dynamic> json) {
+    return StaffDepartureState(
+      staffId: json['staffId'] as String,
+      withdrawalDate: DateTime.parse(json['withdrawalDate'].toString()),
+      assignmentCount: (json['assignmentCount'] as num).toInt(),
+      seriesCount: (json['seriesCount'] as num).toInt(),
+      scheduledLessonCount:
+          (json['scheduledLessonCount'] as num).toInt(),
+      canFinalize: json['canFinalize'] == true,
+    );
+  }
+}
+
 class ManagedTeacher {
   const ManagedTeacher({
     required this.id,
@@ -935,6 +968,126 @@ class TeacherRepository {
     }
   }
 
+  Future<StaffDepartureState> fetchStaffDepartureState(
+    String staffId,
+  ) async {
+    try {
+      final data = await _client.rpc(
+        'get_staff_departure_blockers',
+        params: {
+          'p_staff_id': staffId,
+        },
+      );
+
+      if (data is! Map) {
+        throw const TeacherFailure(
+          '퇴사 관리 정보를 확인하지 못했습니다.',
+        );
+      }
+
+      return StaffDepartureState.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on TeacherFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _staffDepartureFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure(
+        '퇴사 관리 정보를 불러오지 못했습니다.\n$error',
+      );
+    }
+  }
+
+  Future<StaffDepartureState> scheduleStaffDeparture({
+    required String staffId,
+    required DateTime withdrawalDate,
+  }) async {
+    try {
+      final data = await _client.rpc(
+        'schedule_staff_departure',
+        params: {
+          'p_staff_id': staffId,
+          'p_withdrawal_date': _dateOnlyText(withdrawalDate),
+        },
+      );
+
+      if (data is! Map) {
+        throw const TeacherFailure(
+          '퇴사 예약 결과를 확인하지 못했습니다.',
+        );
+      }
+
+      return StaffDepartureState.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on TeacherFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _staffDepartureFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure('퇴사를 예약하지 못했습니다.\n$error');
+    }
+  }
+
+  Future<bool> cancelStaffDeparture(String staffId) async {
+    try {
+      final data = await _client.rpc(
+        'cancel_staff_departure',
+        params: {
+          'p_staff_id': staffId,
+        },
+      );
+
+      if (data is! Map) {
+        throw const TeacherFailure(
+          '퇴사 예약 취소 결과를 확인하지 못했습니다.',
+        );
+      }
+
+      return data['changed'] == true;
+    } on TeacherFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _staffDepartureFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure('퇴사 예약을 취소하지 못했습니다.\n$error');
+    }
+  }
+
+  Future<bool> finalizeStaffDeparture(String staffId) async {
+    try {
+      final data = await _client.rpc(
+        'finalize_staff_departure',
+        params: {
+          'p_staff_id': staffId,
+        },
+      );
+
+      if (data is! Map) {
+        throw const TeacherFailure(
+          '퇴사 확정 결과를 확인하지 못했습니다.',
+        );
+      }
+
+      return data['changed'] == true;
+    } on TeacherFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _staffDepartureFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure('퇴사를 확정하지 못했습니다.\n$error');
+    }
+  }
+
   String? _nullIfBlank(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -1038,6 +1191,50 @@ String _lessonStatsFailureMessage(String message) {
   }
 
   return '수업 통계를 불러오지 못했습니다.';
+}
+
+String _staffDepartureFailureMessage(String message) {
+  if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+    return '로그인이 필요합니다.';
+  }
+  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+    return '현재 계정은 더 이상 사용할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_FORBIDDEN') ||
+      message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    return '이 선생님의 퇴사를 관리할 권한이 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_NOT_FOUND') ||
+      message.contains('FORESTRING_TARGET_NOT_STAFF')) {
+    return '선생님 정보를 찾을 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_ACTIVE_STAFF_REQUIRED')) {
+    return '재직 중인 선생님만 퇴사를 예약할 수 있습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_DATE_IN_PAST')) {
+    return '오늘보다 이전 날짜로는 퇴사를 예약할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_ALREADY_EFFECTIVE')) {
+    return '이미 퇴사 예정일이 되어 예약을 변경하거나 취소할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_SCHEDULED')) {
+    return '예약된 퇴사가 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_EFFECTIVE_YET')) {
+    return '퇴사 예정일 전에는 퇴사를 확정할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_BLOCKED')) {
+    return '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 퇴사를 확정할 수 없습니다.';
+  }
+
+  return '퇴사 관리 작업을 처리하지 못했습니다.';
+}
+
+String _dateOnlyText(DateTime date) {
+  final year = date.year.toString().padLeft(4, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
 }
 
 extension on String {

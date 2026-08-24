@@ -11,6 +11,7 @@ import '../data/teacher_repository.dart';
 import 'teacher_assigned_students_page.dart';
 import 'teacher_blocked_periods_page.dart';
 import 'teacher_create_page.dart';
+import 'teacher_departure_page.dart';
 import 'teacher_lesson_stats_page.dart';
 import 'teacher_work_hours_edit_page.dart';
 
@@ -537,6 +538,23 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 14),
+                _detailActionSection(
+                  title: '재직 관리',
+                  actions: [
+                    _detailActionButton(
+                      icon: teacher.isActive
+                          ? Icons.person_off_outlined
+                          : Icons.badge_outlined,
+                      label: teacher.isActive ? '퇴사 관리' : '퇴사 정보',
+                      color: Colors.red.shade700,
+                      onPressed: () => _openDetailAction(
+                        sheetContext,
+                        () => _showDeparture(teacher),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 18),
                 FilledButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
@@ -721,6 +739,17 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
         builder: (_) => TeacherLessonStatsPage(teacher: teacher),
       ),
     );
+  }
+
+  Future<void> _showDeparture(ManagedTeacher teacher) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TeacherDeparturePage(teacher: teacher),
+      ),
+    );
+
+    if (!mounted) return;
+    await _loadTeachers();
   }
 
   Widget _detailRow(String label, String value) {
