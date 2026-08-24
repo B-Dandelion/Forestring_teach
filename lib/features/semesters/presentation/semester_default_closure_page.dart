@@ -244,7 +244,10 @@ class _SemesterDefaultClosurePageState
       appBar: ForestringAppBar(
         title: '기본 휴원 설정',
         actions: [
-          IconButton(onPressed: _saving ? null : _load, icon: const Icon(Icons.refresh)),
+          IconButton(
+            onPressed: _saving ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ),
       body: SafeArea(
@@ -274,7 +277,11 @@ class _SemesterDefaultClosurePageState
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _saving ? null : () => _edit(BranchClosureKind.instructionalBreak),
+                    onPressed: _saving
+                        ? null
+                        : () => _edit(
+                              BranchClosureKind.instructionalBreak,
+                            ),
                     icon: const Icon(Icons.calendar_view_week_outlined),
                     label: const Text('휴원 주간 추가'),
                   ),
@@ -282,7 +289,9 @@ class _SemesterDefaultClosurePageState
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _saving ? null : () => _edit(BranchClosureKind.ordinary),
+                    onPressed: _saving
+                        ? null
+                        : () => _edit(BranchClosureKind.ordinary),
                     icon: const Icon(Icons.event_busy_outlined),
                     label: const Text('휴원일 추가'),
                   ),
@@ -296,7 +305,10 @@ class _SemesterDefaultClosurePageState
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_error != null)
-              Text(_error!, style: forestringTextStyle.copyWith(color: Colors.redAccent))
+              Text(
+                _error!,
+                style: forestringTextStyle.copyWith(color: Colors.redAccent),
+              )
             else if (_closures.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 45),
@@ -315,19 +327,32 @@ class _SemesterDefaultClosurePageState
   }
 
   Widget _card(DefaultClosure closure) {
+    final isBreak = closure.kind == BranchClosureKind.instructionalBreak;
+    final range = closure.startsOn == closure.endsOn
+        ? _date(closure.startsOn)
+        : '${_date(closure.startsOn)} ~ ${_date(closure.endsOn)}';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 9),
       elevation: 0,
       color: Colors.white,
       child: ListTile(
         onTap: () => _edit(closure.kind, closure),
+        leading: Icon(
+          isBreak
+              ? Icons.calendar_view_week_outlined
+              : Icons.event_busy_outlined,
+          color: primaryColor,
+        ),
         title: Text(
-          '${closure.kind.label} · '
-          '${closure.startsOn == closure.endsOn ? _date(closure.startsOn) : '${_date(closure.startsOn)} ~ ${_date(closure.endsOn)}'}',
+          range,
           style: forestringTextStyle.copyWith(fontWeight: FontWeight.w500),
         ),
         subtitle: closure.reason?.trim().isNotEmpty == true
-            ? Text(closure.reason!.trim(), style: forestringTextStyle.copyWith(fontSize: 12))
+            ? Text(
+                closure.reason!.trim(),
+                style: forestringTextStyle.copyWith(fontSize: 12),
+              )
             : null,
         trailing: IconButton(
           tooltip: '삭제',
@@ -339,7 +364,8 @@ class _SemesterDefaultClosurePageState
   }
 }
 
-DateTime _onlyDate(DateTime value) => DateTime(value.year, value.month, value.day);
+DateTime _onlyDate(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
 
 DateTime _initialDate(ManagedSemester semester, BranchClosureKind kind) {
   final now = _onlyDate(DateTime.now());
