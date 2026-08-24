@@ -8,6 +8,7 @@ import '../../branches/domain/academy_branch.dart';
 import '../../semesters/domain/managed_semester.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson.dart';
+import 'widgets/student_search_picker.dart';
 
 class MakeupLessonCreatePage extends StatefulWidget {
   const MakeupLessonCreatePage({
@@ -46,6 +47,10 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
   int _durationMinutes = 30;
   String _reason = '';
+  bool _deductLessonRight = false;
+  int? _availableRightCount;
+  bool _loadingRightCount = false;
+  int _rightLoadToken = 0;
   bool _saving = false;
 
   @override
@@ -77,6 +82,10 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     if (teachers.length == 1) {
       _teacherId = teachers.first.id;
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refreshAvailableRightCount();
+    });
   }
 
   DateTime get _scopeStart {
@@ -140,11 +149,60 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       _date = _clampToSemester(_date);
       _studentId = null;
       _teacherId = null;
+      _deductLessonRight = false;
+      _availableRightCount = null;
       final teachers = _availableTeachers;
       if (teachers.length == 1) {
         _teacherId = teachers.first.id;
       }
     });
+  }
+
+  void _selectStudent(String? value) {
+    setState(() {
+      _studentId = value;
+      _deductLessonRight = false;
+      _availableRightCount = null;
+    });
+    _refreshAvailableRightCount();
+  }
+
+  Future<void> _refreshAvailableRightCount() async {
+    final studentId = _studentId;
+    final token = ++_rightLoadToken;
+
+    if (studentId == null) {
+      if (mounted) {
+        setState(() {
+          _availableRightCount = null;
+          _loadingRightCount = false;
+          _deductLessonRight = false;
+        });
+      }
+      return;
+    }
+
+    setState(() => _loadingRightCount = true);
+    try {
+      final count = await _repository.fetchAvailableLessonRightCount(
+        studentId: studentId,
+        semesterId: widget.semester.id,
+        durationMinutes: _durationMinutes,
+      );
+      if (!mounted || token != _rightLoadToken) return;
+      setState(() {
+        _availableRightCount = count;
+        _loadingRightCount = false;
+        if (count == 0) _deductLessonRight = false;
+      });
+    } on LessonFailure {
+      if (!mounted || token != _rightLoadToken) return;
+      setState(() {
+        _availableRightCount = null;
+        _loadingRightCount = false;
+        _deductLessonRight = false;
+      });
+    }
   }
 
   Future<void> _pickDate() async {
@@ -204,6 +262,10 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       _message('선택한 학기 기간 안의 날짜를 선택해주세요.');
       return;
     }
+    if (_deductLessonRight && (_availableRightCount ?? 0) <= 0) {
+      _message('차감할 수 있는 $_durationMinutes분 수업권이 없습니다.');
+      return;
+    }
 
     final startsAt = DateTime(
       _date.year,
@@ -224,6 +286,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
         teacherId: teacherId,
         startsAt: startsAt,
         durationMinutes: _durationMinutes,
+        deductLessonRight: _deductLessonRight,
         reason: _reason,
       );
 
@@ -238,6 +301,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
           startsAt: startsAt,
           durationMinutes: _durationMinutes,
           confirmWarnings: true,
+          deductLessonRight: _deductLessonRight,
           reason: _reason,
         );
       }
@@ -292,11 +356,23 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     );
   }
 
+  String get _rightStatusText {
+    if (_studentId == null) return '학생을 선택하면 사용 가능한 수업권을 확인합니다.';
+    if (_loadingRightCount) return '사용 가능한 수업권을 확인하는 중입니다.';
+    final count = _availableRightCount;
+    if (count == null) return '수업권 정보를 확인하지 못했습니다.';
+    return '$_durationMinutes분 사용 가능 수업권 $count회';
+  }
+
   @override
   Widget build(BuildContext context) {
     final students = _availableStudents;
     final teachers = _availableTeachers;
     final branch = _selectedBranch;
+    final canDeduct = !_saving &&
+        !_loadingRightCount &&
+        _studentId != null &&
+        (_availableRightCount ?? 0) > 0;
 
     return Scaffold(
       backgroundColor: neutralIvory,
@@ -328,7 +404,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '독립 보강 수업을 직접 등록합니다. 휴원, 개인 일정, 기존 수업 충돌은 자동으로 확인됩니다.',
+                  '휴원, 개인 일정, 기존 수업 충돌은 자동으로 확인됩니다.',
                   style: forestringTextStyle.copyWith(
                     color: Colors.black54,
                     fontSize: 13,
@@ -342,7 +418,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                     decoration: _decoration('지점'),
                     items: widget.branches
                         .map(
-                          (item) => DropdownMenuItem(
+                          (item) => DropdownMenuItem<String>(
                             value: item.id,
                             child: Text(item.name),
                           ),
@@ -357,22 +433,11 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                     icon: Icons.storefront_outlined,
                   ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: students.any((item) => item.id == _studentId)
-                      ? _studentId
-                      : null,
-                  decoration: _decoration('학생'),
-                  items: students
-                      .map(
-                        (student) => DropdownMenuItem(
-                          value: student.id,
-                          child: Text(student.displayName),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _saving
-                      ? null
-                      : (value) => setState(() => _studentId = value),
+                StudentSearchPickerField(
+                  students: students,
+                  selectedStudentId: _studentId,
+                  enabled: !_saving && students.isNotEmpty,
+                  onChanged: _selectStudent,
                 ),
                 if (students.isEmpty) ...[
                   const SizedBox(height: 5),
@@ -392,7 +457,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                   decoration: _decoration('수업 담당자'),
                   items: teachers
                       .map(
-                        (teacher) => DropdownMenuItem(
+                        (teacher) => DropdownMenuItem<String>(
                           value: teacher.id,
                           child: Text(teacher.displayName),
                         ),
@@ -453,7 +518,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                   decoration: _decoration('수업 길이'),
                   items: const [15, 30, 45, 60, 75, 90]
                       .map(
-                        (minutes) => DropdownMenuItem(
+                        (minutes) => DropdownMenuItem<int>(
                           value: minutes,
                           child: Text('$minutes분'),
                         ),
@@ -462,12 +527,64 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                   onChanged: _saving
                       ? null
                       : (value) {
-                          if (value != null) {
-                            setState(() => _durationMinutes = value);
-                          }
+                          if (value == null) return;
+                          setState(() {
+                            _durationMinutes = value;
+                            _deductLessonRight = false;
+                          });
+                          _refreshAvailableRightCount();
                         },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
+                Text(
+                  '수업권',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: primaryColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: SwitchListTile.adaptive(
+                    value: _deductLessonRight,
+                    onChanged: canDeduct
+                        ? (value) =>
+                            setState(() => _deductLessonRight = value)
+                        : null,
+                    activeColor: primaryColor,
+                    title: Text(
+                      '학생 수업권 1회 차감',
+                      style: forestringTextStyle.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _rightStatusText,
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  '끄면 수업권과 무관한 독립 보강으로 등록됩니다. 켜면 같은 길이의 사용 가능한 수업권 1회를 차감합니다.',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.black45,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   enabled: !_saving,
                   maxLength: 100,
@@ -513,10 +630,14 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       labelText: label,
       filled: true,
       fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.22)),
+        borderSide: BorderSide(
+          color: primaryColor.withValues(alpha: 0.18),
+        ),
       ),
     );
   }
@@ -535,34 +656,19 @@ class _FixedField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.22)),
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        prefixIcon: Icon(icon),
       ),
-      child: Row(
-        children: [
-          Icon(icon, color: primaryColor, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: forestringTextStyle.copyWith(
-                    color: Colors.black45,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(value, style: forestringTextStyle),
-              ],
-            ),
-          ),
-        ],
+      child: Text(
+        value,
+        style: forestringTextStyle.copyWith(fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -571,7 +677,7 @@ class _FixedField extends StatelessWidget {
 String _semesterLabel(String code) {
   final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
   if (match == null) return code;
-  return '${match.group(1)}년 ${int.parse(match.group(2)!)}월 학기';
+  return '${match.group(1)}년 ${int.parse(match.group(2)!)}월';
 }
 
 DateTime _dateOnly(DateTime value) =>
