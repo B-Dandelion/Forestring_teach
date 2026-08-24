@@ -34,7 +34,7 @@ Future<void> showLessonActionDialog({
 
           return AlertDialog(
             title: Text(
-              lesson.isCanceled ? '취소된 수업' : '수업 수정',
+              lesson.isCanceled ? '취소된 수업' : '일정 변경',
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 20,
@@ -219,7 +219,7 @@ Future<void> showLessonActionDialog({
                             if (hostContext.mounted) {
                               _showMessage(
                                 hostContext,
-                                controller.errorMessage ?? '수업을 수정하지 못했습니다.',
+                                controller.errorMessage ?? '일정을 변경하지 못했습니다.',
                               );
                             }
                             return;
@@ -255,7 +255,7 @@ Future<void> showLessonActionDialog({
                             if (hostContext.mounted) {
                               _showMessage(
                                 hostContext,
-                                controller.errorMessage ?? '수업을 수정하지 못했습니다.',
+                                controller.errorMessage ?? '일정을 변경하지 못했습니다.',
                               );
                             }
                             return;
@@ -266,13 +266,13 @@ Future<void> showLessonActionDialog({
                             _showMessage(
                               hostContext,
                               result.changed
-                                  ? '수업이 수정되었습니다.'
+                                  ? '일정이 변경되었습니다.'
                                   : '변경된 내용이 없습니다.',
                             );
                           }
                         },
                   child: Text(
-                    isSaving ? '저장 중...' : '저장',
+                    isSaving ? '변경 중...' : '일정 변경',
                     style: const TextStyle(color: primaryColor),
                   ),
                 ),
