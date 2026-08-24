@@ -144,13 +144,15 @@ class BranchRepository {
     required String branchId,
   }) async {
     try {
+      final today = _dateText(DateTime.now());
       final rows = await _client
           .from('closure_periods')
           .select(
             'id, branch_id, semester_id, starts_on, ends_on, reason, closure_kind',
           )
           .eq('branch_id', branchId)
-          .order('starts_on', ascending: false);
+          .gte('ends_on', today)
+          .order('starts_on', ascending: true);
 
       return rows.map(BranchClosure.fromJson).toList();
     } on PostgrestException catch (error) {
