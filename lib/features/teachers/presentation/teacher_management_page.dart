@@ -9,6 +9,7 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/teacher_repository.dart';
 import 'teacher_create_page.dart';
+import 'teacher_work_hours_edit_page.dart';
 
 class TeacherManagementPage extends StatefulWidget {
   const TeacherManagementPage({
@@ -501,6 +502,24 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 220),
+                      );
+                      if (!mounted) return;
+                      await _showWorkHoursEdit(teacher);
+                    },
+                    icon: const Icon(Icons.schedule_outlined),
+                    label: const Text('근무시간 변경'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      side: const BorderSide(color: primaryColor),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                 ],
                 FilledButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
@@ -556,6 +575,35 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('PIN이 변경되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _showWorkHoursEdit(ManagedTeacher teacher) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TeacherWorkHoursEditPage(teacher: teacher),
+      ),
+    );
+
+    if (!mounted || changed == null) return;
+
+    if (changed) {
+      await _loadTeachers();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('근무시간이 변경되었습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('변경된 근무시간이 없습니다.'),
         behavior: SnackBarBehavior.floating,
       ),
     );

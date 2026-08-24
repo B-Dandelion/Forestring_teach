@@ -15,6 +15,16 @@ class TeacherWorkHourDraft {
   final TimeOfDay startTime;
   final TimeOfDay endTime;
 
+  factory TeacherWorkHourDraft.fromManaged(
+    ManagedTeacherWorkHour workHour,
+  ) {
+    return TeacherWorkHourDraft(
+      weekday: workHour.weekday,
+      startTime: parseTeacherWorkTime(workHour.startTime),
+      endTime: parseTeacherWorkTime(workHour.endTime),
+    );
+  }
+
   TeacherWorkHourDraft copyWith({
     int? weekday,
     TimeOfDay? startTime,
@@ -42,17 +52,35 @@ class TeacherWorkHoursEditor extends StatelessWidget {
     required this.values,
     required this.onChanged,
     this.enabled = true,
+    this.allowEmpty = false,
   });
 
   final List<TeacherWorkHourDraft> values;
   final ValueChanged<List<TeacherWorkHourDraft>> onChanged;
   final bool enabled;
+  final bool allowEmpty;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (values.isEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: primaryColor.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Text(
+              '등록된 근무시간이 없습니다.',
+              style: forestringTextStyle.copyWith(color: Colors.black54),
+            ),
+          ),
         ...List.generate(
           values.length,
           (index) => _workHourCard(context, index),
@@ -113,7 +141,7 @@ class TeacherWorkHoursEditor extends StatelessWidget {
                           },
                   ),
                 ),
-                if (values.length > 1) ...[
+                if (allowEmpty || values.length > 1) ...[
                   const SizedBox(width: 4),
                   IconButton(
                     tooltip: '삭제',
@@ -317,8 +345,11 @@ Future<TimeOfDay?> showTeacherWorkTimePicker({
   );
 }
 
-String? validateTeacherWorkHours(List<TeacherWorkHourDraft> values) {
-  if (values.isEmpty) {
+String? validateTeacherWorkHours(
+  List<TeacherWorkHourDraft> values, {
+  bool allowEmpty = false,
+}) {
+  if (values.isEmpty && !allowEmpty) {
     return '근무시간을 한 개 이상 등록해주세요.';
   }
 
@@ -351,6 +382,26 @@ String? validateTeacherWorkHours(List<TeacherWorkHourDraft> values) {
 String formatTeacherWorkTime(TimeOfDay value) {
   return '${value.hour.toString().padLeft(2, '0')}:'
       '${value.minute.toString().padLeft(2, '0')}';
+}
+
+TimeOfDay parseTeacherWorkTime(String value) {
+  final parts = value.split(':');
+  if (parts.length < 2) {
+    return const TimeOfDay(hour: 9, minute: 0);
+  }
+
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null ||
+      minute == null ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59) {
+    return const TimeOfDay(hour: 9, minute: 0);
+  }
+
+  return TimeOfDay(hour: hour, minute: minute);
 }
 
 String teacherWeekdayLabel(int weekday) {
