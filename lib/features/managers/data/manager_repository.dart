@@ -27,6 +27,18 @@ class ManagerWorkHourInput {
       };
 }
 
+class ManagedManagerWorkHour {
+  const ManagedManagerWorkHour({
+    required this.weekday,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final int weekday;
+  final String startTime;
+  final String endTime;
+}
+
 class CreatedManager {
   const CreatedManager({
     required this.id,
@@ -46,6 +58,8 @@ class ManagedManager {
     required this.branchId,
     required this.branchName,
     required this.isActive,
+    required this.workHours,
+    required this.assignedStudentCount,
     this.withdrawalDate,
   });
 
@@ -54,9 +68,15 @@ class ManagedManager {
   final String branchId;
   final String branchName;
   final bool isActive;
+  final List<ManagedManagerWorkHour> workHours;
+  final int assignedStudentCount;
   final DateTime? withdrawalDate;
 
   bool get hasScheduledWithdrawal => isActive && withdrawalDate != null;
+
+  /// In the current schema, work hours are the opt-in signal that a manager
+  /// also participates in teaching/scheduling.
+  bool get teachesLessons => workHours.isNotEmpty;
 
   String get statusLabel {
     if (!isActive) return '퇴사';
@@ -106,18 +126,20 @@ class ManagerRepository {
 
   Future<List<ManagedManager>> fetchManagers() async {
     try {
-      final profiles = await _client
+      final profileRows = await _client
           .from('profiles')
           .select('id, display_name, branch_id, is_active')
           .eq('role', 'manager')
           .eq('is_review_account', false)
           .order('display_name');
 
+      final profiles = (profileRows as List)
+          .map((raw) => Map<String, dynamic>.from(raw as Map))
+          .toList();
+
       if (profiles.isEmpty) return const [];
 
-      final managerIds = profiles
-          .map((row) => row['id'] as String)
-          .toList();
+      final managerIds = profiles.map((row) => row['id'] as String).toList();
       final branchIds = profiles
           .map((row) => row['branch_id'] as String?)
           .whereType<String>()
@@ -129,12 +151,21 @@ class ManagerRepository {
             .from('teachers')
             .select('id, withdrawal_date')
             .inFilter('id', managerIds),
-        branchIds.isEmpty
-            ? Future.value(<dynamic>[])
-            : _client
-                .from('branches')
-                .select('id, name')
-                .inFilter('id', branchIds),
+        _client
+            .from('teacher_work_hours')
+            .select('teacher_id, weekday, start_time, end_time')
+            .inFilter('teacher_id', managerIds),
+        _client
+            .from('teacher_student_assignments')
+            .select('teacher_id, student_id, starts_on, ends_on')
+            .inFilter('teacher_id', managerIds),
+        if (branchIds.isEmpty)
+          Future.value(<dynamic>[])
+        else
+          _client
+              .from('branches')
+              .select('id, name')
+              .inFilter('id', branchIds),
       ]);
 
       final withdrawalByManager = <String, DateTime?>{
@@ -144,13 +175,56 @@ class ManagerRepository {
               : DateTime.parse(raw['withdrawal_date'].toString()),
       };
       final branchNames = <String, String>{
-        for (final raw in results[1])
+        for (final raw in results[3])
           raw['id'] as String: raw['name'].toString(),
       };
+      final workHoursByManager = <String, List<ManagedManagerWorkHour>>{};
+
+      for (final raw in results[1]) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final managerId = row['teacher_id'] as String;
+        workHoursByManager.putIfAbsent(managerId, () => []).add(
+              ManagedManagerWorkHour(
+                weekday: (row['weekday'] as num).toInt(),
+                startTime: _shortTime(row['start_time']),
+                endTime: _shortTime(row['end_time']),
+              ),
+            );
+      }
+
+      for (final workHours in workHoursByManager.values) {
+        workHours.sort((a, b) {
+          final weekdayCompare = a.weekday.compareTo(b.weekday);
+          return weekdayCompare != 0
+              ? weekdayCompare
+              : a.startTime.compareTo(b.startTime);
+        });
+      }
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final activeStudentsByManager = <String, Set<String>>{};
+
+      for (final raw in results[2]) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final startsOn = DateTime.parse(row['starts_on'].toString());
+        final endsOn = row['ends_on'] == null
+            ? null
+            : DateTime.parse(row['ends_on'].toString());
+        final isCurrent = !startsOn.isAfter(today) &&
+            (endsOn == null || !endsOn.isBefore(today));
+        if (!isCurrent) continue;
+
+        final managerId = row['teacher_id'] as String;
+        activeStudentsByManager
+            .putIfAbsent(managerId, () => <String>{})
+            .add(row['student_id'] as String);
+      }
 
       return profiles.map((row) {
         final id = row['id'] as String;
         final branchId = row['branch_id'] as String?;
+
         return ManagedManager(
           id: id,
           displayName: row['display_name'].toString(),
@@ -159,12 +233,16 @@ class ManagerRepository {
               ? '지점 미지정'
               : (branchNames[branchId] ?? '지점 확인 필요'),
           isActive: row['is_active'] == true,
+          workHours: List.unmodifiable(workHoursByManager[id] ?? const []),
+          assignedStudentCount: activeStudentsByManager[id]?.length ?? 0,
           withdrawalDate: withdrawalByManager[id],
         );
       }).toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName));
     } on PostgrestException catch (error) {
-      throw ManagerFailure('지점장 목록을 불러오지 못했습니다.\n${error.message}');
+      throw ManagerFailure(
+        '지점장 목록을 불러오지 못했습니다.\n${error.message}',
+      );
     } catch (error) {
       throw ManagerFailure('지점장 목록을 불러오지 못했습니다.\n$error');
     }
@@ -204,17 +282,24 @@ class ManagerRepository {
           'workHours': workHours.map((item) => item.toJson()).toList(),
         },
       );
+
       final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw ManagerFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : '지점장 생성에 실패했습니다.',
+        );
+      }
       if (data is! Map) {
         throw const ManagerFailure('서버 응답 형식이 올바르지 않습니다.');
       }
+
       final managerId = data['managerId'];
       if (managerId is! String || managerId.isEmpty) {
-        final message = data['message'];
-        throw ManagerFailure(
-          message is String ? message : '지점장 생성에 실패했습니다.',
-        );
+        throw const ManagerFailure('지점장 생성 결과를 확인하지 못했습니다.');
       }
+
       return CreatedManager(
         id: managerId,
         displayName: data['displayName'] is String
@@ -226,6 +311,12 @@ class ManagerRepository {
       );
     } on ManagerFailure {
       rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw ManagerFailure(details['message'].toString());
+      }
+      throw const ManagerFailure('지점장 생성 요청에 실패했습니다.');
     } catch (error) {
       throw ManagerFailure('지점장 생성 요청에 실패했습니다.\n$error');
     }
@@ -236,8 +327,11 @@ class ManagerRepository {
     required String name,
   }) async {
     final normalizedName = _normalizeName(name);
-    if (normalizedName.isEmpty || normalizedName.length > 100) {
-      throw const ManagerFailure('이름은 1~100자로 입력해주세요.');
+    if (normalizedName.isEmpty) {
+      throw const ManagerFailure('이름을 입력해주세요.');
+    }
+    if (normalizedName.length > 100) {
+      throw const ManagerFailure('이름은 100자 이하로 입력해주세요.');
     }
 
     try {
@@ -248,10 +342,25 @@ class ManagerRepository {
           'name': normalizedName,
         },
       );
-      _throwFunctionError(response.data, fallback: '이름을 변경하지 못했습니다.');
+
+      final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw ManagerFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : '이름을 변경하지 못했습니다.',
+        );
+      }
+    } on ManagerFailure {
+      rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw ManagerFailure(details['message'].toString());
+      }
+      throw const ManagerFailure('이름을 변경하지 못했습니다.');
     } catch (error) {
-      if (error is ManagerFailure) rethrow;
-      throw ManagerFailure('이름 변경 요청에 실패했습니다.\n$error');
+      throw ManagerFailure('이름을 변경하지 못했습니다.\n$error');
     }
   }
 
@@ -271,10 +380,25 @@ class ManagerRepository {
           'pin': pin,
         },
       );
-      _throwFunctionError(response.data, fallback: 'PIN을 재설정하지 못했습니다.');
+
+      final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw ManagerFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : 'PIN을 변경하지 못했습니다.',
+        );
+      }
+    } on ManagerFailure {
+      rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw ManagerFailure(details['message'].toString());
+      }
+      throw const ManagerFailure('PIN을 변경하지 못했습니다.');
     } catch (error) {
-      if (error is ManagerFailure) rethrow;
-      throw ManagerFailure('PIN 재설정 요청에 실패했습니다.\n$error');
+      throw ManagerFailure('PIN을 변경하지 못했습니다.\n$error');
     }
   }
 
@@ -297,7 +421,9 @@ class ManagerRepository {
           '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 지점을 변경할 수 없습니다.',
         );
       }
-      if (message.contains('FORESTRING_MANAGER_BRANCH_CHANGE_PENDING_DEPARTURE')) {
+      if (message.contains(
+        'FORESTRING_MANAGER_BRANCH_CHANGE_PENDING_DEPARTURE',
+      )) {
         throw const ManagerFailure('퇴사 예정인 지점장은 지점을 변경할 수 없습니다.');
       }
       if (message.contains('FORESTRING_ACTIVE_BRANCH_REQUIRED')) {
@@ -374,19 +500,15 @@ class ManagerRepository {
       throw ManagerFailure(_departureMessage(error.message));
     }
   }
-
-  void _throwFunctionError(dynamic data, {required String fallback}) {
-    if (data is Map && data['message'] is String) {
-      throw ManagerFailure(data['message'] as String);
-    }
-    if (data == null) {
-      throw ManagerFailure(fallback);
-    }
-  }
 }
 
 String _normalizeName(String value) =>
     value.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+String _shortTime(dynamic value) {
+  final text = value?.toString() ?? '';
+  return text.length >= 5 ? text.substring(0, 5) : text;
+}
 
 String _dateText(DateTime date) {
   final year = date.year.toString().padLeft(4, '0');
