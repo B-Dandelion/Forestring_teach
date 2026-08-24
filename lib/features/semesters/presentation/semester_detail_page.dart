@@ -4,6 +4,7 @@ import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
+import '../../branches/domain/branch_closure.dart';
 import '../data/semester_repository.dart';
 import '../domain/managed_semester.dart';
 
@@ -25,6 +26,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
 
   List<ManagedSemester> _semesters = const [];
   List<AcademyBranch> _branches = const [];
+  Map<String, List<BranchClosure>> _closuresByBranch = const {};
   bool _loading = true;
   bool _saving = false;
   String? _errorMessage;
@@ -43,26 +45,54 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final results = await Future.wait([
         _repository.fetchSemesters(),
         _branchRepository.fetchBranches(),
       ]);
-      if (!mounted) return;
 
       final semesters = (results[0] as List<ManagedSemester>).toList()
         ..sort((a, b) => a.startsOn.compareTo(b.startsOn));
       final branches = (results[1] as List<AcademyBranch>).toList()
         ..sort((a, b) => a.name.compareTo(b.name));
 
+      ManagedSemester? selected;
+      for (final semester in semesters) {
+        if (semester.id == widget.semesterId) {
+          selected = semester;
+          break;
+        }
+      }
+
+      final closuresByBranch = <String, List<BranchClosure>>{};
+      if (selected != null && branches.isNotEmpty) {
+        final closureResults = await Future.wait(
+          branches.map(
+            (branch) => _branchRepository.fetchBranchClosuresInRange(
+              branchId: branch.id,
+              startsOn: selected!.effectiveStart(branch.id),
+              endsOn: selected.effectiveEnd(branch.id),
+            ),
+          ),
+        );
+
+        for (var i = 0; i < branches.length; i++) {
+          closuresByBranch[branches[i].id] = closureResults[i];
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
         _semesters = semesters;
         _branches = branches;
+        _closuresByBranch = closuresByBranch;
       });
     } on SemesterFailure catch (error) {
       if (!mounted) return;
@@ -70,6 +100,9 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     } on BranchFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '학기 정보를 불러오지 못했습니다.\n$error');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -177,7 +210,6 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     final confirmed = await _confirmBoundaryChanges(
       title: '기본 학기 기간 변경',
       changes: changes,
-      showMaterializedNotice: true,
     );
     if (confirmed != true || !mounted) return;
 
@@ -220,7 +252,6 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     final confirmed = await _confirmBoundaryChanges(
       title: '${branch.name} 기간 변경',
       changes: _branchPreviewChanges(changes),
-      showMaterializedNotice: true,
     );
     if (confirmed != true || !mounted) return;
 
@@ -278,6 +309,271 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       ),
       successMessage: '${branch.name}이(가) 기본 학기 일정을 사용하도록 변경했습니다.',
     );
+  }
+
+  Future<void> _editClosure(
+    AcademyBranch branch,
+    BranchClosureKind kind, [
+    BranchClosure? closure,
+  ]) async {
+    final semester = _semester;
+    if (semester == null || _saving) return;
+
+    final scopeStart = semester.effectiveStart(branch.id);
+    final scopeEnd = semester.effectiveEnd(branch.id);
+    final today = _dateOnly(DateTime.now());
+
+    var start = closure?.startsOn ?? _defaultClosureStart(
+      scopeStart: scopeStart,
+      scopeEnd: scopeEnd,
+      kind: kind,
+      today: today,
+    );
+    var end = closure?.endsOn ??
+        (kind == BranchClosureKind.instructionalBreak
+            ? start.add(const Duration(days: 6))
+            : start);
+    var reason = closure?.reason ?? '';
+    String? dialogError;
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final days = end.difference(start).inDays + 1;
+
+          Future<void> chooseRange() async {
+            final picked = await showDateRangePicker(
+              context: dialogContext,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(DateTime.now().year + 10, 12, 31),
+              initialDateRange: DateTimeRange(start: start, end: end),
+              helpText: kind == BranchClosureKind.instructionalBreak
+                  ? '휴원 주간 선택'
+                  : '휴원일 선택',
+              cancelText: '취소',
+              confirmText: '선택',
+            );
+            if (picked == null) return;
+
+            setDialogState(() {
+              start = _dateOnly(picked.start);
+              end = _dateOnly(picked.end);
+              dialogError = null;
+            });
+          }
+
+          return AlertDialog(
+            backgroundColor: neutralIvory,
+            title: Text(
+              closure == null
+                  ? (kind == BranchClosureKind.instructionalBreak
+                      ? '휴원 주간 추가'
+                      : '휴원일 추가')
+                  : (kind == BranchClosureKind.instructionalBreak
+                      ? '휴원 주간 수정'
+                      : '휴원일 수정'),
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 370,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${branch.name} · ${_semesterLabel(semester.code)}',
+                      style: forestringTextStyle.copyWith(
+                        color: primaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '설정 가능 기간  ${_formatDate(scopeStart)} ~ ${_formatDate(scopeEnd)}',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: chooseRange,
+                      icon: const Icon(Icons.date_range_outlined),
+                      label: Text(
+                        start == end
+                            ? _formatDate(start)
+                            : '${_formatDate(start)} ~ ${_formatDate(end)}',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      kind == BranchClosureKind.instructionalBreak
+                          ? '휴원 주간 · $days일'
+                          : (days == 1 ? '하루 휴원' : '$days일 휴원'),
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      initialValue: reason,
+                      maxLength: 100,
+                      decoration: const InputDecoration(
+                        labelText: '사유 (선택)',
+                        hintText: '예: 여름 휴원, 시설 점검',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) => reason = value,
+                    ),
+                    if (kind == BranchClosureKind.instructionalBreak) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '휴원 주간은 7일 단위로 저장되며 정규 수업 생성에서 제외됩니다.',
+                        style: forestringTextStyle.copyWith(
+                          color: Colors.black45,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    if (dialogError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        dialogError!,
+                        style: forestringTextStyle.copyWith(
+                          color: Colors.redAccent,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final days = end.difference(start).inDays + 1;
+                  if (!_withinRange(start, end, scopeStart, scopeEnd)) {
+                    setDialogState(() {
+                      dialogError = '휴원 일정은 이 지점의 학기 기간 안에서 설정해주세요.';
+                    });
+                    return;
+                  }
+                  if (kind == BranchClosureKind.instructionalBreak &&
+                      (days < 7 || days % 7 != 0)) {
+                    setDialogState(() {
+                      dialogError = '휴원 주간은 7일 단위로 선택해주세요.';
+                    });
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(true);
+                },
+                style: FilledButton.styleFrom(backgroundColor: primaryColor),
+                child: const Text('저장'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (shouldSave != true || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      await _branchRepository.saveClosure(
+        closureId: closure?.id,
+        branchId: branch.id,
+        semesterId:
+            kind == BranchClosureKind.instructionalBreak ? semester.id : null,
+        startsOn: start,
+        endsOn: end,
+        kind: kind,
+        reason: reason,
+      );
+      await _load();
+      if (!mounted) return;
+      _showMessage(closure == null ? '휴원 일정을 추가했습니다.' : '휴원 일정을 수정했습니다.');
+    } on BranchFailure catch (error) {
+      if (!mounted) return;
+      _showMessage(error.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _deleteClosure(
+    AcademyBranch branch,
+    BranchClosure closure,
+  ) async {
+    if (_saving) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('휴원 일정 삭제'),
+        content: Text(
+          '${branch.name}\n${_closureRangeText(closure)}\n\n이 휴원 일정을 삭제할까요?',
+          style: forestringTextStyle,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      await _branchRepository.deleteClosure(closureId: closure.id);
+      await _load();
+      if (!mounted) return;
+      _showMessage('휴원 일정을 삭제했습니다.');
+    } on BranchFailure catch (error) {
+      if (!mounted) return;
+      _showMessage(error.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  DateTime _defaultClosureStart({
+    required DateTime scopeStart,
+    required DateTime scopeEnd,
+    required BranchClosureKind kind,
+    required DateTime today,
+  }) {
+    var start = today.isBefore(scopeStart) ? scopeStart : today;
+    if (start.isAfter(scopeEnd)) start = scopeStart;
+
+    if (kind == BranchClosureKind.instructionalBreak &&
+        start.add(const Duration(days: 6)).isAfter(scopeEnd)) {
+      final candidate = scopeEnd.subtract(const Duration(days: 6));
+      start = candidate.isBefore(scopeStart) ? scopeStart : candidate;
+    }
+    return start;
   }
 
   List<SemesterCalendarChange>? _buildGlobalChanges({
@@ -438,7 +734,6 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
   Future<bool?> _confirmBoundaryChanges({
     required String title,
     required List<SemesterCalendarChange> changes,
-    required bool showMaterializedNotice,
   }) {
     return showDialog<bool>(
       context: context,
@@ -492,8 +787,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          '${_formatDate(change.startsOn)} ~ '
-                          '${_formatDate(change.endsOn)}',
+                          '${_formatDate(change.startsOn)} ~ ${_formatDate(change.endsOn)}',
                           style: forestringTextStyle.copyWith(
                             color: Colors.black54,
                             fontSize: 13,
@@ -503,16 +797,14 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                     ),
                   ),
                 ),
-                if (showMaterializedNotice) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '이미 수업이 생성된 학기 경계는 변경할 수 없습니다.',
-                    style: forestringTextStyle.copyWith(
-                      color: Colors.orange.shade800,
-                      fontSize: 12,
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  '이미 수업이 생성된 학기 경계는 변경할 수 없습니다.',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.orange.shade800,
+                    fontSize: 12,
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -631,90 +923,106 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
         ],
       ),
       body: SafeArea(
-        child: _loading && semester == null
-            ? const Center(child: CircularProgressIndicator())
-            : semester == null
-                ? Center(
-                    child: Text(
-                      _errorMessage ?? '학기 정보를 찾을 수 없습니다.',
-                      style: forestringTextStyle,
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
-                    children: [
-                      _headerCard(semester),
-                      if (_errorMessage != null) ...[
-                        const SizedBox(height: 12),
-                        _errorCard(_errorMessage!),
-                      ],
-                      const SizedBox(height: 18),
-                      _sectionTitle('기본 학기 설정'),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed: _saving ? null : _editCode,
-                                icon: const Icon(Icons.edit_outlined),
-                                label: const Text('학기 이름 수정'),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: SizedBox(
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed: _saving ? null : _editGlobalRange,
-                                icon: const Icon(Icons.date_range_outlined),
-                                label: const Text('기간 변경'),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '기간을 바꾸면 학기 사이에 빈 날짜가 생기지 않도록 앞·뒤 학기 경계도 함께 조정됩니다.',
-                        style: forestringTextStyle.copyWith(
-                          color: Colors.black45,
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      _sectionTitle('지점별 기간'),
-                      const SizedBox(height: 4),
-                      Text(
-                        '기본 일정과 다른 지점만 별도 기간을 설정합니다.',
-                        style: forestringTextStyle.copyWith(
-                          color: Colors.black54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ..._branches.map((branch) => _branchCard(semester, branch)),
-                      if (_semesters.isNotEmpty &&
-                          _semesters.last.id == semester.id) ...[
-                        const SizedBox(height: 22),
-                        _sectionTitle('학기 삭제'),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _saving ? null : _deleteSemester,
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('마지막 학기 삭제'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red.shade700,
-                            side: BorderSide(color: Colors.red.shade700),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                          ),
-                        ),
-                      ],
+        child: Stack(
+          children: [
+            if (_loading && semester == null)
+              const Center(child: CircularProgressIndicator())
+            else if (semester == null)
+              Center(
+                child: Text(
+                  _errorMessage ?? '학기 정보를 찾을 수 없습니다.',
+                  style: forestringTextStyle,
+                ),
+              )
+            else
+              RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+                  children: [
+                    _headerCard(semester),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      _errorCard(_errorMessage!),
                     ],
-                  ),
+                    const SizedBox(height: 18),
+                    _sectionTitle('기본 학기 설정'),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton.icon(
+                              onPressed: _saving ? null : _editCode,
+                              icon: const Icon(Icons.edit_outlined),
+                              label: const Text('학기 이름 수정'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton.icon(
+                              onPressed: _saving ? null : _editGlobalRange,
+                              icon: const Icon(Icons.date_range_outlined),
+                              label: const Text('기간 변경'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '기간을 바꾸면 학기 사이에 빈 날짜가 생기지 않도록 앞·뒤 학기 경계도 함께 조정됩니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black45,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _sectionTitle('지점별 기간 · 휴원'),
+                    const SizedBox(height: 4),
+                    Text(
+                      '지점별 학기 기간과 이 학기에 포함된 휴원 일정을 함께 관리합니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ..._branches.map((branch) => _branchCard(semester, branch)),
+                    if (_semesters.isNotEmpty &&
+                        _semesters.last.id == semester.id) ...[
+                      const SizedBox(height: 22),
+                      _sectionTitle('학기 삭제'),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _saving ? null : _deleteSemester,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('마지막 학기 삭제'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          side: BorderSide(color: Colors.red.shade700),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            if (_saving)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x22000000),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -793,9 +1101,12 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     final start = semester.effectiveStart(branch.id);
     final end = semester.effectiveEnd(branch.id);
     final weeks = (end.difference(start).inDays + 1) ~/ 7;
+    final closures = (_closuresByBranch[branch.id] ?? const <BranchClosure>[])
+        .toList()
+      ..sort((a, b) => a.startsOn.compareTo(b.startsOn));
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 9),
+      margin: const EdgeInsets.only(bottom: 11),
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
@@ -867,8 +1178,130 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 ],
               ],
             ),
+            const SizedBox(height: 12),
+            Divider(color: primaryColor.withValues(alpha: 0.12), height: 1),
+            const SizedBox(height: 12),
+            Text(
+              '휴원 일정',
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 7),
+            if (closures.isEmpty)
+              Text(
+                '이 학기에 등록된 휴원 일정이 없습니다.',
+                style: forestringTextStyle.copyWith(
+                  color: Colors.black45,
+                  fontSize: 12,
+                ),
+              )
+            else
+              ...closures.map((closure) => _closureRow(branch, closure)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => _editClosure(
+                                branch,
+                                BranchClosureKind.instructionalBreak,
+                              ),
+                      icon: const Icon(Icons.calendar_view_week_outlined, size: 18),
+                      label: const Text('휴원 주간 설정'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => _editClosure(
+                                branch,
+                                BranchClosureKind.ordinary,
+                              ),
+                      icon: const Icon(Icons.event_busy_outlined, size: 18),
+                      label: const Text('휴원일 설정'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _closureRow(AcademyBranch branch, BranchClosure closure) {
+    final isBreak = closure.kind == BranchClosureKind.instructionalBreak;
+    final reason = closure.reason?.trim();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: neutralIvory,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isBreak
+                ? Icons.calendar_view_week_outlined
+                : Icons.event_busy_outlined,
+            size: 18,
+            color: primaryColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: InkWell(
+              onTap: _saving
+                  ? null
+                  : () => _editClosure(branch, closure.kind, closure),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${isBreak ? '휴원 주간' : '휴원일'} · ${_closureRangeText(closure)}',
+                    style: forestringTextStyle.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (reason != null && reason.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      reason,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '휴원 일정 삭제',
+            visualDensity: VisualDensity.compact,
+            onPressed: _saving ? null : () => _deleteClosure(branch, closure),
+            icon: const Icon(Icons.delete_outline, size: 19),
+            color: Colors.red.shade600,
+          ),
+        ],
       ),
     );
   }
@@ -909,10 +1342,26 @@ class _Bounds {
 DateTime _dateOnly(DateTime value) =>
     DateTime(value.year, value.month, value.day);
 
+bool _withinRange(
+  DateTime start,
+  DateTime end,
+  DateTime scopeStart,
+  DateTime scopeEnd,
+) {
+  return !start.isBefore(scopeStart) && !end.isAfter(scopeEnd);
+}
+
 String _semesterLabel(String code) {
   final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
   if (match == null) return code;
   return '${match.group(1)}년 ${int.parse(match.group(2)!)}월 학기';
+}
+
+String _closureRangeText(BranchClosure closure) {
+  if (closure.startsOn == closure.endsOn) {
+    return _formatDate(closure.startsOn);
+  }
+  return '${_formatDate(closure.startsOn)} ~ ${_formatDate(closure.endsOn)}';
 }
 
 String _formatDate(DateTime value) {
