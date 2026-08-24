@@ -6,7 +6,6 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/semester_repository.dart';
 import '../domain/managed_semester.dart';
-import 'semester_default_closure_page.dart';
 import 'semester_detail_page.dart';
 
 class SemesterManagementPage extends StatefulWidget {
@@ -89,15 +88,6 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => SemesterDetailPage(semesterId: semester.id),
-      ),
-    );
-    if (mounted) await _load();
-  }
-
-  Future<void> _openDefaultClosures(ManagedSemester semester) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => SemesterDefaultClosurePage(semester: semester),
       ),
     );
     if (mounted) await _load();
@@ -367,7 +357,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
         borderRadius: BorderRadius.circular(12),
         onTap: () => _openDetail(semester),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 8, 13),
+          padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
           child: Row(
             children: [
               Container(
@@ -442,12 +432,6 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: '기본 휴원 설정',
-                onPressed: () => _openDefaultClosures(semester),
-                icon: const Icon(Icons.event_available_outlined),
-                color: primaryColor,
-              ),
               const Icon(Icons.chevron_right, color: primaryColor),
             ],
           ),
@@ -485,9 +469,8 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '기본 학기 일정과 기본 휴원은 모든 지점에 적용됩니다. '
-        '학기 카드의 휴원 아이콘에서 기본 휴원을 설정하고, '
-        '학기 상세에서는 필요한 지점만 별도 기간과 휴원을 설정할 수 있습니다.\n'
+        '기본 학기 일정은 모든 지점에 적용됩니다. 지점마다 운영 기간이 다른 경우 '
+        '학기 상세에서 해당 지점만 별도 기간과 휴원을 설정할 수 있습니다.\n'
         '등록된 학기 $semesterCount개 · 운영 지점 $branchCount곳',
         style: forestringTextStyle.copyWith(fontSize: 13, height: 1.45),
       ),
