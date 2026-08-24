@@ -266,7 +266,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     await _loadLessons();
   }
 
-  void _changeBranch(String value) {
+  void _changeBranch(String? value) {
+    if (value == null) return;
     final branchId = value == '__all__' ? null : value;
     setState(() {
       _selectedBranchId = branchId;
