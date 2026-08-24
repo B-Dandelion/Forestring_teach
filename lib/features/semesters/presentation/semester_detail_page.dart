@@ -679,7 +679,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       final next = _semesters[index + 1];
       desired[next.id] = _Bounds(
         endsOn.add(const Duration(days: 1)),
-        next.effectiveEnd(branch.id),
+        next.effectiveEnd(branchId),
       );
     }
 
