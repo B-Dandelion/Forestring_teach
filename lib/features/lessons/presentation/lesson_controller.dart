@@ -295,10 +295,17 @@ class LessonController extends ChangeNotifier {
     }
 
     try {
-      await _repository.cancelLesson(
-        lessonId: lesson.id,
-        reason: reason,
-      );
+      if (lesson.type == LessonType.makeup && lesson.lessonRightId == null) {
+        await _repository.cancelStandaloneMakeupLesson(
+          lessonId: lesson.id,
+          reason: reason,
+        );
+      } else {
+        await _repository.cancelLesson(
+          lessonId: lesson.id,
+          reason: reason,
+        );
+      }
       await reload();
       return true;
     } on LessonFailure catch (error) {
