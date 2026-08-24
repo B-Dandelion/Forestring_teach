@@ -23,6 +23,7 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
   final _repository = BranchRepository();
 
   BranchManagementDetails? _details;
+  List<String> _activeManagerNames = const [];
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMessage;
@@ -40,12 +41,20 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
     });
 
     try {
-      final details = await _repository.fetchBranchDetails(
-        branchId: widget.branch.id,
-      );
+      final results = await Future.wait([
+        _repository.fetchBranchDetails(
+          branchId: widget.branch.id,
+        ),
+        _repository.fetchActiveManagerNames(
+          branchId: widget.branch.id,
+        ),
+      ]);
 
       if (!mounted) return;
-      setState(() => _details = details);
+      setState(() {
+        _details = results[0] as BranchManagementDetails;
+        _activeManagerNames = results[1] as List<String>;
+      });
     } on BranchFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
@@ -279,6 +288,16 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
                   ),
                 ],
               ),
+              if (_activeManagerNames.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _activeManagerNames
+                      .map((name) => _ManagerNameCard(name: name))
+                      .toList(),
+                ),
+              ],
               const SizedBox(height: 24),
               _SectionTitle('운영 중인 일정'),
               const SizedBox(height: 10),
@@ -490,6 +509,43 @@ class _CountCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(label, style: forestringTextStyle.copyWith(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManagerNameCard extends StatelessWidget {
+  const _ManagerNameCard({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.person_outline,
+            color: secondaryColor,
+            size: 18,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            '$name 지점장',
+            style: forestringTextStyle.copyWith(
+              color: primaryColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
