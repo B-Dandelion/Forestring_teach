@@ -30,7 +30,7 @@ class StudentTeacherManagementRepository {
 
   Future<List<ManagedTeacherOption>> fetchBranchTeachers(String branchId) async {
     try {
-      final rows = await _client
+      final rawRows = await _client
           .from('profiles')
           .select('id, display_name, branch_id, role, is_active')
           .eq('branch_id', branchId)
@@ -39,12 +39,39 @@ class StudentTeacherManagementRepository {
           .inFilter('role', ['teacher', 'manager'])
           .order('display_name');
 
+      final rows = rawRows
+          .map((raw) => Map<String, dynamic>.from(raw as Map))
+          .toList();
+
+      final managerIds = rows
+          .where((row) => row['role']?.toString() == 'manager')
+          .map((row) => row['id'] as String)
+          .toList();
+
+      final teachingManagerIds = <String>{};
+      if (managerIds.isNotEmpty) {
+        final workHourRows = await _client
+            .from('teacher_work_hours')
+            .select('teacher_id')
+            .inFilter('teacher_id', managerIds);
+
+        for (final raw in workHourRows) {
+          teachingManagerIds.add(raw['teacher_id'] as String);
+        }
+      }
+
       return rows
+          .where((row) {
+            final role = row['role']?.toString();
+            return role == 'teacher' ||
+                (role == 'manager' &&
+                    teachingManagerIds.contains(row['id'] as String));
+          })
           .map(
-            (raw) => ManagedTeacherOption(
-              id: raw['id'] as String,
-              displayName: raw['display_name'].toString(),
-              branchId: raw['branch_id'] as String,
+            (row) => ManagedTeacherOption(
+              id: row['id'] as String,
+              displayName: row['display_name'].toString(),
+              branchId: row['branch_id'] as String,
             ),
           )
           .toList();
