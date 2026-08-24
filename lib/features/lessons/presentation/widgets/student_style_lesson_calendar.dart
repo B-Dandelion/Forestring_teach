@@ -70,7 +70,9 @@ class _StudentStyleLessonCalendarState
   Widget build(BuildContext context) {
     final selectedLessons = _lessonsOn(_selectedDate);
 
-    return Column(
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 96),
       children: [
         TableCalendar<Lesson>(
           firstDay: _dateOnly(widget.firstDay),
@@ -161,25 +163,30 @@ class _StudentStyleLessonCalendarState
             ),
           ),
         ),
-        Expanded(
-          child: selectedLessons.isEmpty
-              ? Center(
-                  child: Text(
-                    '예약된 수업이 없습니다.',
-                    style: forestringTextStyle.copyWith(
-                      color: Colors.black54,
-                      fontSize: 15,
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
-                  itemCount: selectedLessons.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, index) =>
-                      widget.lessonBuilder(selectedLessons[index]),
-                ),
-        ),
+        if (selectedLessons.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 36),
+            child: Text(
+              '예약된 수업이 없습니다.',
+              textAlign: TextAlign.center,
+              style: forestringTextStyle.copyWith(
+                color: Colors.black54,
+                fontSize: 15,
+              ),
+            ),
+          )
+        else
+          ...selectedLessons.indexed.map(
+            (entry) => Padding(
+              padding: EdgeInsets.fromLTRB(
+                12,
+                entry.$1 == 0 ? 4 : 0,
+                12,
+                8,
+              ),
+              child: widget.lessonBuilder(entry.$2),
+            ),
+          ),
       ],
     );
   }
