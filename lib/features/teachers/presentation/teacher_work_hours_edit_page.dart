@@ -9,9 +9,11 @@ class TeacherWorkHoursEditPage extends StatefulWidget {
   const TeacherWorkHoursEditPage({
     super.key,
     required this.teacher,
+    this.title = '근무시간 변경',
   });
 
   final ManagedTeacher teacher;
+  final String title;
 
   @override
   State<TeacherWorkHoursEditPage> createState() =>
@@ -99,7 +101,7 @@ class _TeacherWorkHoursEditPageState extends State<TeacherWorkHoursEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: neutralIvory,
-      appBar: const ForestringAppBar(title: '근무시간 변경'),
+      appBar: ForestringAppBar(title: widget.title),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
