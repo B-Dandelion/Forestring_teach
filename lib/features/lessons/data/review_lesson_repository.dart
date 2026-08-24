@@ -73,11 +73,17 @@ class ReviewLessonRepository extends LessonRepository {
     DateTime? from,
     DateTime? to,
     String? teacherId,
+    String? studentId,
   }) async {
     return _demoLessons.where((lesson) {
       if (teacherId != null &&
           teacherId.isNotEmpty &&
           lesson.teacherId != teacherId) {
+        return false;
+      }
+      if (studentId != null &&
+          studentId.isNotEmpty &&
+          lesson.studentId != studentId) {
         return false;
       }
       if (from != null && lesson.startsAt.isBefore(from)) {
