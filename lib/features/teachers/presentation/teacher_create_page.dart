@@ -60,10 +60,19 @@ class _TeacherCreatePageState extends State<TeacherCreatePage> {
     });
 
     try {
-      final branches = (await _branchRepository.fetchBranches())
+      var branches = (await _branchRepository.fetchBranches())
           .where((branch) => branch.isActive)
           .toList()
         ..sort((a, b) => a.name.compareTo(b.name));
+
+      if (widget.profile.isManager) {
+        final managerBranchId = widget.profile.branchId;
+        branches = managerBranchId == null
+            ? const []
+            : branches
+                .where((branch) => branch.id == managerBranchId)
+                .toList(growable: false);
+      }
 
       if (!mounted) return;
       setState(() {
@@ -158,11 +167,11 @@ class _TeacherCreatePageState extends State<TeacherCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.profile.isMaster) {
+    if (!widget.profile.isMaster && !widget.profile.isManager) {
       return const Scaffold(
         backgroundColor: neutralIvory,
         appBar: ForestringAppBar(title: '선생님 등록'),
-        body: Center(child: Text('전체 관리자만 선생님을 등록할 수 있습니다.')),
+        body: Center(child: Text('관리자만 선생님을 등록할 수 있습니다.')),
       );
     }
 
@@ -188,7 +197,9 @@ class _TeacherCreatePageState extends State<TeacherCreatePage> {
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: _branchId,
-                    decoration: _decoration('지점'),
+                    decoration: _decoration(
+                      widget.profile.isManager ? '지점 (변경 불가)' : '지점',
+                    ),
                     items: _branches
                         .map(
                           (branch) => DropdownMenuItem(
@@ -197,7 +208,7 @@ class _TeacherCreatePageState extends State<TeacherCreatePage> {
                           ),
                         )
                         .toList(),
-                    onChanged: _saving
+                    onChanged: _saving || widget.profile.isManager
                         ? null
                         : (value) => setState(() => _branchId = value),
                     validator: (value) => value == null ? '지점을 선택해주세요.' : null,

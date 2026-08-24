@@ -159,7 +159,7 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
           const SizedBox(width: 4),
         ],
       ),
-      floatingActionButton: widget.profile.isMaster
+      floatingActionButton: widget.profile.isMaster || widget.profile.isManager
           ? FloatingActionButton.extended(
               backgroundColor: primaryColor,
               foregroundColor: Colors.white,
@@ -183,7 +183,7 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
               14,
               14,
               14,
-              widget.profile.isMaster ? 100 : 28,
+              widget.profile.isMaster || widget.profile.isManager ? 100 : 28,
             ),
             children: [
               _buildFilters(),

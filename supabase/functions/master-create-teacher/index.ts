@@ -212,7 +212,7 @@ export default {
 
 
         // ====================================================
-        // MASTER AUTHORIZATION
+        // STAFF AUTHORIZATION
         // ====================================================
 
         const {
@@ -221,14 +221,17 @@ export default {
         } =
           await ctx.supabaseAdmin
             .from('profiles')
-            .select('role, is_active')
+            .select('role, branch_id, is_active')
             .eq('id', actorId)
             .single()
 
         if (
           actorError
           || !actorProfile
-          || actorProfile.role !== 'master'
+          || ![
+            'master',
+            'manager',
+          ].includes(actorProfile.role)
           || actorProfile.is_active !== true
         ) {
           return Response.json(
@@ -306,6 +309,24 @@ export default {
             },
             {
               status: 400,
+            },
+          )
+        }
+
+        if (
+          actorProfile.role === 'manager'
+          && (
+            typeof actorProfile.branch_id !== 'string'
+            || actorProfile.branch_id !== branchId
+          )
+        ) {
+          return Response.json(
+            {
+              message:
+                '지점 관리자는 자기 지점에만 선생님을 등록할 수 있습니다.',
+            },
+            {
+              status: 403,
             },
           )
         }
@@ -507,6 +528,38 @@ export default {
               },
               {
                 status: 400,
+              },
+            )
+          }
+
+          if (
+            message.includes(
+              'FORESTRING_TEACHER_CREATE_FORBIDDEN',
+            )
+          ) {
+            return Response.json(
+              {
+                message:
+                  '선생님을 등록할 권한이 없습니다.',
+              },
+              {
+                status: 403,
+              },
+            )
+          }
+
+          if (
+            message.includes(
+              'FORESTRING_MANAGER_BRANCH_FORBIDDEN',
+            )
+          ) {
+            return Response.json(
+              {
+                message:
+                  '지점 관리자는 자기 지점에만 선생님을 등록할 수 있습니다.',
+              },
+              {
+                status: 403,
               },
             )
           }
