@@ -5,6 +5,7 @@ import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
 import '../../auth/domain/current_profile.dart';
 import '../../branches/domain/academy_branch.dart';
+import '../../semesters/domain/managed_semester.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson.dart';
 
@@ -12,6 +13,7 @@ class MakeupLessonCreatePage extends StatefulWidget {
   const MakeupLessonCreatePage({
     super.key,
     required this.profile,
+    required this.semester,
     required this.branches,
     required this.students,
     required this.teachers,
@@ -21,6 +23,7 @@ class MakeupLessonCreatePage extends StatefulWidget {
   });
 
   final CurrentProfile profile;
+  final ManagedSemester semester;
   final List<AcademyBranch> branches;
   final List<VisibleStudent> students;
   final List<VisibleTeacher> teachers;
@@ -48,9 +51,6 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
   @override
   void initState() {
     super.initState();
-    _date = _dateOnly(
-      widget.initialDate ?? DateTime.now().add(const Duration(days: 1)),
-    );
 
     final requestedBranch = widget.profile.isManager
         ? widget.profile.branchId
@@ -62,6 +62,11 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       _branchId = widget.branches.first.id;
     }
 
+    final requestedDate = _dateOnly(
+      widget.initialDate ?? DateTime.now().add(const Duration(days: 1)),
+    );
+    _date = _clampToSemester(requestedDate);
+
     final requestedStudent = widget.initialStudentId;
     if (requestedStudent != null &&
         _availableStudents.any((student) => student.id == requestedStudent)) {
@@ -72,6 +77,20 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     if (teachers.length == 1) {
       _teacherId = teachers.first.id;
     }
+  }
+
+  DateTime get _scopeStart {
+    final branchId = _branchId;
+    return branchId == null
+        ? widget.semester.startsOn
+        : widget.semester.effectiveStart(branchId);
+  }
+
+  DateTime get _scopeEnd {
+    final branchId = _branchId;
+    return branchId == null
+        ? widget.semester.endsOn
+        : widget.semester.effectiveEnd(branchId);
   }
 
   List<VisibleStudent> get _availableStudents {
@@ -106,10 +125,19 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     return null;
   }
 
+  DateTime _clampToSemester(DateTime value) {
+    final start = _scopeStart;
+    final end = _scopeEnd;
+    if (value.isBefore(start)) return start;
+    if (value.isAfter(end)) return end;
+    return value;
+  }
+
   void _changeBranch(String? value) {
     if (value == null || value == _branchId) return;
     setState(() {
       _branchId = value;
+      _date = _clampToSemester(_date);
       _studentId = null;
       _teacherId = null;
       final teachers = _availableTeachers;
@@ -120,11 +148,19 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
   }
 
   Future<void> _pickDate() async {
+    final today = _dateOnly(DateTime.now());
+    final firstDate = today.isAfter(_scopeStart) ? today : _scopeStart;
+    if (firstDate.isAfter(_scopeEnd)) {
+      _message('선택한 학기는 이미 종료되었습니다.');
+      return;
+    }
+
+    final initialDate = _date.isBefore(firstDate) ? firstDate : _date;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: _dateOnly(DateTime.now()),
-      lastDate: DateTime(DateTime.now().year + 5, 12, 31),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: _scopeEnd,
       helpText: '보강 수업 날짜',
       cancelText: '취소',
       confirmText: '선택',
@@ -162,6 +198,10 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     }
     if (teacherId == null) {
       _message('선생님 또는 지점장을 선택해주세요.');
+      return;
+    }
+    if (_date.isBefore(_scopeStart) || _date.isAfter(_scopeEnd)) {
+      _message('선택한 학기 기간 안의 날짜를 선택해주세요.');
       return;
     }
 
@@ -276,6 +316,17 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                   ),
                 ),
                 const SizedBox(height: 5),
+                Text(
+                  '${_semesterLabel(widget.semester.code)} · '
+                  '${DateFormat('yyyy.MM.dd').format(_scopeStart)} ~ '
+                  '${DateFormat('yyyy.MM.dd').format(_scopeEnd)}',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   '독립 보강 수업을 직접 등록합니다. 휴원, 개인 일정, 기존 수업 충돌은 자동으로 확인됩니다.',
                   style: forestringTextStyle.copyWith(
@@ -495,24 +546,32 @@ class _FixedField extends StatelessWidget {
         children: [
           Icon(icon, color: primaryColor, size: 20),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: forestringTextStyle.copyWith(
-                  color: Colors.black45,
-                  fontSize: 11,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.black45,
+                    fontSize: 11,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(value, style: forestringTextStyle),
-            ],
+                const SizedBox(height: 2),
+                Text(value, style: forestringTextStyle),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+String _semesterLabel(String code) {
+  final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
+  if (match == null) return code;
+  return '${match.group(1)}년 ${int.parse(match.group(2)!)}월 학기';
 }
 
 DateTime _dateOnly(DateTime value) =>
