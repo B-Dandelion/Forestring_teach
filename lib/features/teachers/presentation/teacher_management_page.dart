@@ -7,6 +7,7 @@ import '../../auth/domain/current_profile.dart';
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/teacher_repository.dart';
+import 'teacher_create_page.dart';
 
 class TeacherManagementPage extends StatefulWidget {
   const TeacherManagementPage({
@@ -129,6 +130,18 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
     }).toList();
   }
 
+  Future<void> _openRegistration() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TeacherCreatePage(profile: widget.profile),
+      ),
+    );
+
+    if (created == true && mounted) {
+      await _loadTeachers();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleTeachers = _visibleTeachers;
@@ -146,12 +159,32 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
           const SizedBox(width: 4),
         ],
       ),
+      floatingActionButton: widget.profile.isMaster
+          ? FloatingActionButton.extended(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              onPressed: _openRegistration,
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: Text(
+                '선생님 등록',
+                style: forestringTextStyle.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadTeachers,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
+            padding: EdgeInsets.fromLTRB(
+              14,
+              14,
+              14,
+              widget.profile.isMaster ? 100 : 28,
+            ),
             children: [
               _buildFilters(),
               const SizedBox(height: 14),
