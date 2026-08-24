@@ -52,6 +52,18 @@ class ManagedTeacher {
   }
 }
 
+class AssignedStudentRegularSchedule {
+  const AssignedStudentRegularSchedule({
+    required this.weekday,
+    required this.startTime,
+    required this.durationMinutes,
+  });
+
+  final int weekday;
+  final String startTime;
+  final int durationMinutes;
+}
+
 class AssignedStudentSummary {
   const AssignedStudentSummary({
     required this.id,
@@ -59,6 +71,7 @@ class AssignedStudentSummary {
     required this.studentType,
     required this.assignmentStartsOn,
     required this.isActive,
+    required this.regularSchedules,
   });
 
   final String id;
@@ -66,6 +79,7 @@ class AssignedStudentSummary {
   final String studentType;
   final DateTime assignmentStartsOn;
   final bool isActive;
+  final List<AssignedStudentRegularSchedule> regularSchedules;
 
   bool get isFlex => studentType == 'flex';
   String get typeLabel => isFlex ? '자율 예약 학생' : '정규 학생';
@@ -303,6 +317,11 @@ class TeacherRepository {
             .from('students')
             .select('id, student_type, status')
             .inFilter('id', studentIds),
+        _client
+            .from('regular_schedule_slots')
+            .select('id, student_id, starts_on, ends_on')
+            .inFilter('student_id', studentIds)
+            .order('starts_on'),
       ]);
 
       final profilesById = <String, Map<String, dynamic>>{
@@ -313,6 +332,82 @@ class TeacherRepository {
         for (final raw in results[1])
           (raw['id'] as String): Map<String, dynamic>.from(raw),
       };
+      final studentIdByCurrentSlot = <String, String>{};
+
+      for (final raw in results[2]) {
+        final row = Map<String, dynamic>.from(raw);
+        final studentId = row['student_id'] as String;
+        if (studentsById[studentId]?['student_type']?.toString() != 'regular') {
+          continue;
+        }
+
+        final startsOn = DateTime.parse(row['starts_on'].toString());
+        final endsOn = row['ends_on'] == null
+            ? null
+            : DateTime.parse(row['ends_on'].toString());
+        final isCurrent = !startsOn.isAfter(today) &&
+            (endsOn == null || !endsOn.isBefore(today));
+        if (!isCurrent) continue;
+
+        studentIdByCurrentSlot[row['id'] as String] = studentId;
+      }
+
+      final schedulesByStudent =
+          <String, List<AssignedStudentRegularSchedule>>{};
+
+      if (studentIdByCurrentSlot.isNotEmpty) {
+        final seriesRows = await _client
+            .from('lesson_series')
+            .select(
+              'schedule_slot_id, teacher_id, weekday, start_time, '
+              'duration_minutes, effective_from, effective_until',
+            )
+            .inFilter('schedule_slot_id', studentIdByCurrentSlot.keys.toList())
+            .order('effective_from', ascending: false);
+        final currentSeriesBySlot = <String, Map<String, dynamic>>{};
+
+        for (final raw in seriesRows) {
+          final row = Map<String, dynamic>.from(raw);
+          if (row['teacher_id'] != teacherId) continue;
+
+          final effectiveFrom = DateTime.parse(
+            row['effective_from'].toString(),
+          );
+          final effectiveUntil = row['effective_until'] == null
+              ? null
+              : DateTime.parse(row['effective_until'].toString());
+          final isCurrent = !effectiveFrom.isAfter(today) &&
+              (effectiveUntil == null || !effectiveUntil.isBefore(today));
+          if (!isCurrent) continue;
+
+          final slotId = row['schedule_slot_id'] as String;
+          currentSeriesBySlot.putIfAbsent(slotId, () => row);
+        }
+
+        for (final entry in currentSeriesBySlot.entries) {
+          final studentId = studentIdByCurrentSlot[entry.key];
+          if (studentId == null) continue;
+
+          schedulesByStudent.putIfAbsent(studentId, () => []).add(
+                AssignedStudentRegularSchedule(
+                  weekday: (entry.value['weekday'] as num).toInt(),
+                  startTime: _shortTime(entry.value['start_time']),
+                  durationMinutes:
+                      (entry.value['duration_minutes'] as num).toInt(),
+                ),
+              );
+        }
+
+        for (final schedules in schedulesByStudent.values) {
+          schedules.sort((a, b) {
+            final weekday = a.weekday.compareTo(b.weekday);
+            return weekday != 0
+                ? weekday
+                : a.startTime.compareTo(b.startTime);
+          });
+        }
+      }
+
       final students = <AssignedStudentSummary>[];
 
       for (final entry in currentAssignmentByStudent.entries) {
@@ -330,6 +425,9 @@ class TeacherRepository {
             ),
             isActive: profile['is_active'] == true &&
                 student['status']?.toString() == 'active',
+            regularSchedules: List.unmodifiable(
+              schedulesByStudent[entry.key] ?? const [],
+            ),
           ),
         );
       }

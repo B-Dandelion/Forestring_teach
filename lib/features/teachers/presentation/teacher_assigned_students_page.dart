@@ -234,6 +234,17 @@ class _TeacherAssignedStudentsPageState
                     ],
                   ),
                   const SizedBox(height: 5),
+                  if (!student.isFlex) ...[
+                    Text(
+                      _regularScheduleLabel(student.regularSchedules),
+                      style: forestringTextStyle.copyWith(
+                        color: secondaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                  ],
                   Text(
                     '담당 시작 ${DateFormat('yyyy.MM.dd').format(student.assignmentStartsOn)}',
                     style: forestringTextStyle.copyWith(
@@ -266,6 +277,33 @@ class _TeacherAssignedStudentsPageState
         ),
       ),
     );
+  }
+
+  String _regularScheduleLabel(
+    List<AssignedStudentRegularSchedule> schedules,
+  ) {
+    if (schedules.isEmpty) {
+      return '정규 수업: 등록된 일정 없음';
+    }
+
+    final labels = schedules.map(
+      (schedule) => '${_weekdayLabel(schedule.weekday)} '
+          '${schedule.startTime} (${schedule.durationMinutes}분)',
+    );
+    return '정규 수업: ${labels.join(', ')}';
+  }
+
+  String _weekdayLabel(int weekday) {
+    return switch (weekday) {
+      1 => '월',
+      2 => '화',
+      3 => '수',
+      4 => '목',
+      5 => '금',
+      6 => '토',
+      7 => '일',
+      _ => '-',
+    };
   }
 
   Widget _errorCard(String message) {
