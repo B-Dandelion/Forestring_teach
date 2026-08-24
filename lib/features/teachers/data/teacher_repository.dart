@@ -146,16 +146,16 @@ class TeacherRepository {
               .order('name'),
       ]);
 
-      final teacherRows = (results[0] as List)
+      final teacherRows = results[0]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
-      final workHourRows = (results[1] as List)
+      final workHourRows = results[1]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
-      final assignmentRows = (results[2] as List)
+      final assignmentRows = results[2]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
-      final branchRows = (results[3] as List)
+      final branchRows = results[3]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
 
