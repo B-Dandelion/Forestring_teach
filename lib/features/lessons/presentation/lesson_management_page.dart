@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_calendar/calendar.dart';
 
 import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
@@ -14,6 +13,8 @@ import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'makeup_lesson_create_page.dart';
 import 'widgets/lesson_action_dialog.dart';
+import 'widgets/student_search_picker.dart';
+import 'widgets/student_style_lesson_calendar.dart';
 
 class LessonManagementPage extends StatefulWidget {
   const LessonManagementPage({
@@ -61,6 +62,47 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       if (semester.id == id) return semester;
     }
     return null;
+  }
+
+  List<VisibleStudent> get _filterStudents {
+    final branchId = _selectedBranchId;
+    return _students
+        .where(
+          (student) => branchId == null || student.branchId == branchId,
+        )
+        .toList()
+      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+  }
+
+  List<Lesson> get _visibleLessons {
+    final result = _lessons.where((lesson) {
+      if (_selectedBranchId != null && lesson.branchId != _selectedBranchId) {
+        return false;
+      }
+      if (_selectedStudentId != null && lesson.studentId != _selectedStudentId) {
+        return false;
+      }
+      if (_statusFilter == 'scheduled' && lesson.isCanceled) return false;
+      if (_statusFilter == 'canceled' && !lesson.isCanceled) return false;
+      return true;
+    }).toList()
+      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    return result;
+  }
+
+  String? get _safeSemesterValue {
+    final value = _selectedSemesterId;
+    if (value == null) return null;
+    return _semesters.any((item) => item.id == value) ? value : null;
+  }
+
+  String? get _safeBranchValue {
+    final selected = _selectedBranchId;
+    final exists = selected != null &&
+        _branches.any((branch) => branch.id == selected);
+
+    if (_isMaster) return exists ? selected : '__all__';
+    return exists ? selected : null;
   }
 
   @override
@@ -191,8 +233,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
           .toList()
         ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
-      if (!mounted) return;
-      setState(() => _lessons = lessons);
+      if (mounted) setState(() => _lessons = lessons);
     } on LessonFailure catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } finally {
@@ -232,65 +273,6 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     final start = semester.effectiveStart(branchId);
     final end = semester.effectiveEnd(branchId);
     return !day.isBefore(start) && !day.isAfter(end);
-  }
-
-  List<Lesson> get _visibleLessons {
-    final result = _lessons.where((lesson) {
-      if (_selectedBranchId != null && lesson.branchId != _selectedBranchId) {
-        return false;
-      }
-      if (_selectedStudentId != null && lesson.studentId != _selectedStudentId) {
-        return false;
-      }
-      if (_statusFilter == 'scheduled' && lesson.isCanceled) return false;
-      if (_statusFilter == 'canceled' && !lesson.isCanceled) return false;
-      return true;
-    }).toList()
-      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
-    return result;
-  }
-
-  List<VisibleStudent> get _filterStudents {
-    final branchId = _selectedBranchId;
-    return _students
-        .where(
-          (student) => branchId == null || student.branchId == branchId,
-        )
-        .toList();
-  }
-
-  String? get _safeSemesterValue {
-    final value = _selectedSemesterId;
-    if (value == null) return null;
-    return _semesters.any((item) => item.id == value) ? value : null;
-  }
-
-  String? get _safeBranchValue {
-    final selected = _selectedBranchId;
-    final exists = selected != null &&
-        _branches.any((branch) => branch.id == selected);
-
-    if (_isMaster) {
-      return exists ? selected : '__all__';
-    }
-    return exists ? selected : null;
-  }
-
-  String get _safeStudentValue {
-    final selected = _selectedStudentId;
-    if (selected != null &&
-        _filterStudents.any((student) => student.id == selected)) {
-      return selected;
-    }
-    return '__all__';
-  }
-
-  String _branchName(String? branchId) {
-    if (branchId == null) return '지점 미지정';
-    for (final branch in _branches) {
-      if (branch.id == branchId) return branch.name;
-    }
-    return '지점 확인 필요';
   }
 
   Future<void> _changeSemester(String? id) async {
@@ -540,38 +522,19 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _safeStudentValue,
-                  decoration: _decoration('학생'),
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: '__all__',
-                      child: Text('전체 학생'),
-                    ),
-                    ...students.map(
-                      (student) => DropdownMenuItem<String>(
-                        value: student.id,
-                        child: Text(
-                          student.displayName,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ],
-                  onChanged: _loading
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _selectedStudentId =
-                                value == null || value == '__all__'
-                                    ? null
-                                    : value;
-                            if (_selectedStudentId == null &&
-                                _viewMode == 'calendar') {
-                              _viewMode = 'list';
-                            }
-                          });
-                        },
+                child: StudentSearchPickerField(
+                  students: students,
+                  selectedStudentId: _selectedStudentId,
+                  includeAllOption: true,
+                  enabled: !_loading,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedStudentId = value;
+                      if (value == null && _viewMode == 'calendar') {
+                        _viewMode = 'list';
+                      }
+                    });
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -788,31 +751,21 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     if (semester == null) return const SizedBox.shrink();
 
     final range = _queryRange(semester);
-    final initialDate = semester.isCurrent ? DateTime.now() : semester.startsOn;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 2, 10, 12),
-      child: SfCalendar(
-        view: CalendarView.month,
-        minDate: range.$1,
-        maxDate: range.$2.subtract(const Duration(days: 1)),
-        initialDisplayDate: initialDate,
-        todayHighlightColor: primaryColor,
-        showNavigationArrow: true,
-        dataSource: _ManagementCalendarSource(lessons),
-        monthViewSettings: const MonthViewSettings(
-          showAgenda: true,
-          appointmentDisplayMode: MonthAppointmentDisplayMode.indicator,
-          agendaItemHeight: 54,
-        ),
-        onTap: (details) {
-          final appointments = details.appointments;
-          if (appointments == null || appointments.isEmpty) return;
-          final lesson = appointments.first;
-          if (lesson is Lesson) _openLesson(lesson);
-        },
-      ),
+    return StudentStyleLessonCalendar(
+      key: ValueKey('${semester.id}-$_selectedStudentId'),
+      lessons: lessons,
+      firstDay: range.$1,
+      lastDay: range.$2.subtract(const Duration(days: 1)),
+      lessonBuilder: _lessonCard,
     );
+  }
+
+  String _branchName(String? branchId) {
+    if (branchId == null) return '지점 미지정';
+    for (final branch in _branches) {
+      if (branch.id == branchId) return branch.name;
+    }
+    return '지점 확인 필요';
   }
 
   Widget _errorCard(String message) {
@@ -849,35 +802,6 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
         borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.18)),
       ),
     );
-  }
-}
-
-class _ManagementCalendarSource extends CalendarDataSource {
-  _ManagementCalendarSource(List<Lesson> lessons) {
-    appointments = lessons;
-  }
-
-  Lesson _lesson(int index) => appointments![index] as Lesson;
-
-  @override
-  DateTime getStartTime(int index) => _lesson(index).startsAt;
-
-  @override
-  DateTime getEndTime(int index) => _lesson(index).endsAt;
-
-  @override
-  String getSubject(int index) {
-    final lesson = _lesson(index);
-    return '${lesson.teacherName ?? '담당자'} · ${lesson.displayTypeLabel}';
-  }
-
-  @override
-  Color getColor(int index) {
-    final lesson = _lesson(index);
-    if (lesson.isCanceled) return Colors.black38;
-    if (lesson.type == LessonType.makeup) return secondaryColor;
-    if (lesson.type == LessonType.flex) return const Color(0xff4F7E67);
-    return primaryColor;
   }
 }
 
