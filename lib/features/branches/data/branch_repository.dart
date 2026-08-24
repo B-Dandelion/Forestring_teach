@@ -19,6 +19,10 @@ class BranchRepository {
 
   final SupabaseClient _client;
 
+  static const _closureSelect =
+      'id, branch_id, semester_id, starts_on, ends_on, reason, '
+      'closure_kind, default_closure_id, is_overridden';
+
   Future<List<AcademyBranch>> fetchBranches() async {
     try {
       final rows = await _client
@@ -172,9 +176,7 @@ class BranchRepository {
       final today = _dateText(DateTime.now());
       final rows = await _client
           .from('closure_periods')
-          .select(
-            'id, branch_id, semester_id, starts_on, ends_on, reason, closure_kind',
-          )
+          .select(_closureSelect)
           .eq('branch_id', branchId)
           .gte('ends_on', today)
           .order('starts_on', ascending: true);
@@ -196,9 +198,7 @@ class BranchRepository {
     try {
       final rows = await _client
           .from('closure_periods')
-          .select(
-            'id, branch_id, semester_id, starts_on, ends_on, reason, closure_kind',
-          )
+          .select(_closureSelect)
           .eq('branch_id', branchId)
           .lte('starts_on', _dateText(endsOn))
           .gte('ends_on', _dateText(startsOn))
@@ -209,6 +209,27 @@ class BranchRepository {
       throw _failureFromPostgrest(
         error,
         fallback: '학기 휴원 일정을 불러오지 못했습니다.',
+      );
+    }
+  }
+
+  Future<List<DefaultClosure>> fetchDefaultClosuresForSemester({
+    required String semesterId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('default_closure_periods')
+          .select(
+            'id, semester_id, starts_on, ends_on, reason, closure_kind',
+          )
+          .eq('semester_id', semesterId)
+          .order('starts_on', ascending: true);
+
+      return rows.map(DefaultClosure.fromJson).toList();
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '기본 휴원 일정을 불러오지 못했습니다.',
       );
     }
   }
@@ -225,6 +246,66 @@ class BranchRepository {
       throw _failureFromPostgrest(
         error,
         fallback: '학기 정보를 불러오지 못했습니다.',
+      );
+    }
+  }
+
+  Future<void> saveDefaultClosure({
+    String? defaultClosureId,
+    required String semesterId,
+    required DateTime startsOn,
+    required DateTime endsOn,
+    required BranchClosureKind kind,
+    String? reason,
+  }) async {
+    try {
+      await _client.rpc(
+        'upsert_default_closure_period',
+        params: {
+          'p_default_closure_id': defaultClosureId,
+          'p_semester_id': semesterId,
+          'p_starts_on': _dateText(startsOn),
+          'p_ends_on': _dateText(endsOn),
+          'p_closure_kind': kind.value,
+          'p_reason': reason?.trim(),
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '기본 휴원 일정을 저장하지 못했습니다.',
+      );
+    }
+  }
+
+  Future<void> deleteDefaultClosure({
+    required String defaultClosureId,
+  }) async {
+    try {
+      await _client.rpc(
+        'delete_default_closure_period',
+        params: {'p_default_closure_id': defaultClosureId},
+      );
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '기본 휴원 일정을 삭제하지 못했습니다.',
+      );
+    }
+  }
+
+  Future<void> resetClosureOverride({
+    required String closureId,
+  }) async {
+    try {
+      await _client.rpc(
+        'reset_branch_closure_override',
+        params: {'p_closure_id': closureId},
+      );
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '기본 휴원 설정으로 복원하지 못했습니다.',
       );
     }
   }
@@ -294,8 +375,9 @@ class BranchRepository {
     if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
       return const BranchFailure('현재 계정은 더 이상 사용할 수 없습니다.');
     }
-    if (message.contains('FORESTRING_MASTER_REQUIRED')) {
-      return const BranchFailure('전체 관리자만 지점을 관리할 수 있습니다.');
+    if (message.contains('FORESTRING_MASTER_REQUIRED') ||
+        message.contains('FORESTRING_CALENDAR_MASTER_REQUIRED')) {
+      return const BranchFailure('전체 관리자만 기본 일정을 관리할 수 있습니다.');
     }
     if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
       return const BranchFailure('이 지점을 관리할 권한이 없습니다.');
@@ -314,6 +396,14 @@ class BranchRepository {
         '활성 계정이나 남은 일정이 있어 지점을 비활성화할 수 없습니다.',
       );
     }
+    if (message.contains('FORESTRING_DEFAULT_CLOSURE_OVERLAP')) {
+      return const BranchFailure('다른 기본 휴원 일정과 날짜가 겹칩니다.');
+    }
+    if (message.contains('FORESTRING_DEFAULT_CLOSURE_BRANCH_OVERLAP')) {
+      return const BranchFailure(
+        '지점별 휴원과 날짜가 겹쳐 기본 휴원을 적용할 수 없습니다.',
+      );
+    }
     if (message.contains('FORESTRING_CLOSURE_OVERLAP')) {
       return const BranchFailure('이미 등록된 휴원 일정과 날짜가 겹칩니다.');
     }
@@ -326,10 +416,32 @@ class BranchRepository {
     if (message.contains('FORESTRING_INSTRUCTIONAL_BREAK_REQUIRES_SEMESTER')) {
       return const BranchFailure('휴원 주간에 해당하는 학기를 찾지 못했습니다.');
     }
+    if (message.contains('FORESTRING_DEFAULT_CLOSURE_OUTSIDE_SEMESTER') ||
+        message.contains('FORESTRING_DEFAULT_CLOSURE_OUTSIDE_BRANCH_SEMESTER')) {
+      return const BranchFailure(
+        '기본 휴원은 모든 지점의 해당 학기 기간 안에 포함되어야 합니다.',
+      );
+    }
+    if (message.contains('FORESTRING_MATERIALIZED_DEFAULT_CLOSURE_IMMUTABLE')) {
+      return const BranchFailure(
+        '이미 수업 생성에 반영된 기본 휴원은 날짜를 변경하거나 삭제할 수 없습니다.',
+      );
+    }
     if (message.contains('FORESTRING_MATERIALIZED_INSTRUCTIONAL_BREAK_IMMUTABLE')) {
       return const BranchFailure(
         '이미 수업 생성에 반영된 휴원 주간은 날짜를 변경하거나 삭제할 수 없습니다.',
       );
+    }
+    if (message.contains('FORESTRING_DEFAULT_CLOSURE_BRANCH_DELETE_FORBIDDEN')) {
+      return const BranchFailure(
+        '기본 휴원은 지점에서 삭제할 수 없습니다. 별도 설정하거나 기본값으로 복원해주세요.',
+      );
+    }
+    if (message.contains('FORESTRING_DEFAULT_CLOSURE_NOT_FOUND')) {
+      return const BranchFailure('기본 휴원 일정을 찾을 수 없습니다.');
+    }
+    if (message.contains('FORESTRING_CLOSURE_HAS_NO_DEFAULT')) {
+      return const BranchFailure('이 휴원은 지점에서 직접 추가한 일정입니다.');
     }
     if (message.contains('FORESTRING_CLOSURE_NOT_FOUND')) {
       return const BranchFailure('휴원 일정을 찾을 수 없습니다.');
