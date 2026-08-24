@@ -9,6 +9,7 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/student_management_repository.dart';
 import 'student_create_page.dart';
+import 'student_lesson_history_page.dart';
 import 'student_regular_schedule_page.dart';
 import 'student_teacher_change_dialog.dart';
 import 'student_withdrawal_dialog.dart';
@@ -477,8 +478,32 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                     student.isActive ? '퇴원 예정일' : '퇴원일',
                     DateFormat('yyyy.MM.dd').format(student.withdrawalDate!),
                   ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 220),
+                    );
+                    if (!mounted) return;
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => StudentLessonHistoryPage(
+                          student: student,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.event_note_outlined),
+                  label: const Text('수업 일정 · 이력'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: const BorderSide(color: primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
                 if (student.isActive) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   if (student.isRegular) ...[
                     OutlinedButton.icon(
                       onPressed: () async {
