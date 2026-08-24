@@ -7,6 +7,7 @@ import '../../../core/widgets/forestring_navigation.dart';
 import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../branches/presentation/branch_management_page.dart';
+import '../../managers/presentation/manager_management_page.dart';
 import '../../students/presentation/student_management_page.dart';
 import '../../teachers/presentation/teacher_management_page.dart';
 import '../domain/lesson.dart';
@@ -103,6 +104,19 @@ class MasterSchedulePage extends StatelessWidget {
               );
             },
           ),
+          if (profile.isMaster)
+            ForestringDrawerItem(
+              icon: Icons.admin_panel_settings_outlined,
+              label: '지점장 관리',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ManagerManagementPage(),
+                  ),
+                );
+              },
+            ),
           if (profile.isMaster)
             ForestringDrawerItem(
               icon: Icons.storefront_outlined,
