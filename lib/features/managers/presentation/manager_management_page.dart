@@ -5,6 +5,11 @@ import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
+import '../../teachers/data/teacher_repository.dart';
+import '../../teachers/presentation/teacher_assigned_students_page.dart';
+import '../../teachers/presentation/teacher_blocked_periods_page.dart';
+import '../../teachers/presentation/teacher_lesson_stats_page.dart';
+import '../../teachers/presentation/teacher_work_hours_edit_page.dart';
 import '../data/manager_repository.dart';
 import 'manager_create_page.dart';
 import 'manager_departure_page.dart';
@@ -47,9 +52,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
   }
 
   void _onSearchChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
@@ -81,9 +84,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             : '지점장 정보를 불러오지 못했습니다.\n$error';
       });
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -94,15 +95,9 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
       if (_branchFilter != _allBranches && manager.branchId != _branchFilter) {
         return false;
       }
-      if (_statusFilter == 'active' && !manager.isActive) {
-        return false;
-      }
-      if (_statusFilter == 'departed' && manager.isActive) {
-        return false;
-      }
-      if (query.isEmpty) {
-        return true;
-      }
+      if (_statusFilter == 'active' && !manager.isActive) return false;
+      if (_statusFilter == 'departed' && manager.isActive) return false;
+      if (query.isEmpty) return true;
 
       return manager.displayName.toLowerCase().contains(query) ||
           manager.branchName.toLowerCase().contains(query);
@@ -185,8 +180,88 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                         fontSize: 14,
                       ),
                     ),
-                    if (currentManager.isActive) ...[
+                    if (currentManager.teachesLessons) ...[
                       const SizedBox(height: 20),
+                      Text(
+                        '근무시간',
+                        style: forestringTextStyle.copyWith(
+                          color: primaryColor,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...currentManager.workHours.map(_workHourRow),
+                      const SizedBox(height: 18),
+                      _detailActionSection(
+                        title: '수업 정보',
+                        actions: [
+                          _detailActionButton(
+                            icon: Icons.groups_2_outlined,
+                            label:
+                                '담당 수강생 ${currentManager.assignedStudentCount}명',
+                            onPressed: () => runAction(
+                              _showAssignedStudents,
+                            ),
+                          ),
+                          _detailActionButton(
+                            icon: Icons.bar_chart_outlined,
+                            label: '학기별 수업 통계',
+                            onPressed: () => runAction(
+                              _showLessonStats,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _detailActionSection(
+                        title: '일정 관리',
+                        actions: [
+                          _detailActionButton(
+                            icon: Icons.event_busy_outlined,
+                            label: '개인 일정 관리',
+                            color: personalScheduleColor,
+                            onPressed: () => runAction(
+                              _showBlockedPeriods,
+                            ),
+                          ),
+                          if (currentManager.isActive)
+                            _detailActionButton(
+                              icon: Icons.schedule_outlined,
+                              label: '근무시간 변경',
+                              onPressed: () => runAction(
+                                _showWorkHoursEdit,
+                                refreshManager: true,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ] else if (currentManager.isActive) ...[
+                      const SizedBox(height: 20),
+                      _detailActionSection(
+                        title: '수업 정보',
+                        actions: [
+                          _detailActionButton(
+                            icon: Icons.add_business_outlined,
+                            label: '수업 정보 등록',
+                            onPressed: () => runAction(
+                              _showTeachingRegistration,
+                              refreshManager: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        '근무시간을 등록하면 담당 수강생과 수업 일정 관리 기능을 사용할 수 있습니다.',
+                        style: forestringTextStyle.copyWith(
+                          color: Colors.black45,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (currentManager.isActive) ...[
+                      const SizedBox(height: 14),
                       _detailActionSection(
                         title: '계정 관리',
                         actions: [
@@ -262,9 +337,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
       ),
     );
 
-    if (mounted) {
-      await _load();
-    }
+    if (mounted) await _load();
   }
 
   Widget _detailActionSection({
@@ -329,6 +402,110 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 11),
         textStyle: forestringTextStyle.copyWith(fontSize: 13),
+      ),
+    );
+  }
+
+  ManagedTeacher _asManagedTeacher(ManagedManager manager) {
+    return ManagedTeacher(
+      id: manager.id,
+      displayName: manager.displayName,
+      branchId: manager.branchId.isEmpty ? null : manager.branchId,
+      branchName: manager.branchName,
+      profileIsActive: manager.isActive,
+      workHours: manager.workHours
+          .map(
+            (workHour) => ManagedTeacherWorkHour(
+              weekday: workHour.weekday,
+              startTime: workHour.startTime,
+              endTime: workHour.endTime,
+            ),
+          )
+          .toList(growable: false),
+      assignedStudentCount: manager.assignedStudentCount,
+      withdrawalDate: manager.withdrawalDate,
+    );
+  }
+
+  Future<void> _showTeachingRegistration(ManagedManager manager) async {
+    await _openWorkHoursEditor(
+      manager,
+      registration: true,
+    );
+  }
+
+  Future<void> _showWorkHoursEdit(ManagedManager manager) async {
+    await _openWorkHoursEditor(
+      manager,
+      registration: false,
+    );
+  }
+
+  Future<void> _openWorkHoursEditor(
+    ManagedManager manager, {
+    required bool registration,
+  }) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TeacherWorkHoursEditPage(
+          teacher: _asManagedTeacher(manager),
+          title: registration ? '수업 정보 등록' : '근무시간 변경',
+        ),
+      ),
+    );
+
+    if (!mounted || changed == null) return;
+
+    if (changed) {
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            registration ? '수업 정보를 등록했습니다.' : '근무시간이 변경되었습니다.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          registration ? '등록된 수업 정보가 없습니다.' : '변경된 근무시간이 없습니다.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _showAssignedStudents(ManagedManager manager) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TeacherAssignedStudentsPage(
+          teacher: _asManagedTeacher(manager),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showBlockedPeriods(ManagedManager manager) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TeacherBlockedPeriodsPage(
+          teacher: _asManagedTeacher(manager),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showLessonStats(ManagedManager manager) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TeacherLessonStatsPage(
+          teacher: _asManagedTeacher(manager),
+        ),
       ),
     );
   }
@@ -496,6 +673,36 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
     await _load();
   }
 
+  Widget _workHourRow(ManagedManagerWorkHour workHour) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.13)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(
+              '${_weekdayLabel(workHour.weekday)}요일',
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            '${workHour.startTime} ~ ${workHour.endTime}',
+            style: forestringTextStyle.copyWith(fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -623,9 +830,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             ),
           ],
           onChanged: (value) {
-            if (value != null) {
-              setState(() => _branchFilter = value);
-            }
+            if (value != null) setState(() => _branchFilter = value);
           },
         ),
         const SizedBox(height: 10),
@@ -638,9 +843,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             DropdownMenuItem(value: 'departed', child: Text('퇴사')),
           ],
           onChanged: (value) {
-            if (value != null) {
-              setState(() => _statusFilter = value);
-            }
+            if (value != null) setState(() => _statusFilter = value);
           },
         ),
       ],
@@ -718,6 +921,18 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                         fontSize: 13,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      manager.teachesLessons
+                          ? '담당 수강생 ${manager.assignedStudentCount}명 · '
+                              '${_workdaySummary(manager.workHours)}'
+                          : '수업 미등록',
+                      overflow: TextOverflow.ellipsis,
+                      style: forestringTextStyle.copyWith(
+                        color: secondaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -765,6 +980,27 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         style: forestringTextStyle.copyWith(color: Colors.redAccent),
       ),
     );
+  }
+
+  String _workdaySummary(List<ManagedManagerWorkHour> workHours) {
+    if (workHours.isEmpty) return '근무시간 미등록';
+
+    final weekdays = workHours.map((item) => item.weekday).toSet().toList()
+      ..sort();
+    return '${weekdays.map(_weekdayLabel).join('·')} 근무';
+  }
+
+  String _weekdayLabel(int weekday) {
+    return switch (weekday) {
+      1 => '월',
+      2 => '화',
+      3 => '수',
+      4 => '목',
+      5 => '금',
+      6 => '토',
+      7 => '일',
+      _ => '-',
+    };
   }
 }
 
