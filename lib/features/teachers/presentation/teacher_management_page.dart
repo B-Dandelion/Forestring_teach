@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/forestring_theme.dart';
@@ -482,6 +483,24 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 220),
+                      );
+                      if (!mounted) return;
+                      await _showPinResetDialog(teacher);
+                    },
+                    icon: const Icon(Icons.lock_reset_outlined),
+                    label: const Text('PIN 재설정'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      side: const BorderSide(color: primaryColor),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                 ],
                 FilledButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
@@ -517,6 +536,26 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('이름이 변경되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _showPinResetDialog(ManagedTeacher teacher) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _TeacherPinResetDialog(
+        teacher: teacher,
+        repository: _repository,
+      ),
+    );
+
+    if (!mounted || changed != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PIN이 변경되었습니다.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -736,6 +775,149 @@ class _TeacherNameEditDialogState extends State<_TeacherNameEditDialog> {
               },
               decoration: const InputDecoration(
                 labelText: '선생님 이름',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: forestringTextStyle.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
+  }
+}
+
+class _TeacherPinResetDialog extends StatefulWidget {
+  const _TeacherPinResetDialog({
+    required this.teacher,
+    required this.repository,
+  });
+
+  final ManagedTeacher teacher;
+  final TeacherRepository repository;
+
+  @override
+  State<_TeacherPinResetDialog> createState() =>
+      _TeacherPinResetDialogState();
+}
+
+class _TeacherPinResetDialogState extends State<_TeacherPinResetDialog> {
+  final _pinController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  bool _saving = false;
+  String? _validationMessage;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final pin = _pinController.text.trim();
+    final confirmPin = _confirmController.text.trim();
+
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      setState(() => _validationMessage = 'PIN은 4자리 숫자로 입력해주세요.');
+      return;
+    }
+    if (pin != confirmPin) {
+      setState(() => _validationMessage = 'PIN 확인 값이 일치하지 않습니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+
+    try {
+      await widget.repository.resetTeacherPin(
+        teacherId: widget.teacher.id,
+        pin: pin,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on TeacherFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('PIN 재설정'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${widget.teacher.displayName} 선생님의 로그인 PIN을 변경합니다.',
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _pinController,
+              enabled: !_saving,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: const InputDecoration(
+                labelText: '새 PIN (4자리)',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _confirmController,
+              enabled: !_saving,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_saving) _save();
+              },
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: const InputDecoration(
+                labelText: '새 PIN 확인',
+                counterText: '',
                 border: OutlineInputBorder(),
               ),
             ),

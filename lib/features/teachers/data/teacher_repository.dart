@@ -368,6 +368,46 @@ class TeacherRepository {
       throw TeacherFailure('이름을 변경하지 못했습니다.\n$error');
     }
   }
+
+  Future<void> resetTeacherPin({
+    required String teacherId,
+    required String pin,
+  }) async {
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      throw const TeacherFailure(
+        'PIN은 4자리 숫자로 입력해주세요.',
+      );
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'staff-reset-account-pin',
+        body: {
+          'profileId': teacherId,
+          'pin': pin,
+        },
+      );
+
+      final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw TeacherFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : 'PIN을 변경하지 못했습니다.',
+        );
+      }
+    } on TeacherFailure {
+      rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw TeacherFailure(details['message'].toString());
+      }
+      throw const TeacherFailure('PIN을 변경하지 못했습니다.');
+    } catch (error) {
+      throw TeacherFailure('PIN을 변경하지 못했습니다.\n$error');
+    }
+  }
 }
 
 String _shortTime(dynamic value) {
