@@ -5,6 +5,7 @@ import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
+import '../../teachers/presentation/teacher_work_hours_editor.dart';
 import '../data/manager_repository.dart';
 
 class ManagerCreatePage extends StatefulWidget {
@@ -23,7 +24,11 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
   final _branchRepository = BranchRepository();
 
   List<AcademyBranch> _branches = const [];
+  List<TeacherWorkHourDraft> _workHours = const [
+    TeacherWorkHourDraft(),
+  ];
   String? _branchId;
+  bool _teachesLessons = false;
   bool _loading = true;
   bool _saving = false;
   bool _showPin = false;
@@ -67,23 +72,27 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
       if (!mounted) return;
       setState(() => _errorMessage = error.toString());
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
 
-    if (_saving || !_formKey.currentState!.validate()) {
-      return;
-    }
+    if (_saving || !_formKey.currentState!.validate()) return;
 
     final branchId = _branchId;
     if (branchId == null || branchId.isEmpty) {
       setState(() => _errorMessage = '지점을 선택해주세요.');
       return;
+    }
+
+    if (_teachesLessons) {
+      final workHourError = validateTeacherWorkHours(_workHours);
+      if (workHourError != null) {
+        setState(() => _errorMessage = workHourError);
+        return;
+      }
     }
 
     setState(() {
@@ -96,6 +105,18 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
         name: _nameController.text,
         pin: _pinController.text,
         branchId: branchId,
+        workHours: _teachesLessons
+            ? _workHours
+                .map((draft) {
+                  final input = draft.toInput();
+                  return ManagerWorkHourInput(
+                    weekday: input.weekday,
+                    startTime: input.startTime,
+                    endTime: input.endTime,
+                  );
+                })
+                .toList(growable: false)
+            : const [],
       );
 
       if (!mounted) return;
@@ -114,7 +135,8 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
           title: const Text('지점장 등록 완료'),
           content: Text(
             '${manager.displayName} 지점장 계정이 등록되었습니다.\n\n'
-            '지점: ${branchName ?? '-'}',
+            '지점: ${branchName ?? '-'}\n'
+            '수업 담당: ${_teachesLessons ? '사용' : '미사용'}',
           ),
           actions: [
             TextButton(
@@ -125,16 +147,12 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
         ),
       );
 
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
+      if (mounted) Navigator.of(context).pop(true);
     } on ManagerFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -186,9 +204,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                     textInputAction: TextInputAction.next,
                     validator: (value) {
                       final name = value?.trim() ?? '';
-                      if (name.isEmpty) {
-                        return '지점장 이름을 입력해주세요.';
-                      }
+                      if (name.isEmpty) return '지점장 이름을 입력해주세요.';
                       return null;
                     },
                   ),
@@ -224,7 +240,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                       LengthLimitingTextInputFormatter(4),
                     ],
                     onFieldSubmitted: (_) {
-                      if (!_saving) _submit();
+                      if (!_saving && !_teachesLessons) _submit();
                     },
                     validator: (value) {
                       if (value == null || !RegExp(r'^\d{4}$').hasMatch(value)) {
@@ -236,6 +252,59 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 18),
+                  _sectionTitle('수업 정보'),
+                  const SizedBox(height: 6),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      '수업도 담당합니다',
+                      style: forestringTextStyle.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '근무시간을 등록하면 학생 배정과 수업 일정 관리 기능을 사용할 수 있습니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    value: _teachesLessons,
+                    activeColor: primaryColor,
+                    onChanged: _saving
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _teachesLessons = value;
+                              _errorMessage = null;
+                              if (value && _workHours.isEmpty) {
+                                _workHours = const [TeacherWorkHourDraft()];
+                              }
+                            });
+                          },
+                  ),
+                  if (_teachesLessons) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '요일별 근무시간을 15분 단위로 등록합니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TeacherWorkHoursEditor(
+                      values: _workHours,
+                      enabled: !_saving,
+                      onChanged: (values) {
+                        setState(() {
+                          _workHours = values;
+                          _errorMessage = null;
+                        });
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   FilledButton(
                     onPressed:
