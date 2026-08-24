@@ -320,7 +320,7 @@ class StudentRegularScheduleRepository {
       final rows = await _client
           .from('semesters')
           .select('id, code, starts_on, ends_on')
-          .order('starts_on');
+          .order('starts_on', ascending: true);
 
       final overrides = <String, Map<String, dynamic>>{};
       if (branchId != null) {
@@ -358,9 +358,10 @@ class StudentRegularScheduleRepository {
             ),
           ),
         );
-        if (result.length == 12) break;
       }
-      return result;
+
+      result.sort((a, b) => a.startsOn.compareTo(b.startsOn));
+      return result.length <= 12 ? result : result.take(12).toList();
     } on PostgrestException catch (error) {
       throw StudentRegularScheduleFailure(
         '적용할 학기를 불러오지 못했습니다.\n${error.message}',

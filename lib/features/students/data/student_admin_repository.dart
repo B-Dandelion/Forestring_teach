@@ -86,7 +86,7 @@ class StudentAdminRepository {
       final semesterRows = await _client
           .from('semesters')
           .select('id, code, starts_on, ends_on')
-          .order('starts_on');
+          .order('starts_on', ascending: true);
 
       List<dynamic> overrideRows = const [];
       try {
@@ -132,6 +132,7 @@ class StudentAdminRepository {
         );
       }
 
+      result.sort((a, b) => a.startsOn.compareTo(b.startsOn));
       return result;
     } on PostgrestException catch (error) {
       throw StudentAdminFailure('학기 목록을 불러오지 못했습니다.\n${error.message}');
