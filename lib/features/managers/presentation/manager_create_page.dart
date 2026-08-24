@@ -136,7 +136,8 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                       ),
                     )
                     .toList(),
-                onChanged: _saving ? null : (value) => setState(() => _branchId = value),
+                onChanged:
+                    _saving ? null : (value) => setState(() => _branchId = value),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -152,22 +153,16 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                 obscureText: true,
                 keyboardType: TextInputType.number,
                 maxLength: 4,
-                inputFormatters: const [],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ],
                 decoration: _decoration('4자리 PIN').copyWith(
                   counterText: '',
                 ),
-                onChanged: (value) {
-                  final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-                  if (digits != value) {
-                    _pinController.value = TextEditingValue(
-                      text: digits.length > 4 ? digits.substring(0, 4) : digits,
-                      selection: TextSelection.collapsed(
-                        offset: digits.length > 4 ? 4 : digits.length,
-                      ),
-                    );
-                  }
+                onSubmitted: (_) {
+                  if (!_saving) _save();
                 },
-                onSubmitted: (_) => _saving ? null : _save(),
               ),
             ],
             if (_errorMessage != null) ...[
