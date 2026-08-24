@@ -54,6 +54,127 @@ class ManagedTeacherBlockedPeriod {
   }
 }
 
+class TeacherLessonDurationGroup {
+  const TeacherLessonDurationGroup({
+    required this.durationMinutes,
+    required this.lessonCount,
+  });
+
+  final int durationMinutes;
+  final int lessonCount;
+
+  factory TeacherLessonDurationGroup.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return TeacherLessonDurationGroup(
+      durationMinutes: (json['durationMinutes'] as num).toInt(),
+      lessonCount: (json['lessonCount'] as num).toInt(),
+    );
+  }
+}
+
+class TeacherSemesterLessonStats {
+  const TeacherSemesterLessonStats({
+    required this.semesterId,
+    required this.code,
+    required this.startsOn,
+    required this.endsOn,
+    required this.isCurrent,
+    required this.totalLessonCount,
+    required this.totalMinutes,
+    required this.durationGroups,
+  });
+
+  final String semesterId;
+  final String code;
+  final DateTime startsOn;
+  final DateTime endsOn;
+  final bool isCurrent;
+  final int totalLessonCount;
+  final int totalMinutes;
+  final List<TeacherLessonDurationGroup> durationGroups;
+
+  factory TeacherSemesterLessonStats.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawGroups = json['durationGroups'];
+
+    return TeacherSemesterLessonStats(
+      semesterId: json['semesterId'] as String,
+      code: json['code'] as String,
+      startsOn: DateTime.parse(json['startsOn'].toString()),
+      endsOn: DateTime.parse(json['endsOn'].toString()),
+      isCurrent: json['isCurrent'] == true,
+      totalLessonCount: (json['totalLessonCount'] as num).toInt(),
+      totalMinutes: (json['totalMinutes'] as num).toInt(),
+      durationGroups: rawGroups is List
+          ? rawGroups
+              .map(
+                (raw) => TeacherLessonDurationGroup.fromJson(
+                  Map<String, dynamic>.from(raw as Map),
+                ),
+              )
+              .toList()
+          : const [],
+    );
+  }
+}
+
+class TeacherLessonStats {
+  const TeacherLessonStats({
+    required this.teacherId,
+    required this.teacherName,
+    required this.employmentStartsOn,
+    required this.calculatedAt,
+    required this.semesters,
+    this.withdrawalDate,
+  });
+
+  final String teacherId;
+  final String teacherName;
+  final DateTime employmentStartsOn;
+  final DateTime calculatedAt;
+  final DateTime? withdrawalDate;
+  final List<TeacherSemesterLessonStats> semesters;
+
+  int get totalLessonCount => semesters.fold(
+        0,
+        (sum, semester) => sum + semester.totalLessonCount,
+      );
+
+  int get totalMinutes => semesters.fold(
+        0,
+        (sum, semester) => sum + semester.totalMinutes,
+      );
+
+  factory TeacherLessonStats.fromJson(Map<String, dynamic> json) {
+    final rawSemesters = json['semesters'];
+
+    return TeacherLessonStats(
+      teacherId: json['teacherId'] as String,
+      teacherName: json['teacherName'] as String,
+      employmentStartsOn: DateTime.parse(
+        json['employmentStartsOn'].toString(),
+      ),
+      calculatedAt: DateTime.parse(
+        json['calculatedAt'].toString(),
+      ).toLocal(),
+      withdrawalDate: json['withdrawalDate'] == null
+          ? null
+          : DateTime.parse(json['withdrawalDate'].toString()),
+      semesters: rawSemesters is List
+          ? rawSemesters
+              .map(
+                (raw) => TeacherSemesterLessonStats.fromJson(
+                  Map<String, dynamic>.from(raw as Map),
+                ),
+              )
+              .toList()
+          : const [],
+    );
+  }
+}
+
 class ManagedTeacher {
   const ManagedTeacher({
     required this.id,
@@ -781,6 +902,39 @@ class TeacherRepository {
     }
   }
 
+  Future<TeacherLessonStats> fetchTeacherLessonStats(
+    String teacherId,
+  ) async {
+    try {
+      final data = await _client.rpc(
+        'get_teacher_semester_lesson_stats',
+        params: {
+          'p_teacher_id': teacherId,
+        },
+      );
+
+      if (data is! Map) {
+        throw const TeacherFailure(
+          '수업 통계 결과를 확인하지 못했습니다.',
+        );
+      }
+
+      return TeacherLessonStats.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on TeacherFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _lessonStatsFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure(
+        '수업 통계를 불러오지 못했습니다.\n$error',
+      );
+    }
+  }
+
   String? _nullIfBlank(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -864,6 +1018,26 @@ String _blockedPeriodFailureMessage(String message) {
   }
 
   return '개인 일정을 처리하지 못했습니다.';
+}
+
+String _lessonStatsFailureMessage(String message) {
+  if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+    return '로그인이 필요합니다.';
+  }
+  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+    return '현재 계정은 더 이상 사용할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_TEACHER_STATS_FORBIDDEN')) {
+    return '수업 통계를 조회할 권한이 없습니다.';
+  }
+  if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    return '지점 관리자는 자기 지점 선생님의 통계만 조회할 수 있습니다.';
+  }
+  if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+    return '선생님 정보를 찾을 수 없습니다.';
+  }
+
+  return '수업 통계를 불러오지 못했습니다.';
 }
 
 extension on String {

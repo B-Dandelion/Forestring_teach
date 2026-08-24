@@ -11,6 +11,7 @@ import '../data/teacher_repository.dart';
 import 'teacher_assigned_students_page.dart';
 import 'teacher_blocked_periods_page.dart';
 import 'teacher_create_page.dart';
+import 'teacher_lesson_stats_page.dart';
 import 'teacher_work_hours_edit_page.dart';
 
 class TeacherManagementPage extends StatefulWidget {
@@ -494,6 +495,24 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                       const Duration(milliseconds: 220),
                     );
                     if (!mounted) return;
+                    await _showLessonStats(teacher);
+                  },
+                  icon: const Icon(Icons.bar_chart_outlined),
+                  label: const Text('학기별 수업 통계'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: const BorderSide(color: primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 220),
+                    );
+                    if (!mounted) return;
                     await _showBlockedPeriods(teacher);
                   },
                   icon: const Icon(Icons.event_busy_outlined),
@@ -661,6 +680,14 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => TeacherBlockedPeriodsPage(teacher: teacher),
+      ),
+    );
+  }
+
+  Future<void> _showLessonStats(ManagedTeacher teacher) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TeacherLessonStatsPage(teacher: teacher),
       ),
     );
   }
