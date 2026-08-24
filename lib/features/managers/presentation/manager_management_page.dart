@@ -47,7 +47,9 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
   }
 
   void _onSearchChanged() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _load() async {
@@ -61,10 +63,12 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         _repository.fetchManagers(),
         _branchRepository.fetchBranches(),
       ]);
+
       if (!mounted) return;
 
       final branches = (results[1] as List<AcademyBranch>).toList()
         ..sort((a, b) => a.name.compareTo(b.name));
+
       setState(() {
         _managers = results[0] as List<ManagedManager>;
         _branches = branches;
@@ -77,19 +81,29 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             : '지점장 정보를 불러오지 못했습니다.\n$error';
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   List<ManagedManager> get _visibleManagers {
     final query = _searchController.text.trim().toLowerCase();
+
     return _managers.where((manager) {
       if (_branchFilter != _allBranches && manager.branchId != _branchFilter) {
         return false;
       }
-      if (_statusFilter == 'active' && !manager.isActive) return false;
-      if (_statusFilter == 'departed' && manager.isActive) return false;
-      if (query.isEmpty) return true;
+      if (_statusFilter == 'active' && !manager.isActive) {
+        return false;
+      }
+      if (_statusFilter == 'departed' && manager.isActive) {
+        return false;
+      }
+      if (query.isEmpty) {
+        return true;
+      }
+
       return manager.displayName.toLowerCase().contains(query) ||
           manager.branchName.toLowerCase().contains(query);
     }).toList();
@@ -97,19 +111,26 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
 
   Future<void> _openCreate() async {
     final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const ManagerCreatePage()),
+      MaterialPageRoute(
+        builder: (_) => const ManagerCreatePage(),
+      ),
     );
-    if (created == true && mounted) {
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('지점장을 등록했습니다.')),
-      );
-    }
+
+    if (created != true || !mounted) return;
+
+    await _load();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('지점장을 등록했습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _openDetails(ManagedManager manager) async {
-    var current = manager;
+    var currentManager = manager;
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -117,27 +138,28 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
           builder: (pageContext, setPageState) {
             Future<void> runAction(
               Future<void> Function(ManagedManager) action, {
-              bool refresh = false,
+              bool refreshManager = false,
             }) async {
-              await action(current);
-              if (!refresh || !mounted || !pageContext.mounted) return;
+              await action(currentManager);
 
-              await _load();
-              if (!mounted || !pageContext.mounted) return;
+              if (!refreshManager || !mounted || !pageContext.mounted) {
+                return;
+              }
 
-              ManagedManager? updated;
+              ManagedManager? refreshedManager;
               for (final item in _managers) {
-                if (item.id == current.id) {
-                  updated = item;
+                if (item.id == currentManager.id) {
+                  refreshedManager = item;
                   break;
                 }
               }
 
-              if (updated == null) {
+              if (refreshedManager == null) {
                 Navigator.of(pageContext).pop();
                 return;
               }
-              setPageState(() => current = updated!);
+
+              setPageState(() => currentManager = refreshedManager!);
             }
 
             return Scaffold(
@@ -145,10 +167,10 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
               appBar: const ForestringAppBar(title: '지점장 관리'),
               body: SafeArea(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
                     Text(
-                      current.displayName,
+                      currentManager.displayName,
                       style: forestringTextStyle.copyWith(
                         color: primaryColor,
                         fontSize: 23,
@@ -157,49 +179,51 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      current.branchName,
+                      currentManager.branchName,
                       style: forestringTextStyle.copyWith(
                         color: Colors.black54,
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 22),
-                    if (current.isActive) ...[
-                      _actionSection(
+                    if (currentManager.isActive) ...[
+                      const SizedBox(height: 20),
+                      _detailActionSection(
                         title: '계정 관리',
                         actions: [
-                          _actionButton(
+                          _detailActionButton(
                             icon: Icons.drive_file_rename_outline,
                             label: '이름 수정',
                             onPressed: () => runAction(
-                              _editName,
-                              refresh: true,
+                              _showNameEditDialog,
+                              refreshManager: true,
                             ),
                           ),
-                          _actionButton(
+                          _detailActionButton(
                             icon: Icons.lock_reset_outlined,
                             label: 'PIN 재설정',
-                            onPressed: () => runAction(_resetPin),
+                            onPressed: () => runAction(
+                              _showPinResetDialog,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 14),
-                      _actionSection(
+                      _detailActionSection(
                         title: '지점 관리',
                         actions: [
-                          _actionButton(
+                          _detailActionButton(
                             icon: Icons.store_mall_directory_outlined,
                             label: '담당 지점 변경',
-                            onPressed: current.hasScheduledWithdrawal
+                            onPressed: currentManager.hasScheduledWithdrawal
                                 ? null
                                 : () => runAction(
-                                      _changeBranch,
-                                      refresh: true,
+                                      _showBranchChangeDialog,
+                                      refreshManager: true,
                                     ),
                           ),
                         ],
                       ),
-                      if (current.hasScheduledWithdrawal) ...[
+                      if (currentManager.hasScheduledWithdrawal) ...[
                         const SizedBox(height: 8),
                         Text(
                           '퇴사 예정인 지점장은 담당 지점을 변경할 수 없습니다.',
@@ -211,18 +235,20 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                       ],
                     ],
                     const SizedBox(height: 14),
-                    _actionSection(
+                    _detailActionSection(
                       title: '재직 관리',
                       actions: [
-                        _actionButton(
-                          icon: current.isActive
+                        _detailActionButton(
+                          icon: currentManager.isActive
                               ? Icons.person_off_outlined
                               : Icons.badge_outlined,
-                          label: current.isActive ? '퇴사 관리' : '퇴사 정보',
+                          label: currentManager.isActive
+                              ? '퇴사 관리'
+                              : '퇴사 정보',
                           color: Colors.red.shade700,
                           onPressed: () => runAction(
-                            _openDeparture,
-                            refresh: true,
+                            _showDeparture,
+                            refreshManager: true,
                           ),
                         ),
                       ],
@@ -236,102 +262,125 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
       ),
     );
 
-    if (mounted) await _load();
-  }
-
-  Future<void> _editName(ManagedManager manager) async {
-    final controller = TextEditingController(text: manager.displayName);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: neutralIvory,
-        title: const Text('지점장 이름 수정'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: '이름',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('저장'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (name == null || name.trim().isEmpty || name.trim() == manager.displayName) {
-      return;
+    if (mounted) {
+      await _load();
     }
-
-    await _runAction(
-      () => _repository.updateManagerName(
-        managerId: manager.id,
-        name: name,
-      ),
-      successMessage: '이름을 변경했습니다.',
-    );
   }
 
-  Future<void> _resetPin(ManagedManager manager) async {
-    final controller = TextEditingController();
-    final pin = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: neutralIvory,
-        title: const Text('PIN 재설정'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(4),
-          ],
-          decoration: const InputDecoration(
-            labelText: '새 4자리 PIN',
-            border: OutlineInputBorder(),
-            counterText: '',
+  Widget _detailActionSection({
+    required String title,
+    required List<Widget> actions,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: forestringTextStyle.copyWith(
+            color: Colors.black54,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
           ),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('재설정'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (pin == null) return;
+        const SizedBox(height: 7),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = actions.length == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 8) / 2;
 
-    await _runAction(
-      () => _repository.resetManagerPin(
-        managerId: manager.id,
-        pin: pin,
-      ),
-      successMessage: 'PIN을 재설정했습니다.',
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final action in actions)
+                  SizedBox(
+                    width: itemWidth,
+                    height: 52,
+                    child: action,
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
-  Future<void> _changeBranch(ManagedManager manager) async {
+  Widget _detailActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    Color color = primaryColor,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        disabledForegroundColor: Colors.black38,
+        side: BorderSide(
+          color: onPressed == null ? Colors.black26 : color,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 11),
+        textStyle: forestringTextStyle.copyWith(fontSize: 13),
+      ),
+    );
+  }
+
+  Future<void> _showNameEditDialog(ManagedManager manager) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _ManagerNameEditDialog(
+        manager: manager,
+        repository: _repository,
+      ),
+    );
+
+    if (!mounted || changed != true) return;
+
+    await _load();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('이름이 변경되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _showPinResetDialog(ManagedManager manager) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _ManagerPinResetDialog(
+        manager: manager,
+        repository: _repository,
+      ),
+    );
+
+    if (!mounted || changed != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PIN이 변경되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _showBranchChangeDialog(ManagedManager manager) async {
     final activeBranches = _branches.where((branch) => branch.isActive).toList();
+
     if (activeBranches.isEmpty) {
       _showMessage('변경할 수 있는 운영 지점이 없습니다.');
       return;
@@ -346,7 +395,6 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          backgroundColor: neutralIvory,
           title: const Text('담당 지점 변경'),
           content: DropdownButtonFormField<String>(
             value: selectedId,
@@ -363,7 +411,9 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                 )
                 .toList(),
             onChanged: (value) {
-              if (value != null) setDialogState(() => selectedId = value);
+              if (value != null) {
+                setDialogState(() => selectedId = value);
+              }
             },
           ),
           actions: [
@@ -371,9 +421,10 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('취소'),
             ),
-            TextButton(
+            FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(selectedId),
-              child: const Text('변경'),
+              style: FilledButton.styleFrom(backgroundColor: primaryColor),
+              child: const Text('다음'),
             ),
           ],
         ),
@@ -382,15 +433,19 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
 
     if (branchId == null || branchId == manager.branchId) return;
 
+    final targetBranch = activeBranches.firstWhere(
+      (branch) => branch.id == branchId,
+    );
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: neutralIvory,
         title: const Text('담당 지점 변경'),
         content: Text(
-          '담당 지점을 변경할까요?\n\n'
-          '지점장이 직접 수업을 담당 중이라면 학생 관계와 정규 일정, 예정 수업을 먼저 정리해야 합니다.',
-          style: forestringTextStyle,
+          '${manager.displayName} 지점장의 담당 지점을\n'
+          '${manager.branchName} → ${targetBranch.name}(으)로 변경할까요?\n\n'
+          '직접 담당 중인 학생, 정규 일정 또는 예정 수업이 남아 있으면 변경되지 않습니다.',
+          style: forestringTextStyle.copyWith(fontSize: 14),
         ),
         actions: [
           TextButton(
@@ -405,39 +460,24 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         ],
       ),
     );
+
     if (confirmed != true) return;
 
-    await _runAction(
-      () => _repository.changeManagerBranch(
+    try {
+      await _repository.changeManagerBranch(
         managerId: manager.id,
         branchId: branchId,
-      ),
-      successMessage: '담당 지점을 변경했습니다.',
-    );
-  }
-
-  Future<void> _openDeparture(ManagedManager manager) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => ManagerDeparturePage(manager: manager),
-      ),
-    );
-    if (changed == true && mounted) {
-      await _load();
-    }
-  }
-
-  Future<void> _runAction(
-    Future<void> Function() action, {
-    required String successMessage,
-  }) async {
-    try {
-      await action();
+      );
       if (!mounted) return;
+
       await _load();
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage)),
+        const SnackBar(
+          content: Text('담당 지점을 변경했습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } on ManagerFailure catch (error) {
       if (!mounted) return;
@@ -445,15 +485,29 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
     }
   }
 
+  Future<void> _showDeparture(ManagedManager manager) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ManagerDeparturePage(manager: manager),
+      ),
+    );
+
+    if (!mounted) return;
+    await _load();
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final managers = _visibleManagers;
+    final visibleManagers = _visibleManagers;
 
     return Scaffold(
       backgroundColor: neutralIvory,
@@ -488,7 +542,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 100),
             children: [
-              _filters(),
+              _buildFilters(),
               const SizedBox(height: 14),
               if (_errorMessage != null) ...[
                 _errorCard(_errorMessage!),
@@ -499,19 +553,21 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                   padding: EdgeInsets.only(top: 80),
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else if (managers.isEmpty)
+              else if (visibleManagers.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 80),
                   child: Center(
                     child: Text(
                       '조건에 맞는 지점장이 없습니다.',
-                      style: forestringTextStyle.copyWith(color: Colors.black54),
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                      ),
                     ),
                   ),
                 )
               else ...[
                 Text(
-                  '${managers.length}명',
+                  '${visibleManagers.length}명',
                   style: forestringTextStyle.copyWith(
                     color: primaryColor,
                     fontSize: 14,
@@ -519,7 +575,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...managers.map(_managerCard),
+                ...visibleManagers.map(_managerCard),
               ],
             ],
           ),
@@ -528,7 +584,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
     );
   }
 
-  Widget _filters() {
+  Widget _buildFilters() {
     return Column(
       children: [
         TextField(
@@ -567,7 +623,9 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             ),
           ],
           onChanged: (value) {
-            if (value != null) setState(() => _branchFilter = value);
+            if (value != null) {
+              setState(() => _branchFilter = value);
+            }
           },
         ),
         const SizedBox(height: 10),
@@ -580,7 +638,9 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             DropdownMenuItem(value: 'departed', child: Text('퇴사')),
           ],
           onChanged: (value) {
-            if (value != null) setState(() => _statusFilter = value);
+            if (value != null) {
+              setState(() => _statusFilter = value);
+            }
           },
         ),
       ],
@@ -624,7 +684,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.admin_panel_settings_outlined,
+                  Icons.badge_outlined,
                   color: primaryColor,
                 ),
               ),
@@ -675,6 +735,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
             ? Colors.orange.shade700
             : primaryColor)
         : Colors.black45;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -692,69 +753,292 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
     );
   }
 
-  Widget _actionSection({
-    required String title,
-    required List<Widget> actions,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          style: forestringTextStyle.copyWith(
-            color: primaryColor,
-            fontSize: 17,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: primaryColor.withValues(alpha: 0.16)),
-          ),
-          child: Column(children: actions),
-        ),
-      ],
-    );
-  }
-
-  Widget _actionButton({
-    required IconData icon,
-    required String label,
-    VoidCallback? onPressed,
-    Color? color,
-  }) {
-    final actionColor = color ?? primaryColor;
-    return ListTile(
-      leading: Icon(icon, color: onPressed == null ? Colors.black26 : actionColor),
-      title: Text(
-        label,
-        style: forestringTextStyle.copyWith(
-          color: onPressed == null ? Colors.black38 : Colors.black87,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: onPressed == null ? Colors.black26 : primaryColor,
-      ),
-      onTap: onPressed,
-    );
-  }
-
   Widget _errorCard(String message) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.red.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         message,
-        style: forestringTextStyle.copyWith(color: Colors.red.shade700),
+        style: forestringTextStyle.copyWith(color: Colors.redAccent),
       ),
+    );
+  }
+}
+
+class _ManagerNameEditDialog extends StatefulWidget {
+  const _ManagerNameEditDialog({
+    required this.manager,
+    required this.repository,
+  });
+
+  final ManagedManager manager;
+  final ManagerRepository repository;
+
+  @override
+  State<_ManagerNameEditDialog> createState() =>
+      _ManagerNameEditDialogState();
+}
+
+class _ManagerNameEditDialogState extends State<_ManagerNameEditDialog> {
+  late final TextEditingController _nameController;
+
+  bool _saving = false;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.manager.displayName);
+    _nameController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _nameController.text.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final currentName = widget.manager.displayName
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+    if (name.isEmpty) {
+      setState(() => _validationMessage = '이름을 입력해주세요.');
+      return;
+    }
+    if (name.length > 100) {
+      setState(() => _validationMessage = '이름은 100자 이하로 입력해주세요.');
+      return;
+    }
+    if (name == currentName) {
+      setState(() => _validationMessage = '현재 이름과 동일합니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+
+    try {
+      await widget.repository.updateManagerName(
+        managerId: widget.manager.id,
+        name: name,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on ManagerFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('지점장 이름 수정'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '이름을 변경하면 지점장이 로그인할 때 사용하는 이름도 함께 변경됩니다.',
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameController,
+              enabled: !_saving,
+              autofocus: true,
+              maxLength: 100,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_saving) _save();
+              },
+              decoration: const InputDecoration(
+                labelText: '지점장 이름',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: forestringTextStyle.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ManagerPinResetDialog extends StatefulWidget {
+  const _ManagerPinResetDialog({
+    required this.manager,
+    required this.repository,
+  });
+
+  final ManagedManager manager;
+  final ManagerRepository repository;
+
+  @override
+  State<_ManagerPinResetDialog> createState() =>
+      _ManagerPinResetDialogState();
+}
+
+class _ManagerPinResetDialogState extends State<_ManagerPinResetDialog> {
+  final _pinController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  bool _saving = false;
+  String? _validationMessage;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final pin = _pinController.text.trim();
+    final confirmPin = _confirmController.text.trim();
+
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      setState(() => _validationMessage = 'PIN은 4자리 숫자로 입력해주세요.');
+      return;
+    }
+    if (pin != confirmPin) {
+      setState(() => _validationMessage = 'PIN 확인 값이 일치하지 않습니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+
+    try {
+      await widget.repository.resetManagerPin(
+        managerId: widget.manager.id,
+        pin: pin,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on ManagerFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('PIN 재설정'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${widget.manager.displayName} 지점장의 로그인 PIN을 변경합니다.',
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _pinController,
+              enabled: !_saving,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: const InputDecoration(
+                labelText: '새 PIN (4자리)',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _confirmController,
+              enabled: !_saving,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_saving) _save();
+              },
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: const InputDecoration(
+                labelText: '새 PIN 확인',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: forestringTextStyle.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
     );
   }
 }
