@@ -7,6 +7,7 @@ import '../../branches/domain/academy_branch.dart';
 import '../../branches/domain/branch_closure.dart';
 import '../data/semester_repository.dart';
 import '../domain/managed_semester.dart';
+import 'semester_default_closure_page.dart';
 
 class SemesterDetailPage extends StatefulWidget {
   const SemesterDetailPage({
@@ -217,6 +218,15 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       () => _repository.applySemesterCalendarChanges(changes),
       successMessage: '기본 학기 기간을 변경했습니다.',
     );
+  }
+
+  Future<void> _openDefaultClosures(ManagedSemester semester) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => SemesterDefaultClosurePage(semester: semester),
+      ),
+    );
+    if (mounted) await _load();
   }
 
   Future<void> _editBranchRange(AcademyBranch branch) async {
@@ -981,6 +991,29 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         color: Colors.black45,
                         fontSize: 12,
                         height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _sectionTitle('기본 휴원'),
+                    const SizedBox(height: 4),
+                    Text(
+                      '모든 지점에 우선 적용되는 기본 휴원 주간과 휴원일을 관리합니다. '
+                      '지점별로 별도 설정한 휴원만 기본값을 따르지 않습니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: _saving
+                            ? null
+                            : () => _openDefaultClosures(semester),
+                        icon: const Icon(Icons.event_available_outlined),
+                        label: const Text('기본 휴원 주간 · 휴원일 관리'),
                       ),
                     ),
                     const SizedBox(height: 22),
