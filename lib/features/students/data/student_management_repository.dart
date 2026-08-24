@@ -229,6 +229,44 @@ class StudentManagementRepository {
     }
   }
 
+  Future<void> updateStudentName({
+    required String studentId,
+    required String name,
+  }) async {
+    final normalizedName = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalizedName.isEmpty) {
+      throw const StudentManagementFailure('이름을 입력해주세요.');
+    }
+    if (normalizedName.length > 100) {
+      throw const StudentManagementFailure('이름은 100자 이하로 입력해주세요.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'staff-update-account-name',
+        body: {
+          'profileId': studentId,
+          'name': normalizedName,
+        },
+      );
+
+      final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw StudentManagementFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : '이름을 변경하지 못했습니다.',
+        );
+      }
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw StudentManagementFailure(details['message'].toString());
+      }
+      throw const StudentManagementFailure('이름을 변경하지 못했습니다.');
+    }
+  }
+
   Future<void> resetStudentPin({
     required String studentId,
     required String pin,
