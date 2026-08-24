@@ -312,6 +312,12 @@ class TeacherRepository {
       );
     } on TeacherFailure {
       rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw TeacherFailure(details['message'].toString());
+      }
+      throw const TeacherFailure('선생님 생성 요청에 실패했습니다.');
     } catch (error) {
       throw TeacherFailure(
         '선생님 생성 요청에 실패했습니다.\n$error',
