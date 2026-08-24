@@ -349,7 +349,7 @@ class _LessonHistoryCard extends StatelessWidget {
                 if (wasMoved) ...[
                   const SizedBox(height: 6),
                   Text(
-                    '변경 전 ${DateFormat('M.d (E) HH:mm', 'ko_KR').format(originalTime!)}',
+                    '변경 전 ${DateFormat('M.d (E) HH:mm', 'ko_KR').format(originalTime)}',
                     style: forestringTextStyle.copyWith(
                       color: secondaryColor,
                       fontSize: 12,
