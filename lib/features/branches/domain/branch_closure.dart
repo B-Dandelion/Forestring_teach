@@ -6,10 +6,43 @@ enum BranchClosureKind {
 
   final String value;
 
+  String get label => this == BranchClosureKind.instructionalBreak
+      ? '휴원 주간'
+      : '휴원일';
+
   static BranchClosureKind fromValue(String value) {
     return BranchClosureKind.values.firstWhere(
       (kind) => kind.value == value,
       orElse: () => BranchClosureKind.ordinary,
+    );
+  }
+}
+
+class DefaultClosure {
+  const DefaultClosure({
+    required this.id,
+    required this.semesterId,
+    required this.startsOn,
+    required this.endsOn,
+    required this.reason,
+    required this.kind,
+  });
+
+  final String id;
+  final String? semesterId;
+  final DateTime startsOn;
+  final DateTime endsOn;
+  final String? reason;
+  final BranchClosureKind kind;
+
+  factory DefaultClosure.fromJson(Map<String, dynamic> json) {
+    return DefaultClosure(
+      id: json['id'] as String,
+      semesterId: json['semester_id'] as String?,
+      startsOn: DateTime.parse(json['starts_on'].toString()),
+      endsOn: DateTime.parse(json['ends_on'].toString()),
+      reason: json['reason'] as String?,
+      kind: BranchClosureKind.fromValue(json['closure_kind'].toString()),
     );
   }
 }
@@ -23,6 +56,8 @@ class BranchClosure {
     required this.endsOn,
     required this.reason,
     required this.kind,
+    required this.defaultClosureId,
+    required this.isOverridden,
   });
 
   final String id;
@@ -32,6 +67,12 @@ class BranchClosure {
   final DateTime endsOn;
   final String? reason;
   final BranchClosureKind kind;
+  final String? defaultClosureId;
+  final bool isOverridden;
+
+  bool get inheritsDefault => defaultClosureId != null && !isOverridden;
+  bool get overridesDefault => defaultClosureId != null && isOverridden;
+  bool get isBranchOnly => defaultClosureId == null;
 
   factory BranchClosure.fromJson(Map<String, dynamic> json) {
     return BranchClosure(
@@ -42,6 +83,8 @@ class BranchClosure {
       endsOn: DateTime.parse(json['ends_on'].toString()),
       reason: json['reason'] as String?,
       kind: BranchClosureKind.fromValue(json['closure_kind'].toString()),
+      defaultClosureId: json['default_closure_id'] as String?,
+      isOverridden: json['is_overridden'] == true,
     );
   }
 }
