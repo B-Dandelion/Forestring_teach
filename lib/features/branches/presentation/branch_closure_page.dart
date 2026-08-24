@@ -66,7 +66,7 @@ class _BranchClosurePageState extends State<BranchClosurePage> {
   List<BranchClosure> get _visibleClosures => _closures
       .where((closure) => closure.kind == _kind)
       .toList()
-    ..sort((a, b) => b.startsOn.compareTo(a.startsOn));
+    ..sort((a, b) => a.startsOn.compareTo(b.startsOn));
 
   Future<void> _openEditor([BranchClosure? closure]) async {
     if (_saving) return;
