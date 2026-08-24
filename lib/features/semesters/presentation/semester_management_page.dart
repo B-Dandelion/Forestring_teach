@@ -74,26 +74,21 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
       };
     }).toList();
 
-    if (_filter == 'past') {
-      result.sort((a, b) => b.startsOn.compareTo(a.startsOn));
-    } else {
-      result.sort((a, b) => a.startsOn.compareTo(b.startsOn));
-    }
+    result.sort(
+      _filter == 'past'
+          ? (a, b) => b.startsOn.compareTo(a.startsOn)
+          : (a, b) => a.startsOn.compareTo(b.startsOn),
+    );
     return result;
   }
 
   Future<void> _openDetail(ManagedSemester semester) async {
-    final changed = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => SemesterDetailPage(
-          semesterId: semester.id,
-        ),
+        builder: (_) => SemesterDetailPage(semesterId: semester.id),
       ),
     );
-
-    if (changed == true && mounted) {
-      await _load();
-    }
+    if (mounted) await _load();
   }
 
   Future<void> _openCreate() async {
@@ -103,11 +98,11 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
     }
 
     final last = _semesters.last;
-    final codeController = TextEditingController(text: _nextCode(last.code));
-    var weekCount = 4;
     final startsOn = last.endsOn.add(const Duration(days: 1));
+    var code = _nextCode(last.code);
+    var weekCount = 4;
 
-    final shouldSave = await showDialog<bool>(
+    final draft = await showDialog<_SemesterCreateDraft>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
@@ -130,13 +125,14 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
-                      controller: codeController,
+                    TextFormField(
+                      initialValue: code,
                       decoration: const InputDecoration(
                         labelText: '학기 이름',
                         hintText: '예: 2028-01',
                         border: OutlineInputBorder(),
                       ),
+                      onChanged: (value) => code = value,
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<int>(
@@ -159,10 +155,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                       },
                     ),
                     const SizedBox(height: 14),
-                    _DatePreview(
-                      startsOn: startsOn,
-                      endsOn: endsOn,
-                    ),
+                    _DatePreview(startsOn: startsOn, endsOn: endsOn),
                     const SizedBox(height: 10),
                     Text(
                       '새 학기는 마지막 학기 다음 날부터 이어서 생성됩니다. '
@@ -179,18 +172,24 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('취소'),
               ),
               FilledButton(
                 onPressed: () {
-                  if (codeController.text.trim().isEmpty) {
+                  final normalizedCode = code.trim();
+                  if (normalizedCode.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('학기 이름을 입력해주세요.')),
                     );
                     return;
                   }
-                  Navigator.of(dialogContext).pop(true);
+                  Navigator.of(dialogContext).pop(
+                    _SemesterCreateDraft(
+                      code: normalizedCode,
+                      weekCount: weekCount,
+                    ),
+                  );
                 },
                 style: FilledButton.styleFrom(backgroundColor: primaryColor),
                 child: const Text('추가'),
@@ -201,15 +200,12 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
       ),
     );
 
-    if (shouldSave != true || !mounted) {
-      codeController.dispose();
-      return;
-    }
+    if (draft == null || !mounted) return;
+    final endsOn = startsOn.add(Duration(days: draft.weekCount * 7 - 1));
 
-    final endsOn = startsOn.add(Duration(days: weekCount * 7 - 1));
     try {
       await _repository.createSemester(
-        code: codeController.text,
+        code: draft.code,
         startsOn: startsOn,
         endsOn: endsOn,
       );
@@ -220,8 +216,6 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
     } on SemesterFailure catch (error) {
       if (!mounted) return;
       _showMessage(error.message);
-    } finally {
-      codeController.dispose();
     }
   }
 
@@ -446,6 +440,13 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
       ),
     );
   }
+}
+
+class _SemesterCreateDraft {
+  const _SemesterCreateDraft({required this.code, required this.weekCount});
+
+  final String code;
+  final int weekCount;
 }
 
 class _SummaryCard extends StatelessWidget {
