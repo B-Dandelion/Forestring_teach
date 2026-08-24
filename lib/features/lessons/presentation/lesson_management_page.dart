@@ -310,6 +310,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       MaterialPageRoute(
         builder: (_) => MakeupLessonCreatePage(
           profile: widget.profile,
+          semester: semester,
           branches: activeBranches,
           students: _students,
           teachers: _teachers,
@@ -707,8 +708,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
   Widget _typeBadge(Lesson lesson) {
     final label = switch (lesson.type) {
       LessonType.makeup => '보강',
-      LessonType.flex => '자율',
-      LessonType.regular => lesson.isRescheduled ? '변경' : '정규',
+      LessonType.flex => lesson.changeBadgeLabel ?? '자율',
+      LessonType.regular => lesson.changeBadgeLabel ?? '정규',
     };
     final color = lesson.type == LessonType.makeup ? secondaryColor : primaryColor;
 
