@@ -47,6 +47,8 @@ class Lesson {
     this.branchId,
     this.studentName,
     this.teacherName,
+    this.canceledAt,
+    this.cancellationReason,
   });
 
   final String id;
@@ -63,6 +65,8 @@ class Lesson {
   final String? branchId;
   final String? studentName;
   final String? teacherName;
+  final DateTime? canceledAt;
+  final String? cancellationReason;
 
   bool get isCanceled => status == LessonStatus.canceled;
 
@@ -113,6 +117,8 @@ class Lesson {
       branchId: branchId,
       studentName: studentName ?? this.studentName,
       teacherName: teacherName ?? this.teacherName,
+      canceledAt: canceledAt,
+      cancellationReason: cancellationReason,
     );
   }
 
@@ -147,6 +153,8 @@ class Lesson {
       rescheduledBy: json['rescheduled_by'] as String?,
       lessonRightId: json['lesson_right_id'] as String?,
       branchId: json['branch_id'] as String?,
+      canceledAt: parseNullableDate(json['canceled_at']),
+      cancellationReason: json['cancellation_reason'] as String?,
     );
   }
 }
