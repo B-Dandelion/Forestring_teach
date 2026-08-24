@@ -8,6 +8,7 @@ import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../branches/presentation/branch_management_page.dart';
 import '../../managers/presentation/manager_management_page.dart';
+import '../../semesters/presentation/semester_management_page.dart';
 import '../../students/presentation/student_management_page.dart';
 import '../../teachers/presentation/teacher_management_page.dart';
 import '../domain/lesson.dart';
@@ -128,6 +129,19 @@ class MasterSchedulePage extends StatelessWidget {
                     builder: (_) => BranchManagementPage(
                       profile: profile,
                     ),
+                  ),
+                );
+              },
+            ),
+          if (profile.isMaster)
+            ForestringDrawerItem(
+              icon: Icons.event_note_outlined,
+              label: '학기 관리',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SemesterManagementPage(),
                   ),
                 );
               },
