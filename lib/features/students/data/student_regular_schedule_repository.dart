@@ -80,6 +80,20 @@ class TeacherWorkWindow {
   final int endMinutes;
 }
 
+class RegularScheduleSemesterOption {
+  const RegularScheduleSemesterOption({
+    required this.id,
+    required this.code,
+    required this.startsOn,
+    required this.endsOn,
+  });
+
+  final String id;
+  final String code;
+  final DateTime startsOn;
+  final DateTime endsOn;
+}
+
 class StudentRegularScheduleRepository {
   StudentRegularScheduleRepository({
     SupabaseClient? client,
@@ -297,6 +311,135 @@ class StudentRegularScheduleRepository {
     }
   }
 
+  Future<List<RegularScheduleSemesterOption>> fetchUpcomingSemesters(
+    String? branchId,
+  ) async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final rows = await _client
+          .from('semesters')
+          .select('id, code, starts_on, ends_on')
+          .order('starts_on');
+
+      final overrides = <String, Map<String, dynamic>>{};
+      if (branchId != null) {
+        try {
+          final overrideRows = await _client
+              .from('branch_semester_overrides')
+              .select('semester_id, starts_on, ends_on')
+              .eq('branch_id', branchId);
+          for (final row in overrideRows) {
+            overrides[row['semester_id'] as String] =
+                Map<String, dynamic>.from(row);
+          }
+        } on PostgrestException {
+          // Global semester dates are the fallback when no branch override
+          // is readable or configured.
+        }
+      }
+
+      final result = <RegularScheduleSemesterOption>[];
+      for (final row in rows) {
+        final id = row['id'] as String;
+        final override = overrides[id];
+        final startsOn = DateTime.parse(
+          (override?['starts_on'] ?? row['starts_on']).toString(),
+        );
+        if (!startsOn.isAfter(today)) continue;
+
+        result.add(
+          RegularScheduleSemesterOption(
+            id: id,
+            code: row['code'].toString(),
+            startsOn: startsOn,
+            endsOn: DateTime.parse(
+              (override?['ends_on'] ?? row['ends_on']).toString(),
+            ),
+          ),
+        );
+        if (result.length == 12) break;
+      }
+      return result;
+    } on PostgrestException catch (error) {
+      throw StudentRegularScheduleFailure(
+        '적용할 학기를 불러오지 못했습니다.\n${error.message}',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> addSchedule({
+    required String studentId,
+    required String teacherId,
+    required int weekday,
+    required int startMinutes,
+    required int durationMinutes,
+    required DateTime effectiveOn,
+  }) async {
+    try {
+      final result = await _client.rpc(
+        'add_regular_schedule',
+        params: {
+          'p_student_id': studentId,
+          'p_teacher_id': teacherId,
+          'p_weekday': weekday,
+          'p_start_time': _formatTime(startMinutes),
+          'p_duration_minutes': durationMinutes,
+          'p_effective_on': _formatDate(effectiveOn),
+        },
+      );
+
+      if (result is! Map) {
+        throw const StudentRegularScheduleFailure(
+          '정규 일정 추가 결과를 확인하지 못했습니다.',
+        );
+      }
+      return Map<String, dynamic>.from(result);
+    } on StudentRegularScheduleFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw StudentRegularScheduleFailure(
+        _friendlyDatabaseMessage(error.message),
+      );
+    } catch (error) {
+      throw StudentRegularScheduleFailure(
+        '정규 일정을 추가하지 못했습니다.\n$error',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> endSchedule({
+    required String scheduleSlotId,
+    required DateTime effectiveOn,
+  }) async {
+    try {
+      final result = await _client.rpc(
+        'end_regular_schedule',
+        params: {
+          'p_schedule_slot_id': scheduleSlotId,
+          'p_effective_on': _formatDate(effectiveOn),
+        },
+      );
+
+      if (result is! Map) {
+        throw const StudentRegularScheduleFailure(
+          '정규 일정 종료 결과를 확인하지 못했습니다.',
+        );
+      }
+      return Map<String, dynamic>.from(result);
+    } on StudentRegularScheduleFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw StudentRegularScheduleFailure(
+        _friendlyDatabaseMessage(error.message),
+      );
+    } catch (error) {
+      throw StudentRegularScheduleFailure(
+        '정규 일정을 종료하지 못했습니다.\n$error',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> changeSchedule({
     required String scheduleSlotId,
     required String teacherId,
@@ -367,6 +510,18 @@ class StudentRegularScheduleRepository {
     if (message.contains('FORESTRING_REGULAR_SCHEDULE_FUTURE_VERSION_EXISTS')) {
       return '이미 예정된 정규 일정 변경이 있습니다. 기존 변경 일정을 먼저 확인해주세요.';
     }
+    if (message.contains('FORESTRING_REGULAR_ADD_REQUIRES_SEMESTER_START')) {
+      return '정규 수업 추가는 새 학기 시작일부터 적용할 수 있습니다.';
+    }
+    if (message.contains('FORESTRING_REGULAR_ADD_ACTIVE_SEMESTER_FORBIDDEN')) {
+      return '이미 시작된 학기에는 정규 수업을 추가할 수 없습니다. 다음 학기를 선택해주세요.';
+    }
+    if (message.contains('FORESTRING_TARGET_SEMESTER_NOT_REGULAR')) {
+      return '선택한 학기는 정규 학생 일정으로 설정되어 있지 않습니다.';
+    }
+    if (message.contains('FORESTRING_REGULAR_SCHEDULE_ALREADY_MATERIALIZED')) {
+      return '이미 생성된 수업이 있어 시작일부터 바로 삭제할 수 없습니다.';
+    }
     if (message.contains('FORESTRING_REGULAR_TEACHER_ASSIGNMENT_MISMATCH') ||
         message.contains('FORESTRING_REGULAR_RECONCILIATION_ASSIGNMENT_MISMATCH')) {
       return '선택한 적용일의 담당 선생님 정보와 정규 일정이 일치하지 않습니다.';
@@ -389,7 +544,8 @@ class StudentRegularScheduleRepository {
         message.contains('FORESTRING_REGULAR_CHANGE_AFTER_SLOT_END')) {
       return '이 정규 수업이 적용되는 기간 밖의 날짜입니다.';
     }
-    if (message.contains('FORESTRING_REGULAR_SCHEDULE_CHANGE_FORBIDDEN')) {
+    if (message.contains('FORESTRING_REGULAR_SCHEDULE_CHANGE_FORBIDDEN') ||
+        message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
       return '정규 일정 변경 권한이 없습니다.';
     }
     if (message.contains('FORESTRING_')) {

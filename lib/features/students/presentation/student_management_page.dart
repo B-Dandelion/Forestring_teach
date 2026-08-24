@@ -1292,8 +1292,9 @@ class _FlexRightCountDialogState extends State<_FlexRightCountDialog> {
           content: Text(
             '${widget.student.displayName} 학생의 수업권을 '
             '$currentCount개에서 $newCount개로 줄일까요?\n\n'
-            '아직 예약·사용·취소 이력이 없는 수업권만 회수됩니다. '
-            '회수할 수 없는 수업권이 포함되면 변경 전체가 취소됩니다.',
+            '사용 가능한 수업권부터 회수됩니다. '
+            '이미 사용한 취소 횟수는 유지되며, 변경 후 한도를 모두 쓴 상태라면 '
+            '이번 학기에는 추가 취소를 할 수 없습니다.',
           ),
           actions: [
             TextButton(
@@ -1395,19 +1396,16 @@ class _FlexRightCountDialogState extends State<_FlexRightCountDialog> {
               const SizedBox(height: 12),
               _policyBox(
                 enteredCount == null || enteredCount <= 0
-                    ? '수업권 개수를 입력하면 변경 후 취소 가능 횟수와 '
-                        '이월 상한을 확인할 수 있습니다.'
-                    : '변경 후 취소 가능 $cancellationLimit회 · '
-                        '이월 상한 $carryoverCap개\n'
-                        '취소 가능 횟수는 2 × floor(수업권 ÷ 4)이며, '
-                        '같은 수업권을 다시 취소해도 매번 차감됩니다.',
+                    ? '수업권 개수를 입력하면 변경 후 이용 기준을 확인할 수 있습니다.'
+                    : '변경 후 수업권 $enteredCount개 · '
+                        '취소 $cancellationLimit회 · 이월 $carryoverCap개',
               ),
               if (isDecrease) ...[
                 const SizedBox(height: 10),
                 _policyBox(
-                  '감액은 번호가 뒤인 미사용 수업권부터 회수합니다. '
-                  '예약·사용·취소 이력이 있거나, 새 취소 한도가 이미 '
-                  '사용한 횟수보다 작아지면 저장되지 않습니다.',
+                  '이미 사용한 취소 횟수는 그대로 유지됩니다. '
+                  '예약 중인 수업권이 많아 회수할 수 없는 경우에는 '
+                  '예정 수업을 관리자 취소한 뒤 다시 변경해주세요.',
                   isWarning: true,
                 ),
               ],

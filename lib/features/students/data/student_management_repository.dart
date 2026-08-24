@@ -556,15 +556,9 @@ class StudentManagementRepository {
         message.contains('FORESTRING_STAFF_REQUIRED')) {
       return '이 학생의 수업권을 변경할 권한이 없습니다.';
     }
-    if (message.contains(
-      'FORESTRING_FLEX_RIGHT_COUNT_BELOW_USED_CANCELLATION_QUOTA',
-    )) {
-      return '이미 사용한 취소 횟수보다 새 취소 한도가 작아져 '
-          '감액할 수 없습니다.';
-    }
     if (message.contains('FORESTRING_FLEX_RIGHT_COUNT_DECREASE_BLOCKED')) {
-      return '예약·사용·취소 이력이 있는 수업권은 회수할 수 없습니다. '
-          '미사용 수업권 범위에서 다시 입력해주세요.';
+      return '예약 중이거나 이미 완료된 수업이 많아 이 개수까지 줄일 수 없습니다. '
+          '예정 수업을 관리자 취소한 뒤 다시 시도해주세요.';
     }
     if (message.contains('FORESTRING_FLEX_RIGHTS_PLAN_MISMATCH') ||
         message.contains('FORESTRING_FLEX_RIGHT_COUNT_MISMATCH')) {
