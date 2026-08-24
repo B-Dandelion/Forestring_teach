@@ -13,6 +13,7 @@ import '../../students/presentation/student_management_page.dart';
 import '../../teachers/presentation/teacher_management_page.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
+import 'lesson_management_page.dart';
 import 'widgets/blocked_period_calendar_appointment.dart';
 import 'widgets/blocked_period_info_dialog.dart';
 import 'widgets/lesson_action_dialog.dart';
@@ -75,7 +76,19 @@ class MasterSchedulePage extends StatelessWidget {
           ForestringDrawerItem(
             icon: Icons.calendar_month_outlined,
             label: '수업 관리',
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              navigator.push(
+                MaterialPageRoute(
+                  builder: (_) => LessonManagementPage(
+                    profile: profile,
+                    controller: controller,
+                    initialBranchId: controller.selectedBranchId,
+                  ),
+                ),
+              );
+            },
           ),
           ForestringDrawerItem(
             icon: Icons.people_alt_outlined,
