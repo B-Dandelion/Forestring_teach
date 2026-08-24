@@ -27,6 +27,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
 
   List<ManagedSemester> _semesters = const [];
   List<AcademyBranch> _branches = const [];
+  List<DefaultClosure> _defaultClosures = const [];
   Map<String, List<BranchClosure>> _closuresByBranch = const {};
   bool _loading = true;
   bool _saving = false;
@@ -72,6 +73,13 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
         }
       }
 
+      var defaultClosures = <DefaultClosure>[];
+      if (selected != null) {
+        defaultClosures = await _branchRepository.fetchDefaultClosuresForSemester(
+          semesterId: selected.id,
+        );
+      }
+
       final closuresByBranch = <String, List<BranchClosure>>{};
       if (selected != null && branches.isNotEmpty) {
         final closureResults = await Future.wait(
@@ -93,6 +101,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       setState(() {
         _semesters = semesters;
         _branches = branches;
+        _defaultClosures = defaultClosures;
         _closuresByBranch = closuresByBranch;
       });
     } on SemesterFailure catch (error) {
@@ -670,7 +679,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       final next = _semesters[index + 1];
       desired[next.id] = _Bounds(
         endsOn.add(const Duration(days: 1)),
-        next.effectiveEnd(branchId),
+        next.effectiveEnd(branch.id),
       );
     }
 
@@ -1005,14 +1014,19 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    if (_defaultClosures.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      ..._defaultClosures.map(_defaultClosureRow),
+                      const SizedBox(height: 3),
+                    ] else
+                      const SizedBox(height: 10),
                     SizedBox(
                       height: 50,
                       child: OutlinedButton.icon(
                         onPressed: _saving
                             ? null
                             : () => _openDefaultClosures(semester),
-                        icon: const Icon(Icons.event_available_outlined),
+                        icon: const Icon(Icons.event_busy_outlined),
                         label: const Text('기본 휴원 주간 · 휴원일 관리'),
                       ),
                     ),
@@ -1122,6 +1136,59 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
             style: forestringTextStyle.copyWith(
               color: Colors.black54,
               fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _defaultClosureRow(DefaultClosure closure) {
+    final isBreak = closure.kind == BranchClosureKind.instructionalBreak;
+    final reason = closure.reason?.trim();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isBreak
+                ? Icons.calendar_view_week_outlined
+                : Icons.event_busy_outlined,
+            size: 18,
+            color: primaryColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _defaultClosureRangeText(closure),
+                  style: forestringTextStyle.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (reason != null && reason.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    reason,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: forestringTextStyle.copyWith(
+                      color: Colors.black54,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -1305,7 +1372,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${isBreak ? '휴원 주간' : '휴원일'} · ${_closureRangeText(closure)}',
+                    _closureRangeText(closure),
                     style: forestringTextStyle.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -1388,6 +1455,13 @@ String _semesterLabel(String code) {
   final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
   if (match == null) return code;
   return '${match.group(1)}년 ${int.parse(match.group(2)!)}월 학기';
+}
+
+String _defaultClosureRangeText(DefaultClosure closure) {
+  if (closure.startsOn == closure.endsOn) {
+    return _formatDate(closure.startsOn);
+  }
+  return '${_formatDate(closure.startsOn)} ~ ${_formatDate(closure.endsOn)}';
 }
 
 String _closureRangeText(BranchClosure closure) {
