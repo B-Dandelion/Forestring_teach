@@ -5,6 +5,7 @@ import '../../../core/widgets/forestring_navigation.dart';
 import '../../auth/domain/current_profile.dart';
 import '../data/branch_repository.dart';
 import '../domain/academy_branch.dart';
+import 'branch_detail_page.dart';
 
 class BranchManagementPage extends StatefulWidget {
   const BranchManagementPage({
@@ -156,7 +157,7 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: neutralIvory,
-      appBar: const ForestringAppBar(),
+      appBar: const ForestringAppBar(title: '지점 관리'),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
@@ -278,6 +279,17 @@ class _BranchManagementPageState extends State<BranchManagementPage> {
                 Icons.chevron_right,
                 color: primaryColor,
               ),
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => BranchDetailPage(branch: branch),
+                  ),
+                );
+
+                if (mounted) {
+                  await _load();
+                }
+              },
             ),
           );
         },
