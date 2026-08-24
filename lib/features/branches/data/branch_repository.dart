@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/academy_branch.dart';
+import '../domain/branch_closure.dart';
 
 class BranchFailure implements Exception {
   const BranchFailure(this.message);
@@ -22,25 +23,13 @@ class BranchRepository {
     try {
       final rows = await _client
           .from('branches')
-          .select(
-            'id, name, is_active',
-          )
-          .order(
-            'name',
-            ascending: true,
-          );
+          .select('id, name, is_active')
+          .order('name', ascending: true);
 
-      return rows
-          .map(
-            (row) => AcademyBranch.fromJson(
-              row,
-            ),
-          )
-          .toList();
+      return rows.map(AcademyBranch.fromJson).toList();
     } on PostgrestException catch (error) {
       throw BranchFailure(
-        '지점 목록을 불러오지 못했습니다.\n'
-        '${error.message}',
+        '지점 목록을 불러오지 못했습니다.\n${error.message}',
       );
     }
   }
@@ -48,54 +37,29 @@ class BranchRepository {
   Future<String> createBranch({
     required String name,
   }) async {
-    final normalizedName = name.trim().replaceAll(
-          RegExp(r'\s+'),
-          ' ',
-        );
+    final normalizedName = name.trim().replaceAll(RegExp(r'\s+'), ' ');
 
     if (normalizedName.isEmpty) {
-      throw const BranchFailure(
-        '지점명을 입력해주세요.',
-      );
+      throw const BranchFailure('지점명을 입력해주세요.');
     }
 
     try {
       final result = await _client.rpc(
         'create_branch',
-        params: {
-          'p_name': normalizedName,
-        },
+        params: {'p_name': normalizedName},
       );
 
       if (result is! String || result.isEmpty) {
-        throw const BranchFailure(
-          '지점 생성 결과를 확인하지 못했습니다.',
-        );
+        throw const BranchFailure('지점 생성 결과를 확인하지 못했습니다.');
       }
 
       return result;
     } on BranchFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      if (error.message.contains(
-        'FORESTRING_BRANCH_NAME_ALREADY_EXISTS',
-      )) {
-        throw const BranchFailure(
-          '이미 같은 이름의 지점이 있습니다.',
-        );
-      }
-
-      if (error.message.contains(
-        'FORESTRING_MASTER_REQUIRED',
-      )) {
-        throw const BranchFailure(
-          '전체 관리자만 지점을 생성할 수 있습니다.',
-        );
-      }
-
-      throw BranchFailure(
-        '지점을 생성하지 못했습니다.\n'
-        '${error.message}',
+      throw _failureFromPostgrest(
+        error,
+        fallback: '지점을 생성하지 못했습니다.',
       );
     }
   }
@@ -106,9 +70,7 @@ class BranchRepository {
     try {
       final result = await _client.rpc(
         'get_branch_management_details',
-        params: {
-          'p_branch_id': branchId,
-        },
+        params: {'p_branch_id': branchId},
       );
 
       return _detailsFromResult(result);
@@ -126,10 +88,7 @@ class BranchRepository {
     required String branchId,
     required String name,
   }) async {
-    final normalizedName = name.trim().replaceAll(
-          RegExp(r'\s+'),
-          ' ',
-        );
+    final normalizedName = name.trim().replaceAll(RegExp(r'\s+'), ' ');
 
     if (normalizedName.isEmpty) {
       throw const BranchFailure('지점명을 입력해주세요.');
@@ -181,6 +140,89 @@ class BranchRepository {
     }
   }
 
+  Future<List<BranchClosure>> fetchBranchClosures({
+    required String branchId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('closure_periods')
+          .select(
+            'id, branch_id, semester_id, starts_on, ends_on, reason, closure_kind',
+          )
+          .eq('branch_id', branchId)
+          .order('starts_on', ascending: false);
+
+      return rows.map(BranchClosure.fromJson).toList();
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '휴원 일정을 불러오지 못했습니다.',
+      );
+    }
+  }
+
+  Future<List<AcademySemester>> fetchSemesters() async {
+    try {
+      final rows = await _client
+          .from('semesters')
+          .select('id, code, starts_on, ends_on')
+          .order('starts_on', ascending: true);
+
+      return rows.map(AcademySemester.fromJson).toList();
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '학기 정보를 불러오지 못했습니다.',
+      );
+    }
+  }
+
+  Future<void> saveClosure({
+    String? closureId,
+    required String branchId,
+    String? semesterId,
+    required DateTime startsOn,
+    required DateTime endsOn,
+    required BranchClosureKind kind,
+    String? reason,
+  }) async {
+    try {
+      await _client.rpc(
+        'upsert_closure_period',
+        params: {
+          'p_closure_id': closureId,
+          'p_branch_id': branchId,
+          'p_semester_id': semesterId,
+          'p_starts_on': _dateText(startsOn),
+          'p_ends_on': _dateText(endsOn),
+          'p_closure_kind': kind.value,
+          'p_reason': reason?.trim(),
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '휴원 일정을 저장하지 못했습니다.',
+      );
+    }
+  }
+
+  Future<void> deleteClosure({
+    required String closureId,
+  }) async {
+    try {
+      await _client.rpc(
+        'delete_closure_period',
+        params: {'p_closure_id': closureId},
+      );
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '휴원 일정을 삭제하지 못했습니다.',
+      );
+    }
+  }
+
   BranchManagementDetails _detailsFromResult(dynamic result) {
     if (result is! Map) {
       throw const BranchFailure('지점 관리 결과를 확인하지 못했습니다.');
@@ -203,6 +245,9 @@ class BranchRepository {
     if (message.contains('FORESTRING_MASTER_REQUIRED')) {
       return const BranchFailure('전체 관리자만 지점을 관리할 수 있습니다.');
     }
+    if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+      return const BranchFailure('이 지점을 관리할 권한이 없습니다.');
+    }
     if (message.contains('FORESTRING_BRANCH_NOT_FOUND')) {
       return const BranchFailure('지점을 찾을 수 없습니다.');
     }
@@ -217,7 +262,34 @@ class BranchRepository {
         '활성 계정이나 남은 일정이 있어 지점을 비활성화할 수 없습니다.',
       );
     }
+    if (message.contains('FORESTRING_CLOSURE_OVERLAP')) {
+      return const BranchFailure('이미 등록된 휴원 일정과 날짜가 겹칩니다.');
+    }
+    if (message.contains('FORESTRING_INVALID_CLOSURE_RANGE')) {
+      return const BranchFailure('휴원 시작일과 종료일을 확인해주세요.');
+    }
+    if (message.contains('FORESTRING_INVALID_INSTRUCTIONAL_BREAK_WEEK_STRUCTURE')) {
+      return const BranchFailure('휴원 주간은 7일 단위로 설정해야 합니다.');
+    }
+    if (message.contains('FORESTRING_INSTRUCTIONAL_BREAK_REQUIRES_SEMESTER')) {
+      return const BranchFailure('휴원 주간에 해당하는 학기를 찾지 못했습니다.');
+    }
+    if (message.contains('FORESTRING_MATERIALIZED_INSTRUCTIONAL_BREAK_IMMUTABLE')) {
+      return const BranchFailure(
+        '이미 수업 생성에 반영된 휴원 주간은 날짜를 변경하거나 삭제할 수 없습니다.',
+      );
+    }
+    if (message.contains('FORESTRING_CLOSURE_NOT_FOUND')) {
+      return const BranchFailure('휴원 일정을 찾을 수 없습니다.');
+    }
 
     return BranchFailure('$fallback\n$message');
   }
+}
+
+String _dateText(DateTime date) {
+  final year = date.year.toString().padLeft(4, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
 }
