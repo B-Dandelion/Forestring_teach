@@ -8,6 +8,7 @@ import '../../auth/domain/current_profile.dart';
 import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/teacher_repository.dart';
+import 'teacher_assigned_students_page.dart';
 import 'teacher_create_page.dart';
 import 'teacher_work_hours_edit_page.dart';
 
@@ -465,6 +466,26 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                 else
                   ...teacher.workHours.map(_workHourRow),
                 const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 220),
+                    );
+                    if (!mounted) return;
+                    await _showAssignedStudents(teacher);
+                  },
+                  icon: const Icon(Icons.groups_2_outlined),
+                  label: Text(
+                    '담당 수강생 보기 (${teacher.assignedStudentCount}명)',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: const BorderSide(color: primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 if (teacher.isActive) ...[
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -605,6 +626,14 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
       const SnackBar(
         content: Text('변경된 근무시간이 없습니다.'),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _showAssignedStudents(ManagedTeacher teacher) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TeacherAssignedStudentsPage(teacher: teacher),
       ),
     );
   }

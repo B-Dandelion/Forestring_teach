@@ -52,6 +52,26 @@ class ManagedTeacher {
   }
 }
 
+class AssignedStudentSummary {
+  const AssignedStudentSummary({
+    required this.id,
+    required this.displayName,
+    required this.studentType,
+    required this.assignmentStartsOn,
+    required this.isActive,
+  });
+
+  final String id;
+  final String displayName;
+  final String studentType;
+  final DateTime assignmentStartsOn;
+  final bool isActive;
+
+  bool get isFlex => studentType == 'flex';
+  String get typeLabel => isFlex ? '자율 예약 학생' : '정규 학생';
+  String get statusLabel => isActive ? '재원' : '퇴원';
+}
+
 class TeacherWorkHourInput {
   const TeacherWorkHourInput({
     required this.weekday,
@@ -235,6 +255,94 @@ class TeacherRepository {
     } catch (error) {
       throw TeacherFailure(
         '선생님 목록을 불러오지 못했습니다.\n$error',
+      );
+    }
+  }
+
+  Future<List<AssignedStudentSummary>> fetchAssignedStudents(
+    String teacherId,
+  ) async {
+    try {
+      final assignmentRows = await _client
+          .from('teacher_student_assignments')
+          .select('student_id, starts_on, ends_on')
+          .eq('teacher_id', teacherId)
+          .order('starts_on', ascending: false);
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final currentAssignmentByStudent = <String, Map<String, dynamic>>{};
+
+      for (final raw in assignmentRows) {
+        final row = Map<String, dynamic>.from(raw);
+        final startsOn = DateTime.parse(row['starts_on'].toString());
+        final endsOn = row['ends_on'] == null
+            ? null
+            : DateTime.parse(row['ends_on'].toString());
+        final isCurrent = !startsOn.isAfter(today) &&
+            (endsOn == null || !endsOn.isBefore(today));
+        if (!isCurrent) continue;
+
+        final studentId = row['student_id'] as String;
+        currentAssignmentByStudent.putIfAbsent(studentId, () => row);
+      }
+
+      if (currentAssignmentByStudent.isEmpty) {
+        return const [];
+      }
+
+      final studentIds = currentAssignmentByStudent.keys.toList();
+      final results = await Future.wait([
+        _client
+            .from('profiles')
+            .select('id, display_name, is_active')
+            .inFilter('id', studentIds)
+            .eq('role', 'student')
+            .eq('is_review_account', false),
+        _client
+            .from('students')
+            .select('id, student_type, status')
+            .inFilter('id', studentIds),
+      ]);
+
+      final profilesById = <String, Map<String, dynamic>>{
+        for (final raw in results[0])
+          (raw['id'] as String): Map<String, dynamic>.from(raw),
+      };
+      final studentsById = <String, Map<String, dynamic>>{
+        for (final raw in results[1])
+          (raw['id'] as String): Map<String, dynamic>.from(raw),
+      };
+      final students = <AssignedStudentSummary>[];
+
+      for (final entry in currentAssignmentByStudent.entries) {
+        final profile = profilesById[entry.key];
+        final student = studentsById[entry.key];
+        if (profile == null || student == null) continue;
+
+        students.add(
+          AssignedStudentSummary(
+            id: entry.key,
+            displayName: profile['display_name'].toString(),
+            studentType: student['student_type']?.toString() ?? 'regular',
+            assignmentStartsOn: DateTime.parse(
+              entry.value['starts_on'].toString(),
+            ),
+            isActive: profile['is_active'] == true &&
+                student['status']?.toString() == 'active',
+          ),
+        );
+      }
+
+      students.sort((a, b) => a.displayName.compareTo(b.displayName));
+      return students;
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        '담당 수강생을 불러오지 못했습니다.\n${error.message}',
+      );
+    } catch (error) {
+      throw TeacherFailure(
+        '담당 수강생을 불러오지 못했습니다.\n$error',
       );
     }
   }
