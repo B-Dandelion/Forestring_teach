@@ -15,15 +15,18 @@ class ManagerCreatePage extends StatefulWidget {
 }
 
 class _ManagerCreatePageState extends State<ManagerCreatePage> {
-  final _repository = ManagerRepository();
-  final _branchRepository = BranchRepository();
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _pinController = TextEditingController();
+  final _pinConfirmController = TextEditingController();
+  final _repository = ManagerRepository();
+  final _branchRepository = BranchRepository();
 
   List<AcademyBranch> _branches = const [];
   String? _branchId;
   bool _loading = true;
   bool _saving = false;
+  bool _showPin = false;
   String? _errorMessage;
 
   @override
@@ -36,6 +39,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
   void dispose() {
     _nameController.dispose();
     _pinController.dispose();
+    _pinConfirmController.dispose();
     super.dispose();
   }
 
@@ -44,30 +48,40 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
       _loading = true;
       _errorMessage = null;
     });
+
     try {
       final branches = (await _branchRepository.fetchBranches())
           .where((branch) => branch.isActive)
           .toList()
         ..sort((a, b) => a.name.compareTo(b.name));
+
       if (!mounted) return;
       setState(() {
         _branches = branches;
-        if (_branchId == null && branches.isNotEmpty) {
-          _branchId = branches.first.id;
-        }
+        _branchId = branches.isEmpty ? null : branches.first.id;
       });
     } on BranchFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
+
+    if (_saving || !_formKey.currentState!.validate()) {
+      return;
+    }
+
     final branchId = _branchId;
-    if (branchId == null) {
+    if (branchId == null || branchId.isEmpty) {
       setState(() => _errorMessage = '지점을 선택해주세요.');
       return;
     }
@@ -78,18 +92,49 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
     });
 
     try {
-      await _repository.createManager(
+      final manager = await _repository.createManager(
         name: _nameController.text,
         pin: _pinController.text,
         branchId: branchId,
       );
+
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+
+      String? branchName;
+      for (final branch in _branches) {
+        if (branch.id == branchId) {
+          branchName = branch.name;
+          break;
+        }
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('지점장 등록 완료'),
+          content: Text(
+            '${manager.displayName} 지점장 계정이 등록되었습니다.\n\n'
+            '지점: ${branchName ?? '-'}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on ManagerFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -98,99 +143,163 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
     return Scaffold(
       backgroundColor: neutralIvory,
       appBar: const ForestringAppBar(title: '지점장 등록'),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-          children: [
-            Text(
-              '새 지점장',
-              style: forestringTextStyle.copyWith(
-                color: primaryColor,
-                fontSize: 24,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '이름, 로그인 PIN, 담당 지점만 설정하면 바로 계정이 생성됩니다.',
-              style: forestringTextStyle.copyWith(
-                color: Colors.black54,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_loading)
-              const Center(child: CircularProgressIndicator())
-            else if (_branches.isEmpty)
-              _messageCard('등록 가능한 운영 지점이 없습니다.')
-            else ...[
-              DropdownButtonFormField<String>(
-                value: _branchId,
-                decoration: _decoration('담당 지점'),
-                items: _branches
-                    .map(
-                      (branch) => DropdownMenuItem(
-                        value: branch.id,
-                        child: Text(branch.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged:
-                    _saving ? null : (value) => setState(() => _branchId = value),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _nameController,
-                enabled: !_saving,
-                textInputAction: TextInputAction.next,
-                decoration: _decoration('지점장 이름'),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _pinController,
-                enabled: !_saving,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(4),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (_errorMessage != null) ...[
+                    _errorCard(_errorMessage!),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_branches.isEmpty) ...[
+                    _emptyBranches(),
+                    const SizedBox(height: 16),
+                  ],
+                  _sectionTitle('계정 정보'),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: _branchId,
+                    decoration: _decoration('지점'),
+                    items: _branches
+                        .map(
+                          (branch) => DropdownMenuItem(
+                            value: branch.id,
+                            child: Text(branch.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _saving
+                        ? null
+                        : (value) => setState(() => _branchId = value),
+                    validator: (value) =>
+                        value == null ? '지점을 선택해주세요.' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: _decoration('지점장 이름'),
+                    enabled: !_saving,
+                    maxLength: 100,
+                    textInputAction: TextInputAction.next,
+                    validator: (value) {
+                      final name = value?.trim() ?? '';
+                      if (name.isEmpty) {
+                        return '지점장 이름을 입력해주세요.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _pinController,
+                    decoration: _pinDecoration('PIN (4자리 숫자)'),
+                    enabled: !_saving,
+                    keyboardType: TextInputType.number,
+                    obscureText: !_showPin,
+                    maxLength: 4,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(4),
+                    ],
+                    validator: (value) =>
+                        value == null || !RegExp(r'^\d{4}$').hasMatch(value)
+                            ? '4자리 숫자를 입력해주세요.'
+                            : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _pinConfirmController,
+                    decoration: _pinDecoration('PIN 확인'),
+                    enabled: !_saving,
+                    keyboardType: TextInputType.number,
+                    obscureText: !_showPin,
+                    maxLength: 4,
+                    textInputAction: TextInputAction.done,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(4),
+                    ],
+                    onFieldSubmitted: (_) {
+                      if (!_saving) _submit();
+                    },
+                    validator: (value) {
+                      if (value == null || !RegExp(r'^\d{4}$').hasMatch(value)) {
+                        return 'PIN을 한 번 더 입력해주세요.';
+                      }
+                      if (value != _pinController.text) {
+                        return 'PIN이 일치하지 않습니다.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed:
+                        _saving || _branches.isEmpty ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text(_saving ? '등록 중...' : '지점장 등록'),
+                  ),
+                  const SizedBox(height: 20),
                 ],
-                decoration: _decoration('4자리 PIN').copyWith(
-                  counterText: '',
-                ),
-                onSubmitted: (_) {
-                  if (!_saving) _save();
-                },
-              ),
-            ],
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              _messageCard(_errorMessage!, isError: true),
-            ],
-            const SizedBox(height: 26),
-            FilledButton.icon(
-              onPressed: _loading || _saving || _branches.isEmpty ? null : _save,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.person_add_alt_1_outlined),
-              label: const Text('지점장 등록'),
-              style: FilledButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(54),
               ),
             ),
-          ],
-        ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: forestringTextStyle.copyWith(
+        color: primaryColor,
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _emptyBranches() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '등록 가능한 활성 지점이 없습니다.',
+            style: forestringTextStyle,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _loadBranches,
+            child: const Text('지점 다시 불러오기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        message,
+        style: forestringTextStyle.copyWith(color: Colors.redAccent),
       ),
     );
   }
@@ -198,27 +307,21 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
   InputDecoration _decoration(String label) {
     return InputDecoration(
       labelText: label,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      counterText: '',
+      border: const OutlineInputBorder(),
+      isDense: true,
     );
   }
 
-  Widget _messageCard(String text, {bool isError = false}) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isError
-            ? Colors.red.withValues(alpha: 0.06)
-            : secondaryColor.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: forestringTextStyle.copyWith(
-          color: isError ? Colors.red.shade700 : Colors.black54,
+  InputDecoration _pinDecoration(String label) {
+    return _decoration(label).copyWith(
+      suffixIcon: IconButton(
+        tooltip: _showPin ? 'PIN 숨기기' : 'PIN 보기',
+        onPressed: _saving
+            ? null
+            : () => setState(() => _showPin = !_showPin),
+        icon: Icon(
+          _showPin ? Icons.visibility_off_outlined : Icons.visibility_outlined,
         ),
       ),
     );
