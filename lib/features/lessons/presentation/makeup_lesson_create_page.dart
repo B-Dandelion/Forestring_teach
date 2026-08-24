@@ -219,7 +219,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       initialDate: initialDate,
       firstDate: firstDate,
       lastDate: _scopeEnd,
-      helpText: '보강 수업 날짜',
+      helpText: '추가 수업 날짜',
       cancelText: '취소',
       confirmText: '선택',
     );
@@ -232,7 +232,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _time,
-      helpText: '보강 수업 시간',
+      helpText: '추가 수업 시간',
       cancelText: '취소',
       confirmText: '선택',
     );
@@ -263,7 +263,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       return;
     }
     if (_deductLessonRight && (_availableRightCount ?? 0) <= 0) {
-      _message('차감할 수 있는 $_durationMinutes분 수업권이 없습니다.');
+      _message('사용할 수 있는 $_durationMinutes분 수업권이 없습니다.');
       return;
     }
 
@@ -310,7 +310,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
       if (result.changed) {
         Navigator.of(context).pop(true);
       } else {
-        _message('보강 수업을 등록하지 못했습니다.');
+        _message('추가 수업을 등록하지 못했습니다.');
       }
     } on LessonFailure catch (error) {
       if (mounted) _message(error.message);
@@ -333,7 +333,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
           context: context,
           builder: (dialogContext) => AlertDialog(
             title: const Text('확인이 필요합니다'),
-            content: Text('$messages\n\n그래도 보강 수업을 등록하시겠습니까?'),
+            content: Text('$messages\n\n그래도 추가 수업을 등록하시겠습니까?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -361,7 +361,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
     if (_loadingRightCount) return '사용 가능한 수업권을 확인하는 중입니다.';
     final count = _availableRightCount;
     if (count == null) return '수업권 정보를 확인하지 못했습니다.';
-    return '$_durationMinutes분 사용 가능 수업권 $count회';
+    return '$_durationMinutes분 수업권 $count회 사용 가능';
   }
 
   @override
@@ -376,7 +376,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
 
     return Scaffold(
       backgroundColor: neutralIvory,
-      appBar: const ForestringAppBar(title: '보강 수업 등록'),
+      appBar: const ForestringAppBar(title: '추가 수업 등록'),
       body: SafeArea(
         child: Stack(
           children: [
@@ -561,7 +561,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                         : null,
                     activeColor: primaryColor,
                     title: Text(
-                      '학생 수업권 1회 차감',
+                      '수업권 1회 사용',
                       style: forestringTextStyle.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
@@ -577,7 +577,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  '끄면 수업권과 무관한 독립 보강으로 등록됩니다. 켜면 같은 길이의 사용 가능한 수업권 1회를 차감합니다.',
+                  '끄면 수업권을 사용하지 않고 추가 수업만 등록합니다. 켜면 같은 길이의 사용 가능한 수업권 1회를 사용합니다.',
                   style: forestringTextStyle.copyWith(
                     color: Colors.black45,
                     fontSize: 12,
@@ -602,7 +602,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                     ),
                     icon: const Icon(Icons.add_task_outlined),
                     label: Text(
-                      '보강 수업 등록',
+                      '추가 수업 등록',
                       style: forestringTextStyle.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w500,
