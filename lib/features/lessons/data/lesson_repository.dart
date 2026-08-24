@@ -11,6 +11,20 @@ class LessonFailure implements Exception {
   String toString() => message;
 }
 
+class VisibleStudent {
+  const VisibleStudent({
+    required this.id,
+    required this.displayName,
+    required this.isActive,
+    this.branchId,
+  });
+
+  final String id;
+  final String displayName;
+  final String? branchId;
+  final bool isActive;
+}
+
 class LessonRepository {
   LessonRepository({
     SupabaseClient? client,
@@ -136,6 +150,50 @@ class LessonRepository {
     }
   }
 
+  Future<List<VisibleStudent>> fetchVisibleStudents() async {
+    try {
+      final profileRows = await _client
+          .from('profiles')
+          .select('id, display_name, branch_id, is_active')
+          .eq('role', 'student')
+          .eq('is_review_account', false)
+          .order('display_name');
+
+      final profiles = (profileRows as List)
+          .map((raw) => Map<String, dynamic>.from(raw as Map))
+          .toList();
+      if (profiles.isEmpty) return const [];
+
+      final ids = profiles.map((row) => row['id'] as String).toList();
+      final studentRows = await _client
+          .from('students')
+          .select('id, status')
+          .inFilter('id', ids);
+      final statusById = <String, String>{
+        for (final raw in studentRows as List)
+          raw['id'] as String: raw['status'].toString(),
+      };
+
+      return profiles
+          .map(
+            (row) => VisibleStudent(
+              id: row['id'] as String,
+              displayName: row['display_name'].toString(),
+              branchId: row['branch_id'] as String?,
+              isActive: row['is_active'] == true &&
+                  statusById[row['id']] == 'active',
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (error) {
+      throw LessonFailure(
+        _friendlyDatabaseMessage(error.message),
+      );
+    } catch (error) {
+      throw LessonFailure('수강생 정보를 불러오지 못했습니다.\n$error');
+    }
+  }
+
   Future<List<TeacherBlockedPeriod>> fetchVisibleBlockedPeriods({
     DateTime? from,
     DateTime? to,
@@ -241,6 +299,62 @@ class LessonRepository {
     }
   }
 
+  Future<void> cancelStandaloneMakeupLesson({
+    required String lessonId,
+    String? reason,
+  }) async {
+    try {
+      await _client.rpc(
+        'cancel_standalone_makeup_lesson',
+        params: {
+          'p_lesson_id': lessonId,
+          'p_reason': _nullIfBlank(reason),
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw LessonFailure(
+        _friendlyDatabaseMessage(error.message),
+      );
+    }
+  }
+
+  Future<LessonMutationResult> createMakeupLesson({
+    required String studentId,
+    required String teacherId,
+    required DateTime startsAt,
+    required int durationMinutes,
+    bool confirmWarnings = false,
+    String? reason,
+  }) async {
+    try {
+      final data = await _client.rpc(
+        'create_makeup_lesson',
+        params: {
+          'p_student_id': studentId,
+          'p_teacher_id': teacherId,
+          'p_starts_at': startsAt.toUtc().toIso8601String(),
+          'p_duration_minutes': durationMinutes,
+          'p_confirm_warnings': confirmWarnings,
+          'p_reason': _nullIfBlank(reason),
+        },
+      );
+
+      if (data is! Map) {
+        throw const LessonFailure('보강 수업 등록 결과를 확인하지 못했습니다.');
+      }
+
+      return LessonMutationResult.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on LessonFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw LessonFailure(
+        _friendlyDatabaseMessage(error.message),
+      );
+    }
+  }
+
   Future<LessonMutationResult> updateLessonOnce({
     required String lessonId,
     required DateTime startsAt,
@@ -298,16 +412,50 @@ class LessonRepository {
     if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
       return '현재 계정은 더 이상 사용할 수 없습니다.';
     }
+    if (message.contains('FORESTRING_LESSON_MANAGEMENT_REQUIRED')) {
+      return '마스터 또는 지점장만 수업을 관리할 수 있습니다.';
+    }
+    if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+      return '다른 지점의 수업은 관리할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_ACTIVE_STUDENT_REQUIRED')) {
+      return '현재 재원 중인 학생만 보강 수업을 등록할 수 있습니다.';
+    }
+    if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
+      return '현재 수업 가능한 선생님 또는 지점장을 선택해주세요.';
+    }
+    if (message.contains('FORESTRING_MAKEUP_START_IN_PAST')) {
+      return '과거 시간으로 보강 수업을 등록할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_MAKEUP_CROSSES_DAY')) {
+      return '보강 수업은 자정을 넘길 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_SEMESTER_NOT_FOUND_FOR_DATE')) {
+      return '선택한 날짜에 적용되는 학기가 없습니다.';
+    }
+    if (message.contains('FORESTRING_CLOSURE_CONFLICT')) {
+      return '휴원 기간에는 보강 수업을 등록할 수 없습니다.';
+    }
     if (message.contains('FORESTRING_TEACHER_LESSON_OVERLAP') ||
         message.contains('FORESTRING_STUDENT_LESSON_OVERLAP') ||
         message.contains('FORESTRING_LESSON_TIME_CONFLICT')) {
-      return '겹치는 수업이 있어 해당 시간으로 변경할 수 없습니다.';
+      return '겹치는 수업이 있어 해당 시간을 사용할 수 없습니다.';
     }
     if (message.contains('FORESTRING_LESSON_BLOCKED_PERIOD_CONFLICT')) {
       return '선생님의 개인 일정과 겹쳐 해당 시간에 수업을 등록할 수 없습니다.';
     }
-    if (message.contains('FORESTRING_ONLY_SCHEDULED_LESSON_EDITABLE')) {
-      return '예정된 수업만 수정할 수 있습니다.';
+    if (message.contains('FORESTRING_LESSON_AFTER_STUDENT_WITHDRAWAL')) {
+      return '학생의 퇴원일 이후에는 수업을 등록할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_LESSON_AFTER_TEACHER_WITHDRAWAL')) {
+      return '선생님의 퇴사일 이후에는 수업을 등록할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_STANDALONE_MAKEUP_REQUIRED')) {
+      return '이 수업은 보강 수업 취소 기능으로 처리할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_ONLY_SCHEDULED_LESSON_EDITABLE') ||
+        message.contains('FORESTRING_LESSON_NOT_SCHEDULED')) {
+      return '예정된 수업만 수정하거나 취소할 수 있습니다.';
     }
     if (message.contains('FORESTRING_INVALID_LESSON_DURATION')) {
       return '수업 시간은 15분 단위로 입력해주세요.';
