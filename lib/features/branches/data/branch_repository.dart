@@ -84,6 +84,31 @@ class BranchRepository {
     }
   }
 
+  Future<List<String>> fetchActiveManagerNames({
+    required String branchId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('profiles')
+          .select('display_name')
+          .eq('branch_id', branchId)
+          .eq('role', 'manager')
+          .eq('is_active', true)
+          .eq('is_review_account', false)
+          .order('display_name', ascending: true);
+
+      return rows
+          .map((row) => (row['display_name'] as String?)?.trim() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toList();
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '지점장 정보를 불러오지 못했습니다.',
+      );
+    }
+  }
+
   Future<BranchManagementDetails> renameBranch({
     required String branchId,
     required String name,
