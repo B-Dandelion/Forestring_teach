@@ -89,17 +89,24 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
         _branchRepository.fetchBranches(),
       ]);
 
-      final semesters = List<ManagedSemester>.from(
+      final semesters = _uniqueById<ManagedSemester>(
         results[0] as List<ManagedSemester>,
+        (item) => item.id,
       )..sort((a, b) => b.startsOn.compareTo(a.startsOn));
-      final students = List<VisibleStudent>.from(
+
+      final students = _uniqueById<VisibleStudent>(
         results[1] as List<VisibleStudent>,
+        (item) => item.id,
       )..sort((a, b) => a.displayName.compareTo(b.displayName));
-      final teachers = List<VisibleTeacher>.from(
+
+      final teachers = _uniqueById<VisibleTeacher>(
         results[2] as List<VisibleTeacher>,
+        (item) => item.id,
       )..sort((a, b) => a.displayName.compareTo(b.displayName));
-      var branches = List<AcademyBranch>.from(
+
+      var branches = _uniqueById<AcademyBranch>(
         results[3] as List<AcademyBranch>,
+        (item) => item.id,
       )..sort((a, b) => a.name.compareTo(b.name));
 
       if (widget.profile.isManager) {
@@ -252,6 +259,32 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
         .toList();
   }
 
+  String? get _safeSemesterValue {
+    final value = _selectedSemesterId;
+    if (value == null) return null;
+    return _semesters.any((item) => item.id == value) ? value : null;
+  }
+
+  String? get _safeBranchValue {
+    final selected = _selectedBranchId;
+    final exists = selected != null &&
+        _branches.any((branch) => branch.id == selected);
+
+    if (_isMaster) {
+      return exists ? selected : '__all__';
+    }
+    return exists ? selected : null;
+  }
+
+  String get _safeStudentValue {
+    final selected = _selectedStudentId;
+    if (selected != null &&
+        _filterStudents.any((student) => student.id == selected)) {
+      return selected;
+    }
+    return '__all__';
+  }
+
   String _branchName(String? branchId) {
     if (branchId == null) return '지점 미지정';
     for (final branch in _branches) {
@@ -334,7 +367,9 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     final start = branchId == null
         ? semester.startsOn
         : semester.effectiveStart(branchId);
-    final end = branchId == null ? semester.endsOn : semester.effectiveEnd(branchId);
+    final end = branchId == null
+        ? semester.endsOn
+        : semester.effectiveEnd(branchId);
     final tomorrow = _dateOnly(DateTime.now().add(const Duration(days: 1)));
     if (tomorrow.isBefore(start)) return start;
     if (tomorrow.isAfter(end)) return end;
@@ -392,7 +427,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-              child: _filterPanel(semester, lessons.length),
+              child: _filterPanel(lessons.length),
             ),
             if (_errorMessage != null)
               Padding(
@@ -400,7 +435,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
                 child: _errorCard(_errorMessage!),
               ),
             Expanded(
-              child: _loading
+              child: _loading && _semesters.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : _viewMode == 'calendar'
                       ? _calendar(lessons, semester)
@@ -412,10 +447,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     );
   }
 
-  Widget _filterPanel(ManagedSemester? semester, int count) {
+  Widget _filterPanel(int count) {
     final students = _filterStudents;
-    final branchValue = _selectedBranchId ?? '__all__';
-    final studentValue = _selectedStudentId ?? '__all__';
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -461,11 +494,11 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedSemesterId,
+                  value: _safeSemesterValue,
                   decoration: _decoration('학기'),
                   items: _semesters
                       .map(
-                        (item) => DropdownMenuItem(
+                        (item) => DropdownMenuItem<String>(
                           value: item.id,
                           child: Text(
                             _semesterLabel(item.code),
@@ -480,16 +513,16 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _isMaster ? branchValue : _selectedBranchId,
+                  value: _safeBranchValue,
                   decoration: _decoration('지점'),
                   items: [
                     if (_isMaster)
-                      const DropdownMenuItem(
+                      const DropdownMenuItem<String>(
                         value: '__all__',
                         child: Text('전체 지점'),
                       ),
                     ..._branches.map(
-                      (branch) => DropdownMenuItem(
+                      (branch) => DropdownMenuItem<String>(
                         value: branch.id,
                         child: Text(
                           branch.name,
@@ -508,15 +541,15 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: studentValue,
+                  value: _safeStudentValue,
                   decoration: _decoration('학생'),
                   items: [
-                    const DropdownMenuItem(
+                    const DropdownMenuItem<String>(
                       value: '__all__',
                       child: Text('전체 학생'),
                     ),
                     ...students.map(
-                      (student) => DropdownMenuItem(
+                      (student) => DropdownMenuItem<String>(
                         value: student.id,
                         child: Text(
                           student.displayName,
@@ -530,7 +563,9 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
                       : (value) {
                           setState(() {
                             _selectedStudentId =
-                                value == '__all__' ? null : value;
+                                value == null || value == '__all__'
+                                    ? null
+                                    : value;
                             if (_selectedStudentId == null &&
                                 _viewMode == 'calendar') {
                               _viewMode = 'list';
@@ -545,9 +580,18 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
                   value: _statusFilter,
                   decoration: _decoration('상태'),
                   items: const [
-                    DropdownMenuItem(value: 'all', child: Text('전체 상태')),
-                    DropdownMenuItem(value: 'scheduled', child: Text('예정')),
-                    DropdownMenuItem(value: 'canceled', child: Text('취소')),
+                    DropdownMenuItem<String>(
+                      value: 'all',
+                      child: Text('전체 상태'),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'scheduled',
+                      child: Text('예정'),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'canceled',
+                      child: Text('취소'),
+                    ),
                   ],
                   onChanged: _loading
                       ? null
@@ -712,7 +756,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       LessonType.flex => lesson.changeBadgeLabel ?? '자율',
       LessonType.regular => lesson.changeBadgeLabel ?? '정규',
     };
-    final color = lesson.type == LessonType.makeup ? secondaryColor : primaryColor;
+    final color =
+        lesson.type == LessonType.makeup ? secondaryColor : primaryColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -794,7 +839,10 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       isDense: true,
       filled: true,
       fillColor: neutralIvory,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 11,
+      ),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(9),
@@ -831,6 +879,14 @@ class _ManagementCalendarSource extends CalendarDataSource {
     if (lesson.type == LessonType.flex) return const Color(0xff4F7E67);
     return primaryColor;
   }
+}
+
+List<T> _uniqueById<T>(Iterable<T> items, String Function(T item) idOf) {
+  final result = <String, T>{};
+  for (final item in items) {
+    result[idOf(item)] = item;
+  }
+  return result.values.toList();
 }
 
 String _semesterLabel(String code) {
