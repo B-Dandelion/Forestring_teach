@@ -109,6 +109,62 @@ class LessonRepository {
     }
   }
 
+  Future<List<TeacherBlockedPeriod>> fetchVisibleBlockedPeriods({
+    DateTime? from,
+    DateTime? to,
+    String? teacherId,
+  }) async {
+    try {
+      dynamic query = _client.from('blocked_periods').select(
+            'id, teacher_id, starts_at, ends_at, reason, created_at',
+          );
+
+      if (from != null) {
+        query = query.gt(
+          'ends_at',
+          from.toUtc().toIso8601String(),
+        );
+      }
+
+      if (to != null) {
+        query = query.lt(
+          'starts_at',
+          to.toUtc().toIso8601String(),
+        );
+      }
+
+      if (teacherId != null && teacherId.isNotEmpty) {
+        query = query.eq('teacher_id', teacherId);
+      }
+
+      final rows = await query.order('starts_at');
+      final periods = (rows as List)
+          .map(
+            (row) => TeacherBlockedPeriod.fromJson(
+              Map<String, dynamic>.from(row as Map),
+            ),
+          )
+          .toList();
+      final names = await _fetchVisibleProfileNames();
+
+      return periods
+          .map(
+            (period) => period.copyWithTeacherName(
+              names[period.teacherId],
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (error) {
+      throw LessonFailure(
+        _friendlyDatabaseMessage(error.message),
+      );
+    } catch (error) {
+      throw LessonFailure(
+        '개인 일정을 불러오지 못했습니다.\n$error',
+      );
+    }
+  }
+
   Future<Map<String, List<TeacherWorkHour>>>
       fetchVisibleWorkHours({
     String? teacherId,
@@ -222,6 +278,9 @@ class LessonRepository {
         message.contains('FORESTRING_STUDENT_LESSON_OVERLAP') ||
         message.contains('FORESTRING_LESSON_TIME_CONFLICT')) {
       return '겹치는 수업이 있어 해당 시간으로 변경할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_LESSON_BLOCKED_PERIOD_CONFLICT')) {
+      return '선생님의 개인 일정과 겹쳐 해당 시간에 수업을 등록할 수 없습니다.';
     }
     if (message.contains('FORESTRING_ONLY_SCHEDULED_LESSON_EDITABLE')) {
       return '예정된 수업만 수정할 수 있습니다.';

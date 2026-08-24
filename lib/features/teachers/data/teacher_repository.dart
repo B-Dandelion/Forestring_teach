@@ -21,6 +21,39 @@ class ManagedTeacherWorkHour {
   final String endTime;
 }
 
+class ManagedTeacherBlockedPeriod {
+  const ManagedTeacherBlockedPeriod({
+    required this.id,
+    required this.teacherId,
+    required this.startsAt,
+    required this.endsAt,
+    required this.createdAt,
+    this.reason,
+  });
+
+  final String id;
+  final String teacherId;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final DateTime createdAt;
+  final String? reason;
+
+  int get durationMinutes => endsAt.difference(startsAt).inMinutes;
+
+  factory ManagedTeacherBlockedPeriod.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return ManagedTeacherBlockedPeriod(
+      id: json['id'] as String,
+      teacherId: json['teacher_id'] as String,
+      startsAt: DateTime.parse(json['starts_at'].toString()).toLocal(),
+      endsAt: DateTime.parse(json['ends_at'].toString()).toLocal(),
+      createdAt: DateTime.parse(json['created_at'].toString()).toLocal(),
+      reason: json['reason'] as String?,
+    );
+  }
+}
+
 class ManagedTeacher {
   const ManagedTeacher({
     required this.id,
@@ -671,6 +704,87 @@ class TeacherRepository {
       );
     }
   }
+
+  Future<List<ManagedTeacherBlockedPeriod>> fetchTeacherBlockedPeriods(
+    String teacherId,
+  ) async {
+    try {
+      final rows = await _client
+          .from('blocked_periods')
+          .select('id, teacher_id, starts_at, ends_at, reason, created_at')
+          .eq('teacher_id', teacherId)
+          .order('starts_at', ascending: false);
+
+      return (rows as List)
+          .map(
+            (row) => ManagedTeacherBlockedPeriod.fromJson(
+              Map<String, dynamic>.from(row as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        '개인 일정을 불러오지 못했습니다.\n${error.message}',
+      );
+    } catch (error) {
+      throw TeacherFailure(
+        '개인 일정을 불러오지 못했습니다.\n$error',
+      );
+    }
+  }
+
+  Future<void> saveTeacherBlockedPeriod({
+    required String teacherId,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    String? reason,
+    String? blockedPeriodId,
+  }) async {
+    try {
+      await _client.rpc(
+        'upsert_teacher_blocked_period',
+        params: {
+          'p_teacher_id': teacherId,
+          'p_starts_at': startsAt.toUtc().toIso8601String(),
+          'p_ends_at': endsAt.toUtc().toIso8601String(),
+          'p_reason': _nullIfBlank(reason),
+          'p_blocked_period_id': blockedPeriodId,
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _blockedPeriodFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure(
+        '개인 일정을 저장하지 못했습니다.\n$error',
+      );
+    }
+  }
+
+  Future<void> deleteTeacherBlockedPeriod(String blockedPeriodId) async {
+    try {
+      await _client.rpc(
+        'delete_teacher_blocked_period',
+        params: {
+          'p_blocked_period_id': blockedPeriodId,
+        },
+      );
+    } on PostgrestException catch (error) {
+      throw TeacherFailure(
+        _blockedPeriodFailureMessage(error.message),
+      );
+    } catch (error) {
+      throw TeacherFailure(
+        '개인 일정을 삭제하지 못했습니다.\n$error',
+      );
+    }
+  }
+
+  String? _nullIfBlank(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
 }
 
 String _shortTime(dynamic value) {
@@ -715,6 +829,41 @@ String _workHourFailureMessage(String message) {
   }
 
   return '근무시간을 변경하지 못했습니다.';
+}
+
+String _blockedPeriodFailureMessage(String message) {
+  if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+    return '로그인이 필요합니다.';
+  }
+  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+    return '현재 계정은 더 이상 사용할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_REQUIRED')) {
+    return '개인 일정을 관리할 권한이 없습니다.';
+  }
+  if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+    return '선생님 정보를 찾을 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
+    return '재직 중인 선생님의 개인 일정만 등록할 수 있습니다.';
+  }
+  if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    return '지점 관리자는 자기 지점 선생님의 개인 일정만 관리할 수 있습니다.';
+  }
+  if (message.contains('FORESTRING_BLOCKED_PERIOD_LESSON_CONFLICT')) {
+    return '해당 시간에 예정된 수업이 있습니다. 수업을 먼저 변경하거나 취소해주세요.';
+  }
+  if (message.contains('FORESTRING_BLOCKED_PERIOD_OVERLAP')) {
+    return '이미 등록된 개인 일정과 시간이 겹칩니다.';
+  }
+  if (message.contains('FORESTRING_INVALID_BLOCKED_PERIOD_RANGE')) {
+    return '개인 일정의 종료시간은 시작시간보다 뒤여야 합니다.';
+  }
+  if (message.contains('FORESTRING_BLOCKED_PERIOD_NOT_FOUND')) {
+    return '개인 일정을 찾을 수 없습니다.';
+  }
+
+  return '개인 일정을 처리하지 못했습니다.';
 }
 
 extension on String {

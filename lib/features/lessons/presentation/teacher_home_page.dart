@@ -10,6 +10,8 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'week_schedule_page.dart';
+import 'widgets/blocked_period_card.dart';
+import 'widgets/blocked_period_info_dialog.dart';
 import 'widgets/lesson_card.dart';
 import 'widgets/lesson_info_dialog.dart';
 
@@ -33,6 +35,19 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
   Widget build(BuildContext context) {
     final controller = context.watch<LessonController>();
     final selectedLessons = controller.lessonsOn(_selectedDate);
+    final selectedBlockedPeriods = controller.blockedPeriodsOn(_selectedDate);
+    final selectedEntries = <Object>[
+      ...selectedLessons,
+      ...selectedBlockedPeriods,
+    ]..sort((a, b) {
+        final aStart = a is Lesson
+            ? a.startsAt
+            : (a as TeacherBlockedPeriod).startsAt;
+        final bStart = b is Lesson
+            ? b.startsAt
+            : (b as TeacherBlockedPeriod).startsAt;
+        return aStart.compareTo(bStart);
+      });
     final now = DateTime.now();
 
     return Scaffold(
@@ -72,13 +87,16 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
       body: SafeArea(
         child: Column(
           children: [
-            TableCalendar<Lesson>(
+            TableCalendar<Object>(
               firstDay: DateTime(now.year, now.month - 2, 1),
               lastDay: DateTime(now.year, now.month + 4, 0),
               focusedDay: _focusedDate,
               selectedDayPredicate: (day) =>
                   isSameDay(_selectedDate, day),
-              eventLoader: controller.lessonsOn,
+              eventLoader: (day) => <Object>[
+                ...controller.lessonsOn(day),
+                ...controller.blockedPeriodsOn(day),
+              ],
               onDaySelected: (selectedDay, focusedDay) {
                 setState(() {
                   _selectedDate = selectedDay;
@@ -164,7 +182,8 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
               ),
               child: Text(
                 '${DateFormat('M월 d일').format(_selectedDate)} · '
-                '${selectedLessons.where((e) => !e.isCanceled).length}개 수업',
+                '${selectedLessons.where((e) => !e.isCanceled).length}개 수업 · '
+                '${selectedBlockedPeriods.length}개 개인 일정',
                 style: forestringTextStyle.copyWith(
                   color: primaryColor,
                   fontSize: 15,
@@ -192,13 +211,13 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
                           Center(child: CircularProgressIndicator()),
                         ],
                       )
-                    : selectedLessons.isEmpty
+                    : selectedEntries.isEmpty
                         ? ListView(
                             padding: const EdgeInsets.all(24),
                             children: [
                               const SizedBox(height: 70),
                               Text(
-                                '예약된 수업이 없습니다.',
+                                '등록된 수업이나 개인 일정이 없습니다.',
                                 textAlign: TextAlign.center,
                                 style: forestringTextStyle.copyWith(
                                   color: Colors.black54,
@@ -209,11 +228,23 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                            itemCount: selectedLessons.length,
+                            itemCount: selectedEntries.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 8),
                             itemBuilder: (context, index) {
-                              final lesson = selectedLessons[index];
+                              final entry = selectedEntries[index];
+                              if (entry is TeacherBlockedPeriod) {
+                                return BlockedPeriodCard(
+                                  period: entry,
+                                  onTap: () =>
+                                      showBlockedPeriodInfoDialog(
+                                    context: context,
+                                    period: entry,
+                                  ),
+                                );
+                              }
+
+                              final lesson = entry as Lesson;
                               return LessonCard(
                                 lesson: lesson,
                                 personName: lesson.studentName ?? '학생',

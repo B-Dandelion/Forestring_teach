@@ -159,6 +159,51 @@ class Lesson {
   }
 }
 
+class TeacherBlockedPeriod {
+  const TeacherBlockedPeriod({
+    required this.id,
+    required this.teacherId,
+    required this.startsAt,
+    required this.endsAt,
+    required this.createdAt,
+    this.reason,
+    this.teacherName,
+  });
+
+  final String id;
+  final String teacherId;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final DateTime createdAt;
+  final String? reason;
+  final String? teacherName;
+
+  int get durationMinutes => endsAt.difference(startsAt).inMinutes;
+
+  TeacherBlockedPeriod copyWithTeacherName(String? value) {
+    return TeacherBlockedPeriod(
+      id: id,
+      teacherId: teacherId,
+      startsAt: startsAt,
+      endsAt: endsAt,
+      createdAt: createdAt,
+      reason: reason,
+      teacherName: value ?? teacherName,
+    );
+  }
+
+  factory TeacherBlockedPeriod.fromJson(Map<String, dynamic> json) {
+    return TeacherBlockedPeriod(
+      id: json['id'] as String,
+      teacherId: json['teacher_id'] as String,
+      startsAt: DateTime.parse(json['starts_at'].toString()).toLocal(),
+      endsAt: DateTime.parse(json['ends_at'].toString()).toLocal(),
+      createdAt: DateTime.parse(json['created_at'].toString()).toLocal(),
+      reason: json['reason'] as String?,
+    );
+  }
+}
+
 class TeacherWorkHour {
   const TeacherWorkHour({
     required this.teacherId,

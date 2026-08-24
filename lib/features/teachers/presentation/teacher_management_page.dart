@@ -9,6 +9,7 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/teacher_repository.dart';
 import 'teacher_assigned_students_page.dart';
+import 'teacher_blocked_periods_page.dart';
 import 'teacher_create_page.dart';
 import 'teacher_work_hours_edit_page.dart';
 
@@ -486,6 +487,24 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 220),
+                    );
+                    if (!mounted) return;
+                    await _showBlockedPeriods(teacher);
+                  },
+                  icon: const Icon(Icons.event_busy_outlined),
+                  label: const Text('개인 일정 관리'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: personalScheduleColor,
+                    side: const BorderSide(color: personalScheduleColor),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 if (teacher.isActive) ...[
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -634,6 +653,14 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => TeacherAssignedStudentsPage(teacher: teacher),
+      ),
+    );
+  }
+
+  Future<void> _showBlockedPeriods(ManagedTeacher teacher) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TeacherBlockedPeriodsPage(teacher: teacher),
       ),
     );
   }

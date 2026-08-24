@@ -8,6 +8,8 @@ import '../../auth/domain/current_profile.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
+import 'widgets/blocked_period_calendar_appointment.dart';
+import 'widgets/blocked_period_info_dialog.dart';
 import 'widgets/lesson_calendar_appointment.dart';
 import 'widgets/lesson_info_dialog.dart';
 
@@ -23,10 +25,14 @@ class WeekSchedulePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<LessonController>();
     final teacherId = controller.selectedTeacherId ?? profile.id;
-    final meetings = controller.visibleLessons
-        .where((lesson) => !lesson.isCanceled)
-        .map((lesson) => _LessonMeeting(lesson))
-        .toList();
+    final meetings = <Object>[
+      ...controller.visibleLessons
+          .where((lesson) => !lesson.isCanceled)
+          .map((lesson) => _LessonMeeting(lesson)),
+      ...controller.visibleBlockedPeriods.map(
+        (period) => _BlockedMeeting(period),
+      ),
+    ];
 
     return Scaffold(
       appBar: const ForestringAppBar(),
@@ -93,6 +99,11 @@ class WeekSchedulePage extends StatelessWidget {
 
                           final meeting = details.appointments.first;
                           if (meeting is! _LessonMeeting) {
+                            if (meeting is _BlockedMeeting) {
+                              return BlockedPeriodCalendarAppointment(
+                                period: meeting.period,
+                              );
+                            }
                             return const SizedBox.shrink();
                           }
 
@@ -148,6 +159,14 @@ class WeekSchedulePage extends StatelessWidget {
                           }
 
                           final meeting = appointments.first;
+                          if (meeting is _BlockedMeeting) {
+                            showBlockedPeriodInfoDialog(
+                              context: context,
+                              period: meeting.period,
+                            );
+                            return;
+                          }
+
                           if (meeting is! _LessonMeeting) {
                             return;
                           }
@@ -215,30 +234,50 @@ class _LessonMeeting {
   final Lesson lesson;
 }
 
+class _BlockedMeeting {
+  const _BlockedMeeting(this.period);
+
+  final TeacherBlockedPeriod period;
+}
+
 class _LessonDataSource extends CalendarDataSource {
-  _LessonDataSource(List<_LessonMeeting> source) {
+  _LessonDataSource(List<Object> source) {
     appointments = source;
   }
 
-  _LessonMeeting _meeting(int index) {
-    return appointments![index] as _LessonMeeting;
+  Object _entry(int index) => appointments![index];
+
+  @override
+  DateTime getStartTime(int index) {
+    final entry = _entry(index);
+    return entry is _LessonMeeting
+        ? entry.lesson.startsAt
+        : (entry as _BlockedMeeting).period.startsAt;
   }
 
   @override
-  DateTime getStartTime(int index) => _meeting(index).lesson.startsAt;
-
-  @override
-  DateTime getEndTime(int index) => _meeting(index).lesson.endsAt;
+  DateTime getEndTime(int index) {
+    final entry = _entry(index);
+    return entry is _LessonMeeting
+        ? entry.lesson.endsAt
+        : (entry as _BlockedMeeting).period.endsAt;
+  }
 
   @override
   String getSubject(int index) {
-    final lesson = _meeting(index).lesson;
-    return lesson.studentName ?? '학생';
+    final entry = _entry(index);
+    return entry is _LessonMeeting
+        ? (entry.lesson.studentName ?? '학생')
+        : '개인 일정';
   }
 
   @override
   Color getColor(int index) {
-    final lesson = _meeting(index).lesson;
+    final entry = _entry(index);
+    if (entry is _BlockedMeeting) {
+      return personalScheduleColor;
+    }
+    final lesson = (entry as _LessonMeeting).lesson;
     if (lesson.type == LessonType.makeup) {
       return secondaryColor;
     }

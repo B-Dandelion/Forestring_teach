@@ -20,6 +20,7 @@ class LessonController extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<Lesson> _lessons = const [];
+  List<TeacherBlockedPeriod> _blockedPeriods = const [];
   List<VisibleTeacher> _teachers = const [];
   List<AcademyBranch> _branches = const [];
   Map<String, List<TeacherWorkHour>> _workHours = const {};
@@ -29,6 +30,7 @@ class LessonController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<Lesson> get lessons => _lessons;
+  List<TeacherBlockedPeriod> get blockedPeriods => _blockedPeriods;
   List<VisibleTeacher> get teachers => _teachers;
   List<AcademyBranch> get branches => _branches;
   Map<String, List<TeacherWorkHour>> get workHours => _workHours;
@@ -57,6 +59,17 @@ class LessonController extends ChangeNotifier {
 
     return _lessons
         .where((lesson) => lesson.teacherId == teacherId)
+        .toList();
+  }
+
+  List<TeacherBlockedPeriod> get visibleBlockedPeriods {
+    final teacherId = _selectedTeacherId;
+    if (teacherId == null || teacherId.isEmpty) {
+      return const [];
+    }
+
+    return _blockedPeriods
+        .where((period) => period.teacherId == teacherId)
         .toList();
   }
 
@@ -95,6 +108,10 @@ class LessonController extends ChangeNotifier {
           _repository.fetchVisibleTeachers(),
           _repository.fetchVisibleWorkHours(),
           _branchRepository.fetchBranches(),
+          _repository.fetchVisibleBlockedPeriods(
+            from: from,
+            to: to,
+          ),
         ]);
 
         final loadedLessons = results[0] as List<Lesson>;
@@ -121,6 +138,15 @@ class LessonController extends ChangeNotifier {
           _lessons = loadedLessons
               .where((lesson) => lesson.branchId == branchId)
               .toList();
+          _blockedPeriods = (results[4] as List<TeacherBlockedPeriod>)
+              .where(
+                (period) => loadedTeachers.any(
+                  (teacher) =>
+                      teacher.id == period.teacherId &&
+                      teacher.branchId == branchId,
+                ),
+              )
+              .toList();
           _teachers = loadedTeachers
               .where((teacher) => teacher.branchId == branchId)
               .toList();
@@ -129,6 +155,7 @@ class LessonController extends ChangeNotifier {
               .toList();
         } else {
           _lessons = loadedLessons;
+          _blockedPeriods = results[4] as List<TeacherBlockedPeriod>;
           _teachers = loadedTeachers;
           _branches = loadedBranches;
         }
@@ -161,11 +188,17 @@ class LessonController extends ChangeNotifier {
           _repository.fetchVisibleWorkHours(
             teacherId: _profile.id,
           ),
+          _repository.fetchVisibleBlockedPeriods(
+            from: from,
+            to: to,
+            teacherId: _profile.id,
+          ),
         ]);
 
         _lessons = results[0] as List<Lesson>;
         _workHours =
             results[1] as Map<String, List<TeacherWorkHour>>;
+        _blockedPeriods = results[2] as List<TeacherBlockedPeriod>;
         _teachers = [
           VisibleTeacher(
             id: _profile.id,
@@ -234,6 +267,16 @@ class LessonController extends ChangeNotifier {
       return local.year == date.year &&
           local.month == date.month &&
           local.day == date.day;
+    }).toList();
+  }
+
+  List<TeacherBlockedPeriod> blockedPeriodsOn(DateTime date) {
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    return visibleBlockedPeriods.where((period) {
+      return period.startsAt.isBefore(dayEnd) &&
+          period.endsAt.isAfter(dayStart);
     }).toList();
   }
 

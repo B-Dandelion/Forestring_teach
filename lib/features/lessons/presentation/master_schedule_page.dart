@@ -11,6 +11,8 @@ import '../../students/presentation/student_management_page.dart';
 import '../../teachers/presentation/teacher_management_page.dart';
 import '../domain/lesson.dart';
 import 'lesson_controller.dart';
+import 'widgets/blocked_period_calendar_appointment.dart';
+import 'widgets/blocked_period_info_dialog.dart';
 import 'widgets/lesson_action_dialog.dart';
 import 'widgets/lesson_calendar_appointment.dart';
 
@@ -27,10 +29,14 @@ class MasterSchedulePage extends StatelessWidget {
     final controller = context.watch<LessonController>();
     final selectedBranchId = controller.selectedBranchId;
     final selectedTeacherId = controller.selectedTeacherId;
-    final meetings = controller.visibleLessons
-        .where((lesson) => !lesson.isCanceled)
-        .map((lesson) => _MasterMeeting(lesson))
-        .toList();
+    final meetings = <Object>[
+      ...controller.visibleLessons
+          .where((lesson) => !lesson.isCanceled)
+          .map((lesson) => _MasterMeeting(lesson)),
+      ...controller.visibleBlockedPeriods.map(
+        (period) => _MasterBlockedMeeting(period),
+      ),
+    ];
 
     return Scaffold(
       backgroundColor: neutralIvory,
@@ -233,6 +239,11 @@ class MasterSchedulePage extends StatelessWidget {
 
                               final meeting = details.appointments.first;
                               if (meeting is! _MasterMeeting) {
+                                if (meeting is _MasterBlockedMeeting) {
+                                  return BlockedPeriodCalendarAppointment(
+                                    period: meeting.period,
+                                  );
+                                }
                                 return const SizedBox.shrink();
                               }
 
@@ -292,6 +303,14 @@ class MasterSchedulePage extends StatelessWidget {
                               }
 
                               final meeting = appointments.first;
+                              if (meeting is _MasterBlockedMeeting) {
+                                showBlockedPeriodInfoDialog(
+                                  context: context,
+                                  period: meeting.period,
+                                );
+                                return;
+                              }
+
                               if (meeting is! _MasterMeeting) {
                                 return;
                               }
@@ -384,29 +403,50 @@ class _MasterMeeting {
   final Lesson lesson;
 }
 
+class _MasterBlockedMeeting {
+  const _MasterBlockedMeeting(this.period);
+
+  final TeacherBlockedPeriod period;
+}
+
 class _MasterDataSource extends CalendarDataSource {
-  _MasterDataSource(List<_MasterMeeting> source) {
+  _MasterDataSource(List<Object> source) {
     appointments = source;
   }
 
-  _MasterMeeting _meeting(int index) {
-    return appointments![index] as _MasterMeeting;
+  Object _entry(int index) => appointments![index];
+
+  @override
+  DateTime getStartTime(int index) {
+    final entry = _entry(index);
+    return entry is _MasterMeeting
+        ? entry.lesson.startsAt
+        : (entry as _MasterBlockedMeeting).period.startsAt;
   }
 
   @override
-  DateTime getStartTime(int index) => _meeting(index).lesson.startsAt;
-
-  @override
-  DateTime getEndTime(int index) => _meeting(index).lesson.endsAt;
+  DateTime getEndTime(int index) {
+    final entry = _entry(index);
+    return entry is _MasterMeeting
+        ? entry.lesson.endsAt
+        : (entry as _MasterBlockedMeeting).period.endsAt;
+  }
 
   @override
   String getSubject(int index) {
-    return _meeting(index).lesson.studentName ?? '학생';
+    final entry = _entry(index);
+    return entry is _MasterMeeting
+        ? (entry.lesson.studentName ?? '학생')
+        : '개인 일정';
   }
 
   @override
   Color getColor(int index) {
-    final lesson = _meeting(index).lesson;
+    final entry = _entry(index);
+    if (entry is _MasterBlockedMeeting) {
+      return personalScheduleColor;
+    }
+    final lesson = (entry as _MasterMeeting).lesson;
     if (lesson.type == LessonType.makeup) {
       return secondaryColor;
     }
