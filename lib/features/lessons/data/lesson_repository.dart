@@ -86,14 +86,41 @@ class LessonRepository {
 
   Future<List<VisibleTeacher>> fetchVisibleTeachers() async {
     try {
-      final rows = await _client
+      final rawRows = await _client
           .from('profiles')
           .select('id, display_name, branch_id, role, is_active')
           .inFilter('role', ['teacher', 'manager'])
           .eq('is_active', true)
           .order('display_name');
 
-      return (rows as List)
+      final rows = (rawRows as List)
+          .map((raw) => Map<String, dynamic>.from(raw as Map))
+          .toList();
+
+      final managerIds = rows
+          .where((row) => row['role']?.toString() == 'manager')
+          .map((row) => row['id'] as String)
+          .toList();
+
+      final teachingManagerIds = <String>{};
+      if (managerIds.isNotEmpty) {
+        final workHourRows = await _client
+            .from('teacher_work_hours')
+            .select('teacher_id')
+            .inFilter('teacher_id', managerIds);
+
+        for (final raw in workHourRows as List) {
+          teachingManagerIds.add(raw['teacher_id'] as String);
+        }
+      }
+
+      return rows
+          .where((row) {
+            final role = row['role']?.toString();
+            return role == 'teacher' ||
+                (role == 'manager' &&
+                    teachingManagerIds.contains(row['id'] as String));
+          })
           .map(
             (row) => VisibleTeacher(
               id: row['id'] as String,
@@ -165,8 +192,7 @@ class LessonRepository {
     }
   }
 
-  Future<Map<String, List<TeacherWorkHour>>>
-      fetchVisibleWorkHours({
+  Future<Map<String, List<TeacherWorkHour>>> fetchVisibleWorkHours({
     String? teacherId,
   }) async {
     try {
@@ -185,9 +211,7 @@ class LessonRepository {
         final workHour = TeacherWorkHour.fromJson(
           Map<String, dynamic>.from(raw as Map),
         );
-        result
-            .putIfAbsent(workHour.teacherId, () => [])
-            .add(workHour);
+        result.putIfAbsent(workHour.teacherId, () => []).add(workHour);
       }
 
       return result;
