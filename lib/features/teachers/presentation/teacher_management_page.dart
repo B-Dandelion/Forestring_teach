@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
@@ -419,158 +418,173 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
   }
 
   Future<void> _showDetails(ManagedTeacher teacher) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: neutralIvory,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  teacher.displayName,
-                  style: forestringTextStyle.copyWith(
-                    color: primaryColor,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _detailRow('상태', teacher.statusLabel),
-                _detailRow('지점', teacher.branchName),
-                _detailRow(
-                  '담당 수강생',
-                  '${teacher.assignedStudentCount}명',
-                ),
-                if (teacher.withdrawalDate != null)
-                  _detailRow(
-                    teacher.isActive ? '퇴사 예정일' : '퇴사일',
-                    DateFormat('yyyy.MM.dd').format(teacher.withdrawalDate!),
-                  ),
-                const SizedBox(height: 16),
-                Text(
-                  '근무시간',
-                  style: forestringTextStyle.copyWith(
-                    color: primaryColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (teacher.workHours.isEmpty)
-                  _emptyWorkHours()
-                else
-                  ...teacher.workHours.map(_workHourRow),
-                const SizedBox(height: 18),
-                _detailActionSection(
-                  title: '수업 정보',
-                  actions: [
-                    _detailActionButton(
-                      icon: Icons.groups_2_outlined,
-                      label: '담당 수강생 ${teacher.assignedStudentCount}명',
-                      onPressed: () => _openDetailAction(
-                        sheetContext,
-                        () => _showAssignedStudents(teacher),
+    var currentTeacher = teacher;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (pageContext) => StatefulBuilder(
+          builder: (pageContext, setPageState) {
+            Future<void> runAction(
+              Future<void> Function(ManagedTeacher) action, {
+              bool refreshTeacher = false,
+            }) async {
+              await action(currentTeacher);
+
+              if (!refreshTeacher || !mounted || !pageContext.mounted) {
+                return;
+              }
+
+              ManagedTeacher? refreshedTeacher;
+              for (final item in _teachers) {
+                if (item.id == currentTeacher.id) {
+                  refreshedTeacher = item;
+                  break;
+                }
+              }
+
+              if (refreshedTeacher == null) {
+                Navigator.of(pageContext).pop();
+                return;
+              }
+
+              setPageState(() => currentTeacher = refreshedTeacher!);
+            }
+
+            return Scaffold(
+              backgroundColor: neutralIvory,
+              appBar: const ForestringAppBar(title: '선생님 관리'),
+              body: SafeArea(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+                  children: [
+                    Text(
+                      currentTeacher.displayName,
+                      style: forestringTextStyle.copyWith(
+                        color: primaryColor,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    _detailActionButton(
-                      icon: Icons.bar_chart_outlined,
-                      label: '학기별 수업 통계',
-                      onPressed: () => _openDetailAction(
-                        sheetContext,
-                        () => _showLessonStats(teacher),
+                    const SizedBox(height: 5),
+                    Text(
+                      currentTeacher.branchName,
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 14,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _detailActionSection(
-                  title: '일정 관리',
-                  actions: [
-                    _detailActionButton(
-                      icon: Icons.event_busy_outlined,
-                      label: '개인 일정 관리',
-                      color: personalScheduleColor,
-                      onPressed: () => _openDetailAction(
-                        sheetContext,
-                        () => _showBlockedPeriods(teacher),
+                    const SizedBox(height: 20),
+                    Text(
+                      '근무시간',
+                      style: forestringTextStyle.copyWith(
+                        color: primaryColor,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    if (teacher.isActive)
-                      _detailActionButton(
-                        icon: Icons.schedule_outlined,
-                        label: '근무시간 변경',
-                        onPressed: () => _openDetailAction(
-                          sheetContext,
-                          () => _showWorkHoursEdit(teacher),
+                    const SizedBox(height: 8),
+                    if (currentTeacher.workHours.isEmpty)
+                      _emptyWorkHours()
+                    else
+                      ...currentTeacher.workHours.map(_workHourRow),
+                    const SizedBox(height: 18),
+                    _detailActionSection(
+                      title: '수업 정보',
+                      actions: [
+                        _detailActionButton(
+                          icon: Icons.groups_2_outlined,
+                          label:
+                              '담당 수강생 ${currentTeacher.assignedStudentCount}명',
+                          onPressed: () => runAction(
+                            _showAssignedStudents,
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-                if (teacher.isActive) ...[
-                  const SizedBox(height: 14),
-                  _detailActionSection(
-                    title: '계정 관리',
-                    actions: [
-                      _detailActionButton(
-                        icon: Icons.drive_file_rename_outline,
-                        label: '이름 수정',
-                        onPressed: () => _openDetailAction(
-                          sheetContext,
-                          () => _showNameEditDialog(teacher),
+                        _detailActionButton(
+                          icon: Icons.bar_chart_outlined,
+                          label: '학기별 수업 통계',
+                          onPressed: () => runAction(
+                            _showLessonStats,
+                          ),
                         ),
-                      ),
-                      _detailActionButton(
-                        icon: Icons.lock_reset_outlined,
-                        label: 'PIN 재설정',
-                        onPressed: () => _openDetailAction(
-                          sheetContext,
-                          () => _showPinResetDialog(teacher),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _detailActionSection(
+                      title: '일정 관리',
+                      actions: [
+                        _detailActionButton(
+                          icon: Icons.event_busy_outlined,
+                          label: '개인 일정 관리',
+                          color: personalScheduleColor,
+                          onPressed: () => runAction(
+                            _showBlockedPeriods,
+                          ),
                         ),
+                        if (currentTeacher.isActive)
+                          _detailActionButton(
+                            icon: Icons.schedule_outlined,
+                            label: '근무시간 변경',
+                            onPressed: () => runAction(
+                              _showWorkHoursEdit,
+                              refreshTeacher: true,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (currentTeacher.isActive) ...[
+                      const SizedBox(height: 14),
+                      _detailActionSection(
+                        title: '계정 관리',
+                        actions: [
+                          _detailActionButton(
+                            icon: Icons.drive_file_rename_outline,
+                            label: '이름 수정',
+                            onPressed: () => runAction(
+                              _showNameEditDialog,
+                              refreshTeacher: true,
+                            ),
+                          ),
+                          _detailActionButton(
+                            icon: Icons.lock_reset_outlined,
+                            label: 'PIN 재설정',
+                            onPressed: () => runAction(
+                              _showPinResetDialog,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
-                const SizedBox(height: 14),
-                _detailActionSection(
-                  title: '재직 관리',
-                  actions: [
-                    _detailActionButton(
-                      icon: teacher.isActive
-                          ? Icons.person_off_outlined
-                          : Icons.badge_outlined,
-                      label: teacher.isActive ? '퇴사 관리' : '퇴사 정보',
-                      color: Colors.red.shade700,
-                      onPressed: () => _openDetailAction(
-                        sheetContext,
-                        () => _showDeparture(teacher),
-                      ),
+                    const SizedBox(height: 14),
+                    _detailActionSection(
+                      title: '재직 관리',
+                      actions: [
+                        _detailActionButton(
+                          icon: currentTeacher.isActive
+                              ? Icons.person_off_outlined
+                              : Icons.badge_outlined,
+                          label: currentTeacher.isActive
+                              ? '퇴사 관리'
+                              : '퇴사 정보',
+                          color: Colors.red.shade700,
+                          onPressed: () => runAction(
+                            _showDeparture,
+                            refreshTeacher: true,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                FilledButton(
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                  ),
-                  child: const Text('확인'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+            );
+          },
+        ),
+      ),
     );
+
+    if (mounted) {
+      await _loadTeachers();
+    }
   }
 
   Widget _detailActionSection({
@@ -634,16 +648,6 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
         textStyle: forestringTextStyle.copyWith(fontSize: 13),
       ),
     );
-  }
-
-  Future<void> _openDetailAction(
-    BuildContext sheetContext,
-    Future<void> Function() action,
-  ) async {
-    Navigator.of(sheetContext).pop();
-    await Future<void>.delayed(const Duration(milliseconds: 220));
-    if (!mounted) return;
-    await action();
   }
 
   Future<void> _showNameEditDialog(ManagedTeacher teacher) async {
@@ -750,36 +754,6 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
 
     if (!mounted) return;
     await _loadTeachers();
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 104,
-            child: Text(
-              label,
-              style: forestringTextStyle.copyWith(
-                color: Colors.black45,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: forestringTextStyle.copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _workHourRow(ManagedTeacherWorkHour workHour) {
