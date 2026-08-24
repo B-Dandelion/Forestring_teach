@@ -21,6 +21,8 @@ class ManagedStudent {
     this.teacherId,
     this.teacherName,
     this.withdrawalDate,
+    this.flexBaseRightCount,
+    this.flexDurationMinutes,
   });
 
   final String id;
@@ -33,6 +35,8 @@ class ManagedStudent {
   final String? teacherId;
   final String? teacherName;
   final DateTime? withdrawalDate;
+  final int? flexBaseRightCount;
+  final int? flexDurationMinutes;
 
   bool get isRegular => studentType == 'regular';
   bool get isFlex => studentType == 'flex';
@@ -55,6 +59,26 @@ class ManagedStudent {
     if (hasScheduledWithdrawal) return '퇴원 예정';
     return '재원';
   }
+}
+
+class FlexRightCountChangeResult {
+  const FlexRightCountChangeResult({
+    required this.changed,
+    required this.oldBaseRightCount,
+    required this.newBaseRightCount,
+    required this.insertedCount,
+    required this.removedCount,
+    required this.newCancellationLimit,
+    required this.newCarryoverCap,
+  });
+
+  final bool changed;
+  final int oldBaseRightCount;
+  final int newBaseRightCount;
+  final int insertedCount;
+  final int removedCount;
+  final int newCancellationLimit;
+  final int newCarryoverCap;
 }
 
 class StudentWithdrawalResult {
@@ -130,6 +154,16 @@ class StudentManagementRepository {
               .select('id, name')
               .inFilter('id', branchIds)
               .order('name'),
+        _client
+            .from('student_semester_plans')
+            .select(
+              'student_id, flex_base_right_count, flex_duration_minutes, '
+              'updated_at',
+            )
+            .inFilter('student_id', studentIds)
+            .eq('student_type_snapshot', 'flex')
+            .eq('status', 'active')
+            .order('updated_at', ascending: false),
       ]);
 
       final studentRows = results[0]
@@ -141,6 +175,15 @@ class StudentManagementRepository {
       final branchRows = results[2]
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
+      final activeFlexPlanByStudent = <String, Map<String, dynamic>>{};
+
+      for (final raw in results[3]) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        activeFlexPlanByStudent.putIfAbsent(
+          row['student_id'] as String,
+          () => row,
+        );
+      }
 
       final studentsById = <String, Map<String, dynamic>>{
         for (final row in studentRows) row['id'] as String: row,
@@ -199,6 +242,7 @@ class StudentManagementRepository {
         final teacherId = assignment?['teacher_id'] as String?;
         final branchId = profile['branch_id'] as String?;
         final withdrawalRaw = student?['withdrawal_date'];
+        final flexPlan = activeFlexPlanByStudent[id];
 
         return ManagedStudent(
           id: id,
@@ -215,6 +259,10 @@ class StudentManagementRepository {
           withdrawalDate: withdrawalRaw == null
               ? null
               : DateTime.parse(withdrawalRaw.toString()),
+          flexBaseRightCount:
+              (flexPlan?['flex_base_right_count'] as num?)?.toInt(),
+          flexDurationMinutes:
+              (flexPlan?['flex_duration_minutes'] as num?)?.toInt(),
         );
       }).toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName));
@@ -300,6 +348,62 @@ class StudentManagementRepository {
         throw StudentManagementFailure(details['message'].toString());
       }
       throw const StudentManagementFailure('PIN을 변경하지 못했습니다.');
+    }
+  }
+
+  Future<FlexRightCountChangeResult> changeFlexBaseRightCount({
+    required String studentId,
+    required int newBaseRightCount,
+  }) async {
+    if (newBaseRightCount <= 0) {
+      throw const StudentManagementFailure(
+        '수업권 개수는 1개 이상이어야 합니다.',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'change_flex_base_right_count',
+        params: {
+          'p_student_id': studentId,
+          'p_new_base_right_count': newBaseRightCount,
+        },
+      );
+
+      if (result is! Map) {
+        throw const StudentManagementFailure(
+          '수업권 변경 결과를 확인하지 못했습니다.',
+        );
+      }
+
+      final row = Map<String, dynamic>.from(result);
+      return FlexRightCountChangeResult(
+        changed: row['changed'] == true,
+        oldBaseRightCount:
+            (row['oldBaseRightCount'] as num?)?.toInt() ?? newBaseRightCount,
+        newBaseRightCount:
+            (row['newBaseRightCount'] as num?)?.toInt() ?? newBaseRightCount,
+        insertedCount: (row['insertedCount'] as num?)?.toInt() ?? 0,
+        removedCount: (row['removedCount'] as num?)?.toInt() ?? 0,
+        newCancellationLimit:
+            (row['newCancellationLimit'] as num?)?.toInt() ??
+                (row['cancellationLimit'] as num?)?.toInt() ??
+                0,
+        newCarryoverCap:
+            (row['newCarryoverCap'] as num?)?.toInt() ??
+                (row['carryoverCap'] as num?)?.toInt() ??
+                0,
+      );
+    } on StudentManagementFailure {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw StudentManagementFailure(
+        _friendlyFlexRightCountMessage(error.message),
+      );
+    } catch (error) {
+      throw StudentManagementFailure(
+        '수업권을 변경하지 못했습니다.\n$error',
+      );
     }
   }
 
@@ -432,5 +536,47 @@ class StudentManagementRepository {
       return '퇴원 처리를 완료하지 못했습니다. ($message)';
     }
     return '퇴원 처리를 완료하지 못했습니다.';
+  }
+
+  String _friendlyFlexRightCountMessage(String message) {
+    if (message.contains('FORESTRING_INVALID_FLEX_RIGHT_COUNT')) {
+      return '수업권 개수는 1개 이상이어야 합니다.';
+    }
+    if (message.contains('FORESTRING_ACTIVE_FLEX_PLAN_REQUIRED') ||
+        message.contains('FORESTRING_FLEX_PLAN_CONFIGURATION_REQUIRED')) {
+      return '현재 학기의 자율 수업권 설정을 찾지 못했습니다.';
+    }
+    if (message.contains('FORESTRING_FLEX_STUDENT_REQUIRED')) {
+      return '자율 예약 학생의 수업권만 변경할 수 있습니다.';
+    }
+    if (message.contains('FORESTRING_ACTIVE_STUDENT_REQUIRED')) {
+      return '현재 재원 중인 학생의 수업권만 변경할 수 있습니다.';
+    }
+    if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN') ||
+        message.contains('FORESTRING_STAFF_REQUIRED')) {
+      return '이 학생의 수업권을 변경할 권한이 없습니다.';
+    }
+    if (message.contains(
+      'FORESTRING_FLEX_RIGHT_COUNT_BELOW_USED_CANCELLATION_QUOTA',
+    )) {
+      return '이미 사용한 취소 횟수보다 새 취소 한도가 작아져 '
+          '감액할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_FLEX_RIGHT_COUNT_DECREASE_BLOCKED')) {
+      return '예약·사용·취소 이력이 있는 수업권은 회수할 수 없습니다. '
+          '미사용 수업권 범위에서 다시 입력해주세요.';
+    }
+    if (message.contains('FORESTRING_FLEX_RIGHTS_PLAN_MISMATCH') ||
+        message.contains('FORESTRING_FLEX_RIGHT_COUNT_MISMATCH')) {
+      return '현재 학기 수업권 원장과 설정이 일치하지 않아 '
+          '변경할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+      return '현재 계정은 더 이상 사용할 수 없습니다.';
+    }
+    if (message.contains('FORESTRING_')) {
+      return '수업권을 변경하지 못했습니다. ($message)';
+    }
+    return '수업권을 변경하지 못했습니다.';
   }
 }

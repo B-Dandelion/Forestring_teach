@@ -473,6 +473,13 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                       ? '미배정'
                       : '${student.teacherName} 선생님',
                 ),
+                if (student.isFlex)
+                  _detailRow(
+                    '현재 수업권',
+                    student.flexBaseRightCount == null
+                        ? '설정 확인 필요'
+                        : '${student.flexBaseRightCount}개',
+                  ),
                 if (student.withdrawalDate != null)
                   _detailRow(
                     student.isActive ? '퇴원 예정일' : '퇴원일',
@@ -516,6 +523,25 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                       },
                       icon: const Icon(Icons.edit_calendar_outlined),
                       label: const Text('정규 일정 관리'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        side: const BorderSide(color: primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ] else if (student.isFlex) ...[
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.of(sheetContext).pop();
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 220),
+                        );
+                        if (!mounted) return;
+                        await _showFlexRightCountDialog(student);
+                      },
+                      icon: const Icon(Icons.confirmation_number_outlined),
+                      label: const Text('수업권 설정 변경'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: primaryColor,
                         side: const BorderSide(color: primaryColor),
@@ -860,6 +886,33 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
     );
   }
 
+  Future<void> _showFlexRightCountDialog(ManagedStudent student) async {
+    final result = await showDialog<FlexRightCountChangeResult>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _FlexRightCountDialog(
+        student: student,
+        repository: _repository,
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    await _loadStudents();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '수업권이 ${result.newBaseRightCount}개로 변경되었습니다. '
+          '취소 가능 ${result.newCancellationLimit}회 · '
+          '이월 상한 ${result.newCarryoverCap}개',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -1165,6 +1218,244 @@ class _PinResetDialogState extends State<_PinResetDialog> {
           child: Text(_saving ? '변경 중...' : '변경'),
         ),
       ],
+    );
+  }
+}
+
+class _FlexRightCountDialog extends StatefulWidget {
+  const _FlexRightCountDialog({
+    required this.student,
+    required this.repository,
+  });
+
+  final ManagedStudent student;
+  final StudentManagementRepository repository;
+
+  @override
+  State<_FlexRightCountDialog> createState() =>
+      _FlexRightCountDialogState();
+}
+
+class _FlexRightCountDialogState extends State<_FlexRightCountDialog> {
+  late final TextEditingController _countController;
+
+  bool _saving = false;
+  String? _validationMessage;
+
+  int? get _enteredCount => int.tryParse(_countController.text.trim());
+
+  @override
+  void initState() {
+    super.initState();
+    _countController = TextEditingController(
+      text: widget.student.flexBaseRightCount?.toString() ?? '',
+    )..addListener(_onCountChanged);
+  }
+
+  @override
+  void dispose() {
+    _countController
+      ..removeListener(_onCountChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onCountChanged() {
+    if (mounted) setState(() => _validationMessage = null);
+  }
+
+  Future<void> _save() async {
+    final currentCount = widget.student.flexBaseRightCount;
+    final newCount = _enteredCount;
+
+    if (currentCount == null) {
+      setState(() {
+        _validationMessage = '현재 학기의 자율 수업권 설정을 찾지 못했습니다.';
+      });
+      return;
+    }
+    if (newCount == null || newCount <= 0) {
+      setState(() => _validationMessage = '수업권 개수를 1개 이상 입력해주세요.');
+      return;
+    }
+    if (newCount == currentCount) {
+      setState(() => _validationMessage = '현재 수업권 개수와 동일합니다.');
+      return;
+    }
+
+    if (newCount < currentCount) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (confirmContext) => AlertDialog(
+          title: const Text('수업권 감액 확인'),
+          content: Text(
+            '${widget.student.displayName} 학생의 수업권을 '
+            '$currentCount개에서 $newCount개로 줄일까요?\n\n'
+            '아직 예약·사용·취소 이력이 없는 수업권만 회수됩니다. '
+            '회수할 수 없는 수업권이 포함되면 변경 전체가 취소됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(confirmContext).pop(false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(confirmContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+              ),
+              child: const Text('감액'),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted || confirmed != true) return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+
+    try {
+      final result = await widget.repository.changeFlexBaseRightCount(
+        studentId: widget.student.id,
+        newBaseRightCount: newCount,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(result);
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentCount = widget.student.flexBaseRightCount;
+    final enteredCount = _enteredCount;
+    final cancellationLimit =
+        enteredCount == null ? null : (enteredCount ~/ 4) * 2;
+    final carryoverCap = enteredCount == null ? null : enteredCount ~/ 4;
+    final isDecrease = currentCount != null &&
+        enteredCount != null &&
+        enteredCount < currentCount;
+    final currentSettingLabel = currentCount == null
+        ? '현재 설정: 확인 필요'
+        : [
+            '현재 설정: 수업권 $currentCount개',
+            if (widget.student.flexDurationMinutes != null)
+              '${widget.student.flexDurationMinutes}분',
+          ].join(' · ');
+
+    return AlertDialog(
+      title: const Text('자율 수업권 변경'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${widget.student.displayName} · 현재 학기',
+                style: forestringTextStyle.copyWith(
+                  color: primaryColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                currentSettingLabel,
+                style: forestringTextStyle.copyWith(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _countController,
+                enabled: !_saving && currentCount != null,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!_saving) _save();
+                },
+                decoration: const InputDecoration(
+                  labelText: '변경할 수업권 개수',
+                  suffixText: '개',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _policyBox(
+                enteredCount == null || enteredCount <= 0
+                    ? '수업권 개수를 입력하면 변경 후 취소 가능 횟수와 '
+                        '이월 상한을 확인할 수 있습니다.'
+                    : '변경 후 취소 가능 $cancellationLimit회 · '
+                        '이월 상한 $carryoverCap개\n'
+                        '취소 가능 횟수는 2 × floor(수업권 ÷ 4)이며, '
+                        '같은 수업권을 다시 취소해도 매번 차감됩니다.',
+              ),
+              if (isDecrease) ...[
+                const SizedBox(height: 10),
+                _policyBox(
+                  '감액은 번호가 뒤인 미사용 수업권부터 회수합니다. '
+                  '예약·사용·취소 이력이 있거나, 새 취소 한도가 이미 '
+                  '사용한 횟수보다 작아지면 저장되지 않습니다.',
+                  isWarning: true,
+                ),
+              ],
+              if (_validationMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _validationMessage!,
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.redAccent,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving || currentCount == null ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
+  }
+
+  Widget _policyBox(String message, {bool isWarning = false}) {
+    final color = isWarning ? Colors.orange.shade800 : primaryColor;
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        message,
+        style: forestringTextStyle.copyWith(
+          color: Colors.black87,
+          fontSize: 13,
+          height: 1.4,
+        ),
+      ),
     );
   }
 }
