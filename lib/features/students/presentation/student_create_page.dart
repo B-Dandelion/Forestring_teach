@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
@@ -23,6 +24,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _pinController = TextEditingController();
+  final _rightCountController = TextEditingController(text: '4');
   final _branchRepository = BranchRepository();
   final _repository = StudentAdminRepository();
 
@@ -34,6 +36,8 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
   String? _teacherId;
   String? _semesterId;
   String? _createdStudentId;
+  _StudentCreateType _studentType = _StudentCreateType.regular;
+  int _flexDurationMinutes = 30;
 
   bool _loading = true;
   bool _saving = false;
@@ -42,6 +46,8 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
   final List<_ScheduleDraft> _schedules = [
     _ScheduleDraft(),
   ];
+
+  bool get _isRegular => _studentType == _StudentCreateType.regular;
 
   @override
   void initState() {
@@ -53,6 +59,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
   void dispose() {
     _nameController.dispose();
     _pinController.dispose();
+    _rightCountController.dispose();
     super.dispose();
   }
 
@@ -148,6 +155,14 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
     final branchId = _branchId;
     final teacherId = _teacherId;
     final semesterId = _semesterId;
+    final studentType = _studentType;
+    final studentName = _nameController.text.trim();
+    final flexRightCount = studentType == _StudentCreateType.flex
+        ? int.parse(_rightCountController.text)
+        : null;
+    final schedules = _schedules
+        .map((schedule) => schedule.toJson())
+        .toList(growable: false);
     if (branchId == null || teacherId == null || semesterId == null) {
       setState(() {
         _errorMessage = '지점, 담당 선생님, 학기를 모두 선택해주세요.';
@@ -163,25 +178,41 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
     try {
       var studentId = _createdStudentId;
       if (studentId == null) {
-        studentId = await _repository.createRegularStudentAccount(
+        studentId = await _repository.createStudentAccount(
           name: _nameController.text,
           pin: _pinController.text,
           branchId: branchId,
+          studentType: studentType.value,
         );
         if (mounted) {
           setState(() => _createdStudentId = studentId);
         }
       }
 
-      final result = await _repository.initializeRegularSemester(
-        studentId: studentId,
-        teacherId: teacherId,
-        semesterId: semesterId,
-        schedules: _schedules.map((schedule) => schedule.toJson()).toList(),
-      );
+      final Map<String, dynamic> result;
+      if (studentType == _StudentCreateType.regular) {
+        result = await _repository.initializeRegularSemester(
+          studentId: studentId,
+          teacherId: teacherId,
+          semesterId: semesterId,
+          schedules: schedules,
+        );
+      } else {
+        result = await _repository.initializeFlexSemester(
+          studentId: studentId,
+          teacherId: teacherId,
+          semesterId: semesterId,
+          baseRightCount: flexRightCount!,
+          durationMinutes: _flexDurationMinutes,
+        );
+      }
 
       if (!mounted) return;
-      await _showSuccess(result);
+      await _showSuccess(
+        result,
+        studentType: studentType,
+        studentName: studentName,
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -194,33 +225,56 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
     }
   }
 
-  Future<void> _showSuccess(Map<String, dynamic> result) async {
-    final activation = result['activation'];
-    final activationMap = activation is Map
-        ? Map<String, dynamic>.from(activation)
-        : const <String, dynamic>{};
-    final slotCount = activationMap['slotCount'] ?? _schedules.length;
-    final rightCount = activationMap['rightCount'] ?? '-';
-    final lessonCount = activationMap['lessonCount'] ?? '-';
+  Future<void> _showSuccess(
+    Map<String, dynamic> result, {
+    required _StudentCreateType studentType,
+    required String studentName,
+  }) async {
+    final String title;
+    final String message;
+
+    if (studentType == _StudentCreateType.regular) {
+      final activation = result['activation'];
+      final activationMap = activation is Map
+          ? Map<String, dynamic>.from(activation)
+          : const <String, dynamic>{};
+      final slotCount = activationMap['slotCount'] ?? _schedules.length;
+      final rightCount = activationMap['rightCount'] ?? '-';
+      final lessonCount = activationMap['lessonCount'] ?? '-';
+
+      title = '정규 학생 등록 완료';
+      message = '$studentName 학생의 정규 일정이 생성되었습니다.\n\n'
+          '정규 스케줄 $slotCount개\n'
+          '수강권 $rightCount개\n'
+          '수업 $lessonCount개';
+    } else {
+      final rightCount = result['baseRightCount'] ?? '-';
+      final durationMinutes = result['durationMinutes'] ?? '-';
+
+      title = '자율 예약 학생 등록 완료';
+      message = '$studentName 학생의 자율 예약 설정이 완료되었습니다.\n\n'
+          '수강권 $rightCount개\n'
+          '수업 길이 $durationMinutes분\n'
+          '담당 선생님의 예약 가능 시간에서 직접 예약할 수 있습니다.';
+    }
 
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('정규 학생 등록 완료'),
-        content: Text(
-          '${_nameController.text.trim()} 학생의 정규 일정이 생성되었습니다.\n\n'
-          '정규 스케줄 $slotCount개\n'
-          '수강권 $rightCount개\n'
-          '수업 $lessonCount개',
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('확인'),
           ),
         ],
       ),
     );
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -257,7 +311,9 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                           ),
                         )
                         .toList(),
-                    onChanged: widget.profile.isManager
+                    onChanged: _saving ||
+                            widget.profile.isManager ||
+                            _createdStudentId != null
                         ? null
                         : (value) {
                             if (value != null && value != _branchId) {
@@ -267,10 +323,33 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                           },
                   ),
                   const SizedBox(height: 10),
+                  DropdownButtonFormField<_StudentCreateType>(
+                    value: _studentType,
+                    decoration: _decoration('수강 형태'),
+                    items: _StudentCreateType.values
+                        .map(
+                          (type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(type.label),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _saving || _createdStudentId != null
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                _studentType = value;
+                                _errorMessage = null;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 10),
                   TextFormField(
                     controller: _nameController,
                     decoration: _decoration('학생 이름'),
-                    enabled: _createdStudentId == null,
+                    enabled: !_saving && _createdStudentId == null,
                     validator: (value) => value == null || value.trim().isEmpty
                         ? '학생 이름을 입력해주세요.'
                         : null,
@@ -278,18 +357,21 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: _pinController,
-                    decoration: _decoration('비밀번호 (4자리 숫자)'),
-                    enabled: _createdStudentId == null,
+                    decoration: _decoration('PIN (4자리 숫자)'),
+                    enabled: !_saving && _createdStudentId == null,
                     keyboardType: TextInputType.number,
                     obscureText: true,
                     maxLength: 4,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
                     validator: (value) =>
                         value == null || !RegExp(r'^\d{4}$').hasMatch(value)
                             ? '4자리 숫자를 입력해주세요.'
                             : null,
                   ),
                   const SizedBox(height: 18),
-                  _sectionTitle('정규 수업 설정'),
+                  _sectionTitle(_isRegular ? '정규 수업 설정' : '자율 예약 설정'),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: _teacherId,
@@ -302,7 +384,9 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => setState(() => _teacherId = value),
+                    onChanged: _saving
+                        ? null
+                        : (value) => setState(() => _teacherId = value),
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
@@ -316,22 +400,68 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => setState(() => _semesterId = value),
-                  ),
-                  const SizedBox(height: 14),
-                  ...List.generate(
-                    _schedules.length,
-                    (index) => _scheduleCard(index),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _saving
+                    onChanged: _saving
                         ? null
-                        : () => setState(
-                              () => _schedules.add(_ScheduleDraft()),
-                            ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('정규 수업 추가'),
+                        : (value) => setState(() => _semesterId = value),
                   ),
+                  if (_isRegular) ...[
+                    const SizedBox(height: 14),
+                    ...List.generate(
+                      _schedules.length,
+                      (index) => _scheduleCard(index),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => setState(
+                                () => _schedules.add(_ScheduleDraft()),
+                              ),
+                      icon: const Icon(Icons.add),
+                      label: const Text('정규 수업 추가'),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 14),
+                    _infoCard(
+                      '자율 예약 학생은 정규 시간표 없이, 발급된 수강권으로 담당 선생님의 빈 시간에 직접 예약합니다.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _rightCountController,
+                      decoration: _decoration('이번 학기 수강권 횟수'),
+                      enabled: !_saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      validator: (value) {
+                        if (_isRegular) return null;
+                        final count = int.tryParse(value ?? '');
+                        return count == null || count <= 0
+                            ? '수강권 횟수를 1회 이상 입력해주세요.'
+                            : null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: _flexDurationMinutes,
+                      decoration: _decoration('수업 길이'),
+                      items: const [
+                        DropdownMenuItem(value: 15, child: Text('15분')),
+                        DropdownMenuItem(value: 30, child: Text('30분')),
+                        DropdownMenuItem(value: 45, child: Text('45분')),
+                        DropdownMenuItem(value: 60, child: Text('60분')),
+                        DropdownMenuItem(value: 75, child: Text('75분')),
+                        DropdownMenuItem(value: 90, child: Text('90분')),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                setState(() => _flexDurationMinutes = value);
+                              }
+                            },
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   FilledButton(
                     onPressed: _saving ? null : _submit,
@@ -343,8 +473,8 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                       _saving
                           ? '등록 중...'
                           : _createdStudentId == null
-                              ? '정규 학생 등록'
-                              : '정규 일정 다시 설정',
+                              ? '${_studentType.label} 등록'
+                              : '${_studentType.label} 설정 다시 시도',
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -463,6 +593,38 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
     );
   }
 
+  Widget _infoCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: primaryColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: primaryColor,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: forestringTextStyle.copyWith(
+                color: Colors.black87,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   InputDecoration _decoration(String label) {
     return InputDecoration(
       labelText: label,
@@ -470,6 +632,27 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
       border: const OutlineInputBorder(),
       isDense: true,
     );
+  }
+}
+
+enum _StudentCreateType {
+  regular,
+  flex,
+}
+
+extension on _StudentCreateType {
+  String get value {
+    return switch (this) {
+      _StudentCreateType.regular => 'regular',
+      _StudentCreateType.flex => 'flex',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      _StudentCreateType.regular => '정규 학생',
+      _StudentCreateType.flex => '자율 예약 학생',
+    };
   }
 }
 
