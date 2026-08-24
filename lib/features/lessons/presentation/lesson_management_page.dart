@@ -312,13 +312,13 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       return;
     }
     if (semester.isPast) {
-      _message('지난 학기에는 새 보강 수업을 등록할 수 없습니다.');
+      _message('지난 학기에는 새 추가 수업을 등록할 수 없습니다.');
       return;
     }
 
     final activeBranches = _branches.where((branch) => branch.isActive).toList();
     if (activeBranches.isEmpty) {
-      _message('보강 수업을 등록할 운영 지점이 없습니다.');
+      _message('추가 수업을 등록할 운영 지점이 없습니다.');
       return;
     }
 
@@ -340,7 +340,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     if (result == true && mounted) {
       await widget.controller.reload();
       await _loadLessons();
-      if (mounted) _message('보강 수업을 등록했습니다.');
+      if (mounted) _message('추가 수업을 등록했습니다.');
     }
   }
 
@@ -397,7 +397,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: Text(
-          '보강 등록',
+          '추가 수업 등록',
           style: forestringTextStyle.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w500,
@@ -715,7 +715,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
 
   Widget _typeBadge(Lesson lesson) {
     final label = switch (lesson.type) {
-      LessonType.makeup => '보강',
+      LessonType.makeup => '추가',
       LessonType.flex => lesson.changeBadgeLabel ?? '자율',
       LessonType.regular => lesson.changeBadgeLabel ?? '정규',
     };
