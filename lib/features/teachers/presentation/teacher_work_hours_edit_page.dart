@@ -10,10 +10,12 @@ class TeacherWorkHoursEditPage extends StatefulWidget {
     super.key,
     required this.teacher,
     this.title = '근무시간 변경',
+    this.allowEmpty = true,
   });
 
   final ManagedTeacher teacher;
   final String title;
+  final bool allowEmpty;
 
   @override
   State<TeacherWorkHoursEditPage> createState() =>
@@ -40,14 +42,16 @@ class _TeacherWorkHoursEditPageState extends State<TeacherWorkHoursEditPage> {
 
     final validationMessage = validateTeacherWorkHours(
       _workHours,
-      allowEmpty: true,
+      allowEmpty: widget.allowEmpty,
     );
     if (validationMessage != null) {
       setState(() => _errorMessage = validationMessage);
       return;
     }
 
-    if (_workHours.isEmpty && widget.teacher.workHours.isNotEmpty) {
+    if (widget.allowEmpty &&
+        _workHours.isEmpty &&
+        widget.teacher.workHours.isNotEmpty) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -91,9 +95,7 @@ class _TeacherWorkHoursEditPageState extends State<TeacherWorkHoursEditPage> {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -146,7 +148,7 @@ class _TeacherWorkHoursEditPageState extends State<TeacherWorkHoursEditPage> {
             TeacherWorkHoursEditor(
               values: _workHours,
               enabled: !_saving,
-              allowEmpty: true,
+              allowEmpty: widget.allowEmpty,
               onChanged: (values) {
                 setState(() {
                   _workHours = values;
