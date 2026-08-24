@@ -324,6 +324,50 @@ class TeacherRepository {
       );
     }
   }
+
+  Future<void> updateTeacherName({
+    required String teacherId,
+    required String name,
+  }) async {
+    final normalizedName = name.normalizeName();
+
+    if (normalizedName.isEmpty) {
+      throw const TeacherFailure('이름을 입력해주세요.');
+    }
+
+    if (normalizedName.length > 100) {
+      throw const TeacherFailure('이름은 100자 이하로 입력해주세요.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'staff-update-account-name',
+        body: {
+          'profileId': teacherId,
+          'name': normalizedName,
+        },
+      );
+
+      final data = response.data;
+      if (response.status < 200 || response.status >= 300) {
+        throw TeacherFailure(
+          data is Map && data['message'] != null
+              ? data['message'].toString()
+              : '이름을 변경하지 못했습니다.',
+        );
+      }
+    } on TeacherFailure {
+      rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw TeacherFailure(details['message'].toString());
+      }
+      throw const TeacherFailure('이름을 변경하지 못했습니다.');
+    } catch (error) {
+      throw TeacherFailure('이름을 변경하지 못했습니다.\n$error');
+    }
+  }
 }
 
 String _shortTime(dynamic value) {

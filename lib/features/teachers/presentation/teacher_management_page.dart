@@ -463,6 +463,26 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                 else
                   ...teacher.workHours.map(_workHourRow),
                 const SizedBox(height: 18),
+                if (teacher.isActive) ...[
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 220),
+                      );
+                      if (!mounted) return;
+                      await _showNameEditDialog(teacher);
+                    },
+                    icon: const Icon(Icons.drive_file_rename_outline),
+                    label: const Text('이름 수정'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      side: const BorderSide(color: primaryColor),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
                   style: FilledButton.styleFrom(
@@ -477,6 +497,28 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showNameEditDialog(ManagedTeacher teacher) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _TeacherNameEditDialog(
+        teacher: teacher,
+        repository: _repository,
+      ),
+    );
+
+    if (!mounted || changed != true) return;
+    await _loadTeachers();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('이름이 변경되었습니다.'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -590,5 +632,137 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
       7 => '일',
       _ => '-',
     };
+  }
+}
+
+class _TeacherNameEditDialog extends StatefulWidget {
+  const _TeacherNameEditDialog({
+    required this.teacher,
+    required this.repository,
+  });
+
+  final ManagedTeacher teacher;
+  final TeacherRepository repository;
+
+  @override
+  State<_TeacherNameEditDialog> createState() =>
+      _TeacherNameEditDialogState();
+}
+
+class _TeacherNameEditDialogState extends State<_TeacherNameEditDialog> {
+  late final TextEditingController _nameController;
+
+  bool _saving = false;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.teacher.displayName);
+    _nameController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _nameController.text.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final currentName = widget.teacher.displayName
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+    if (name.isEmpty) {
+      setState(() => _validationMessage = '이름을 입력해주세요.');
+      return;
+    }
+    if (name.length > 100) {
+      setState(() => _validationMessage = '이름은 100자 이하로 입력해주세요.');
+      return;
+    }
+    if (name == currentName) {
+      setState(() => _validationMessage = '현재 이름과 동일합니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+
+    try {
+      await widget.repository.updateTeacherName(
+        teacherId: widget.teacher.id,
+        name: name,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on TeacherFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('선생님 이름 수정'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '이름을 변경하면 선생님이 로그인할 때 사용하는 이름도 함께 변경됩니다.',
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameController,
+              enabled: !_saving,
+              autofocus: true,
+              maxLength: 100,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_saving) _save();
+              },
+              decoration: const InputDecoration(
+                labelText: '선생님 이름',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: forestringTextStyle.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
   }
 }
