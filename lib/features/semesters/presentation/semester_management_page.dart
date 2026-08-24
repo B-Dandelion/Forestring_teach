@@ -6,6 +6,7 @@ import '../../branches/data/branch_repository.dart';
 import '../../branches/domain/academy_branch.dart';
 import '../data/semester_repository.dart';
 import '../domain/managed_semester.dart';
+import 'semester_default_closure_page.dart';
 import 'semester_detail_page.dart';
 
 class SemesterManagementPage extends StatefulWidget {
@@ -33,10 +34,12 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final results = await Future.wait([
@@ -86,6 +89,15 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => SemesterDetailPage(semesterId: semester.id),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
+  Future<void> _openDefaultClosures(ManagedSemester semester) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => SemesterDefaultClosurePage(semester: semester),
       ),
     );
     if (mounted) await _load();
@@ -142,7 +154,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                         border: OutlineInputBorder(),
                       ),
                       items: [
-                        for (var weeks = 4; weeks <= 8; weeks += 1)
+                        for (var weeks = 4; weeks <= 8; weeks++)
                           DropdownMenuItem(
                             value: weeks,
                             child: Text('$weeks주'),
@@ -179,9 +191,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                 onPressed: () {
                   final normalizedCode = code.trim();
                   if (normalizedCode.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('학기 이름을 입력해주세요.')),
-                    );
+                    _showMessage('학기 이름을 입력해주세요.');
                     return;
                   }
                   Navigator.of(dialogContext).pop(
@@ -214,8 +224,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
       if (!mounted) return;
       _showMessage('새 학기를 추가했습니다.');
     } on SemesterFailure catch (error) {
-      if (!mounted) return;
-      _showMessage(error.message);
+      if (mounted) _showMessage(error.message);
     }
   }
 
@@ -358,7 +367,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
         borderRadius: BorderRadius.circular(12),
         onTap: () => _openDetail(semester),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+          padding: const EdgeInsets.fromLTRB(14, 13, 8, 13),
           child: Row(
             children: [
               Container(
@@ -433,6 +442,12 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: '기본 휴원 설정',
+                onPressed: () => _openDefaultClosures(semester),
+                icon: const Icon(Icons.event_available_outlined),
+                color: primaryColor,
+              ),
               const Icon(Icons.chevron_right, color: primaryColor),
             ],
           ),
@@ -443,7 +458,10 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
 }
 
 class _SemesterCreateDraft {
-  const _SemesterCreateDraft({required this.code, required this.weekCount});
+  const _SemesterCreateDraft({
+    required this.code,
+    required this.weekCount,
+  });
 
   final String code;
   final int weekCount;
@@ -467,8 +485,9 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '기본 학기 일정은 모든 지점에 적용됩니다. 지점마다 운영 기간이 다른 경우 '
-        '학기 상세에서 해당 지점만 별도 기간을 설정할 수 있습니다.\n'
+        '기본 학기 일정과 기본 휴원은 모든 지점에 적용됩니다. '
+        '학기 카드의 휴원 아이콘에서 기본 휴원을 설정하고, '
+        '학기 상세에서는 필요한 지점만 별도 기간과 휴원을 설정할 수 있습니다.\n'
         '등록된 학기 $semesterCount개 · 운영 지점 $branchCount곳',
         style: forestringTextStyle.copyWith(fontSize: 13, height: 1.45),
       ),
@@ -477,7 +496,10 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _DatePreview extends StatelessWidget {
-  const _DatePreview({required this.startsOn, required this.endsOn});
+  const _DatePreview({
+    required this.startsOn,
+    required this.endsOn,
+  });
 
   final DateTime startsOn;
   final DateTime endsOn;
@@ -526,9 +548,9 @@ class _ErrorCard extends StatelessWidget {
 String _nextCode(String code) {
   final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
   if (match == null) return '';
+
   var year = int.parse(match.group(1)!);
-  var month = int.parse(match.group(2)!);
-  month += 1;
+  var month = int.parse(match.group(2)!) + 1;
   if (month > 12) {
     year += 1;
     month = 1;
