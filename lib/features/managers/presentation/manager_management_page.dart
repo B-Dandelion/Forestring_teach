@@ -608,6 +608,8 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
       ),
     );
 
+    if (!mounted) return;
+
     if (branchId == null || branchId == manager.branchId) return;
 
     final targetBranch = activeBranches.firstWhere(
