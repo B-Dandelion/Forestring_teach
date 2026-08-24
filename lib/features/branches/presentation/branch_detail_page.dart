@@ -4,6 +4,8 @@ import '../../../core/theme/forestring_theme.dart';
 import '../../../core/widgets/forestring_navigation.dart';
 import '../data/branch_repository.dart';
 import '../domain/academy_branch.dart';
+import '../domain/branch_closure.dart';
+import 'branch_closure_page.dart';
 
 class BranchDetailPage extends StatefulWidget {
   const BranchDetailPage({
@@ -78,8 +80,7 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
             labelText: '지점명',
             border: OutlineInputBorder(),
           ),
-          onSubmitted: (value) =>
-              Navigator.of(dialogContext).pop(value),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           TextButton(
@@ -87,8 +88,7 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
             child: const Text('변경'),
           ),
         ],
@@ -106,6 +106,21 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
         name: name,
       ),
       successMessage: '지점명을 변경했습니다.',
+    );
+  }
+
+  Future<void> _openClosureManagement(BranchClosureKind kind) async {
+    final details = _details;
+    if (details == null || _isSaving) return;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => BranchClosurePage(
+          branchId: details.branchId,
+          branchName: details.name,
+          initialKind: kind,
+        ),
+      ),
     );
   }
 
@@ -268,6 +283,46 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
               _SectionTitle('운영 중인 일정'),
               const SizedBox(height: 10),
               _OperationCard(details: details),
+              const SizedBox(height: 24),
+              _SectionTitle('휴원 관리'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isSaving
+                          ? null
+                          : () => _openClosureManagement(
+                                BranchClosureKind.instructionalBreak,
+                              ),
+                      icon: const Icon(Icons.calendar_view_week_outlined),
+                      label: const Text('휴원 주간'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        minimumSize: const Size.fromHeight(52),
+                        side: const BorderSide(color: primaryColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isSaving
+                          ? null
+                          : () => _openClosureManagement(
+                                BranchClosureKind.ordinary,
+                              ),
+                      icon: const Icon(Icons.event_busy_outlined),
+                      label: const Text('휴원일'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        minimumSize: const Size.fromHeight(52),
+                        side: const BorderSide(color: primaryColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -305,9 +360,7 @@ class _BranchDetailPageState extends State<BranchDetailPage> {
                     foregroundColor: Colors.red,
                     minimumSize: const Size.fromHeight(54),
                     side: BorderSide(
-                      color: details.canDeactivate
-                          ? Colors.red
-                          : Colors.black26,
+                      color: details.canDeactivate ? Colors.red : Colors.black26,
                     ),
                   ),
                 )
@@ -344,7 +397,7 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -352,20 +405,6 @@ class _HeaderCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.storefront_outlined,
-              color: primaryColor,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 14),
           Expanded(
             child: Text(
               details.name,
@@ -376,6 +415,7 @@ class _HeaderCard extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
             decoration: BoxDecoration(
