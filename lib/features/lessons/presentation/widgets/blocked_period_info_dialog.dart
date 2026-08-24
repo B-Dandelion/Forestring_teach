@@ -13,7 +13,7 @@ Future<void> showBlockedPeriodInfoDialog({
     builder: (dialogContext) {
       return AlertDialog(
         title: Text(
-          '개인 일정',
+          period.displayLabel,
           style: forestringTextStyle.copyWith(
             color: personalScheduleColor,
             fontSize: 20,
@@ -38,13 +38,6 @@ Future<void> showBlockedPeriodInfoDialog({
               _rangeText(period),
               style: forestringTextStyle,
             ),
-            if (period.reason?.trim().isNotEmpty == true) ...[
-              const SizedBox(height: 10),
-              Text(
-                '사유  ${period.reason!.trim()}',
-                style: forestringTextStyle,
-              ),
-            ],
           ],
         ),
         actions: [

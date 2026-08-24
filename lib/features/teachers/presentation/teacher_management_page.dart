@@ -468,118 +468,76 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
                 else
                   ...teacher.workHours.map(_workHourRow),
                 const SizedBox(height: 18),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    Navigator.of(sheetContext).pop();
-                    await Future<void>.delayed(
-                      const Duration(milliseconds: 220),
-                    );
-                    if (!mounted) return;
-                    await _showAssignedStudents(teacher);
-                  },
-                  icon: const Icon(Icons.groups_2_outlined),
-                  label: Text(
-                    '담당 수강생 보기 (${teacher.assignedStudentCount}명)',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: primaryColor,
-                    side: const BorderSide(color: primaryColor),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                  ),
+                _detailActionSection(
+                  title: '수업 정보',
+                  actions: [
+                    _detailActionButton(
+                      icon: Icons.groups_2_outlined,
+                      label: '담당 수강생 ${teacher.assignedStudentCount}명',
+                      onPressed: () => _openDetailAction(
+                        sheetContext,
+                        () => _showAssignedStudents(teacher),
+                      ),
+                    ),
+                    _detailActionButton(
+                      icon: Icons.bar_chart_outlined,
+                      label: '학기별 수업 통계',
+                      onPressed: () => _openDetailAction(
+                        sheetContext,
+                        () => _showLessonStats(teacher),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    Navigator.of(sheetContext).pop();
-                    await Future<void>.delayed(
-                      const Duration(milliseconds: 220),
-                    );
-                    if (!mounted) return;
-                    await _showLessonStats(teacher);
-                  },
-                  icon: const Icon(Icons.bar_chart_outlined),
-                  label: const Text('학기별 수업 통계'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: primaryColor,
-                    side: const BorderSide(color: primaryColor),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                  ),
+                const SizedBox(height: 14),
+                _detailActionSection(
+                  title: '일정 관리',
+                  actions: [
+                    _detailActionButton(
+                      icon: Icons.event_busy_outlined,
+                      label: '개인 일정 관리',
+                      color: personalScheduleColor,
+                      onPressed: () => _openDetailAction(
+                        sheetContext,
+                        () => _showBlockedPeriods(teacher),
+                      ),
+                    ),
+                    if (teacher.isActive)
+                      _detailActionButton(
+                        icon: Icons.schedule_outlined,
+                        label: '근무시간 변경',
+                        onPressed: () => _openDetailAction(
+                          sheetContext,
+                          () => _showWorkHoursEdit(teacher),
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    Navigator.of(sheetContext).pop();
-                    await Future<void>.delayed(
-                      const Duration(milliseconds: 220),
-                    );
-                    if (!mounted) return;
-                    await _showBlockedPeriods(teacher);
-                  },
-                  icon: const Icon(Icons.event_busy_outlined),
-                  label: const Text('개인 일정 관리'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: personalScheduleColor,
-                    side: const BorderSide(color: personalScheduleColor),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                  ),
-                ),
-                const SizedBox(height: 8),
                 if (teacher.isActive) ...[
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(sheetContext).pop();
-                      await Future<void>.delayed(
-                        const Duration(milliseconds: 220),
-                      );
-                      if (!mounted) return;
-                      await _showNameEditDialog(teacher);
-                    },
-                    icon: const Icon(Icons.drive_file_rename_outline),
-                    label: const Text('이름 수정'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryColor,
-                      side: const BorderSide(color: primaryColor),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                    ),
+                  const SizedBox(height: 14),
+                  _detailActionSection(
+                    title: '계정 관리',
+                    actions: [
+                      _detailActionButton(
+                        icon: Icons.drive_file_rename_outline,
+                        label: '이름 수정',
+                        onPressed: () => _openDetailAction(
+                          sheetContext,
+                          () => _showNameEditDialog(teacher),
+                        ),
+                      ),
+                      _detailActionButton(
+                        icon: Icons.lock_reset_outlined,
+                        label: 'PIN 재설정',
+                        onPressed: () => _openDetailAction(
+                          sheetContext,
+                          () => _showPinResetDialog(teacher),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(sheetContext).pop();
-                      await Future<void>.delayed(
-                        const Duration(milliseconds: 220),
-                      );
-                      if (!mounted) return;
-                      await _showPinResetDialog(teacher);
-                    },
-                    icon: const Icon(Icons.lock_reset_outlined),
-                    label: const Text('PIN 재설정'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryColor,
-                      side: const BorderSide(color: primaryColor),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(sheetContext).pop();
-                      await Future<void>.delayed(
-                        const Duration(milliseconds: 220),
-                      );
-                      if (!mounted) return;
-                      await _showWorkHoursEdit(teacher);
-                    },
-                    icon: const Icon(Icons.schedule_outlined),
-                    label: const Text('근무시간 변경'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryColor,
-                      side: const BorderSide(color: primaryColor),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                 ],
+                const SizedBox(height: 18),
                 FilledButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
                   style: FilledButton.styleFrom(
@@ -595,6 +553,79 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
         );
       },
     );
+  }
+
+  Widget _detailActionSection({
+    required String title,
+    required List<Widget> actions,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: forestringTextStyle.copyWith(
+            color: Colors.black54,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 7),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = actions.length == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 8) / 2;
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final action in actions)
+                  SizedBox(
+                    width: itemWidth,
+                    height: 52,
+                    child: action,
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _detailActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    Color color = primaryColor,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 11),
+        textStyle: forestringTextStyle.copyWith(fontSize: 13),
+      ),
+    );
+  }
+
+  Future<void> _openDetailAction(
+    BuildContext sheetContext,
+    Future<void> Function() action,
+  ) async {
+    Navigator.of(sheetContext).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+    await action();
   }
 
   Future<void> _showNameEditDialog(ManagedTeacher teacher) async {

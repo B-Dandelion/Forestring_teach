@@ -180,6 +180,11 @@ class TeacherBlockedPeriod {
 
   int get durationMinutes => endsAt.difference(startsAt).inMinutes;
 
+  String get displayLabel {
+    final memo = reason?.trim();
+    return memo == null || memo.isEmpty ? '개인 일정' : memo;
+  }
+
   TeacherBlockedPeriod copyWithTeacherName(String? value) {
     return TeacherBlockedPeriod(
       id: id,

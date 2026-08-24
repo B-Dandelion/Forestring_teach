@@ -64,7 +64,9 @@ class BlockedPeriodCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '개인 일정',
+                      period.displayLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: forestringTextStyle.copyWith(
                         color: personalScheduleColor,
                         fontSize: 17,

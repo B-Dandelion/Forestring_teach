@@ -20,13 +20,13 @@ class BlockedPeriodCalendarAppointment extends StatelessWidget {
         color: personalScheduleColor,
         borderRadius: BorderRadius.circular(2),
       ),
-      child: const FittedBox(
+      child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Text(
-          '개인 일정',
+          period.displayLabel,
           maxLines: 1,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white,
             fontFamily: 'ELAND',
             fontSize: 11,

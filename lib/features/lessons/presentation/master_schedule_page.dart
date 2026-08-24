@@ -437,7 +437,7 @@ class _MasterDataSource extends CalendarDataSource {
     final entry = _entry(index);
     return entry is _MasterMeeting
         ? (entry.lesson.studentName ?? '학생')
-        : '개인 일정';
+        : (entry as _MasterBlockedMeeting).period.displayLabel;
   }
 
   @override

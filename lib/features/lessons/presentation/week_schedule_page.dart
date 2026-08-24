@@ -268,7 +268,7 @@ class _LessonDataSource extends CalendarDataSource {
     final entry = _entry(index);
     return entry is _LessonMeeting
         ? (entry.lesson.studentName ?? '학생')
-        : '개인 일정';
+        : (entry as _BlockedMeeting).period.displayLabel;
   }
 
   @override

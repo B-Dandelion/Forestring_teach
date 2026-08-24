@@ -78,7 +78,7 @@ class _TeacherLessonStatsPageState extends State<TeacherLessonStatsPage> {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
             children: [
               Text(
-                '${widget.teacher.displayName} 선생님',
+                _teacherLabel(widget.teacher.displayName),
                 style: forestringTextStyle.copyWith(
                   color: primaryColor,
                   fontSize: 21,
@@ -122,7 +122,18 @@ class _TeacherLessonStatsPageState extends State<TeacherLessonStatsPage> {
                     ),
                   )
                 else
-                  ...stats.semesters.map(_SemesterStatsCard.new),
+                  ...[
+                    Text(
+                      '학기별 내역',
+                      style: forestringTextStyle.copyWith(
+                        color: primaryColor,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...stats.semesters.map(_SemesterStatsCard.new),
+                  ],
               ],
             ],
           ),
@@ -152,6 +163,7 @@ class _OverallSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
+            '누적 집계 · '
             '${DateFormat('yyyy.MM.dd').format(stats.employmentStartsOn)}부터',
             style: forestringTextStyle.copyWith(
               color: Colors.black54,
@@ -383,4 +395,9 @@ String _minutesText(int minutes) {
   final hours = minutes ~/ 60;
   final remainder = minutes % 60;
   return remainder == 0 ? '$hours시간' : '$hours시간 $remainder분';
+}
+
+String _teacherLabel(String name) {
+  final trimmed = name.trim();
+  return trimmed.endsWith('선생님') ? trimmed : '$trimmed 선생님';
 }
