@@ -188,6 +188,31 @@ class BranchRepository {
     }
   }
 
+  Future<List<BranchClosure>> fetchBranchClosuresInRange({
+    required String branchId,
+    required DateTime startsOn,
+    required DateTime endsOn,
+  }) async {
+    try {
+      final rows = await _client
+          .from('closure_periods')
+          .select(
+            'id, branch_id, semester_id, starts_on, ends_on, reason, closure_kind',
+          )
+          .eq('branch_id', branchId)
+          .lte('starts_on', _dateText(endsOn))
+          .gte('ends_on', _dateText(startsOn))
+          .order('starts_on', ascending: true);
+
+      return rows.map(BranchClosure.fromJson).toList();
+    } on PostgrestException catch (error) {
+      throw _failureFromPostgrest(
+        error,
+        fallback: '학기 휴원 일정을 불러오지 못했습니다.',
+      );
+    }
+  }
+
   Future<List<AcademySemester>> fetchSemesters() async {
     try {
       final rows = await _client
