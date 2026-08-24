@@ -14,7 +14,8 @@ class ManagerDeparturePage extends StatefulWidget {
   final ManagedManager manager;
 
   @override
-  State<ManagerDeparturePage> createState() => _ManagerDeparturePageState();
+  State<ManagerDeparturePage> createState() =>
+      _ManagerDeparturePageState();
 }
 
 class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
@@ -50,8 +51,11 @@ class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
       _loading = true;
       _errorMessage = null;
     });
+
     try {
-      final departure = await _repository.fetchDepartureState(widget.manager.id);
+      final departure = await _repository.fetchDepartureState(
+        widget.manager.id,
+      );
       if (!mounted) return;
       setState(() {
         _departure = departure;
@@ -61,41 +65,48 @@ class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _chooseDate() async {
-    final initial = _selectedDate == null || _selectedDate!.isBefore(_today)
+    final initialDate = _selectedDate == null || _selectedDate!.isBefore(_today)
         ? _today
         : _selectedDate!;
+
     final selected = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: initialDate,
       firstDate: _today,
       lastDate: DateTime(_today.year + 3, 12, 31),
       helpText: '퇴사 예정일 선택',
       cancelText: '취소',
       confirmText: '선택',
     );
-    if (selected != null && mounted) {
-      setState(() => _selectedDate = selected);
-    }
+
+    if (!mounted || selected == null) return;
+    setState(() => _selectedDate = selected);
   }
 
   Future<void> _saveDeparture() async {
-    final date = _selectedDate;
-    if (date == null || _saving) return;
+    final selectedDate = _selectedDate;
+    final wasScheduled = _departure != null;
+
+    if (selectedDate == null) {
+      setState(() => _errorMessage = '퇴사 예정일을 선택해주세요.');
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: neutralIvory,
         title: Text(_departure == null ? '퇴사 예약' : '퇴사 예정일 변경'),
         content: Text(
-          '${DateFormat('yyyy년 M월 d일').format(date)}부터 '
-          '${widget.manager.displayName} 지점장은 로그인하거나 근무할 수 없습니다.\n\n'
-          '수업을 담당하고 있다면 예정일까지 담당 학생과 일정을 정리해주세요.',
+          '${DateFormat('yyyy년 M월 d일').format(selectedDate)}부터 '
+          '${widget.manager.displayName} 지점장은 근무하거나 로그인할 수 없습니다.\n\n'
+          '이 날짜 전까지 직접 담당 중인 학생, 정규 일정과 예정 수업을 정리해야 합니다.',
           style: forestringTextStyle,
         ),
         actions: [
@@ -111,84 +122,116 @@ class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
         ],
       ),
     );
+
     if (confirmed != true || !mounted) return;
 
     setState(() {
       _saving = true;
       _errorMessage = null;
     });
+
     try {
       final departure = await _repository.scheduleDeparture(
         managerId: widget.manager.id,
-        withdrawalDate: date,
+        withdrawalDate: selectedDate,
       );
       if (!mounted) return;
-      setState(() => _departure = departure);
+
+      setState(() {
+        _departure = departure;
+        _selectedDate = departure.withdrawalDate;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('퇴사 예정일을 저장했습니다.')),
+        SnackBar(
+          content: Text(
+            wasScheduled
+                ? '퇴사 예정일이 저장되었습니다.'
+                : '퇴사가 예약되었습니다.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } on ManagerFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
   Future<void> _cancelDeparture() async {
-    if (_departure == null || _saving) return;
+    final date = _departure?.withdrawalDate;
+    if (date == null) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: neutralIvory,
         title: const Text('퇴사 예약 취소'),
-        content: const Text('예약된 퇴사를 취소할까요?'),
+        content: Text(
+          '${DateFormat('yyyy년 M월 d일').format(date)}로 예약된 '
+          '퇴사를 취소합니다.',
+          style: forestringTextStyle,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('닫기'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
             child: const Text('예약 취소'),
           ),
         ],
       ),
     );
+
     if (confirmed != true || !mounted) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _errorMessage = null;
+    });
+
     try {
       await _repository.cancelDeparture(widget.manager.id);
       if (!mounted) return;
+
       setState(() {
         _departure = null;
         _selectedDate = null;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('퇴사 예약을 취소했습니다.')),
+        const SnackBar(
+          content: Text('퇴사 예약이 취소되었습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } on ManagerFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
   Future<void> _finalizeDeparture() async {
-    if (!_isDue || _departure == null || !_departure!.canFinalize || _saving) {
-      return;
-    }
-
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: neutralIvory,
         title: const Text('퇴사 확정'),
         content: Text(
-          '${widget.manager.displayName} 지점장의 계정을 비활성화할까요?\n\n'
-          '과거 수업과 관리 기록은 삭제되지 않습니다.',
+          '${widget.manager.displayName} 지점장의 계정을 즉시 비활성화합니다. '
+          '확정 후에는 이 화면에서 되돌릴 수 없습니다.',
           style: forestringTextStyle,
         ),
         actions: [
@@ -196,26 +239,42 @@ class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('취소'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('퇴사 확정', style: TextStyle(color: Colors.red.shade700)),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text('퇴사 확정'),
           ),
         ],
       ),
     );
+
     if (confirmed != true || !mounted) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _errorMessage = null;
+    });
+
     try {
       await _repository.finalizeDeparture(widget.manager.id);
       if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('퇴사가 확정되어 계정이 비활성화되었습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       Navigator.of(context).pop(true);
     } on ManagerFailure catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
-      await _loadDeparture();
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -223,134 +282,249 @@ class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: neutralIvory,
-      appBar: const ForestringAppBar(title: '지점장 퇴사 관리'),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            ListView(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-              children: [
-                Text(
-                  widget.manager.displayName,
-                  style: forestringTextStyle.copyWith(
-                    color: primaryColor,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.manager.branchName,
-                  style: forestringTextStyle.copyWith(color: Colors.black54),
-                ),
-                const SizedBox(height: 22),
-                if (!widget.manager.isActive)
-                  _infoCard('이미 비활성화된 지점장 계정입니다.')
-                else if (_loading)
-                  const Center(child: CircularProgressIndicator())
-                else ...[
-                  OutlinedButton.icon(
-                    onPressed: _saving ? null : _chooseDate,
-                    icon: const Icon(Icons.event_outlined),
-                    label: Text(
-                      _selectedDate == null
-                          ? '퇴사 예정일 선택'
-                          : DateFormat('yyyy.MM.dd').format(_selectedDate!),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryColor,
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _selectedDate == null || _saving ? null : _saveDeparture,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: Text(_departure == null ? '퇴사 예약' : '예정일 저장'),
-                  ),
-                  if (_departure != null) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      '퇴사 전 정리 현황',
-                      style: forestringTextStyle.copyWith(
-                        color: primaryColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _blockerCard(_departure!),
-                    const SizedBox(height: 14),
-                    OutlinedButton(
-                      onPressed: _isDue || _saving ? null : _cancelDeparture,
-                      child: const Text('퇴사 예약 취소'),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: _isDue && _departure!.canFinalize && !_saving
-                          ? _finalizeDeparture
-                          : null,
-                      icon: const Icon(Icons.person_off_outlined),
-                      label: const Text('퇴사 확정 및 계정 비활성화'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade700,
-                        minimumSize: const Size.fromHeight(52),
-                      ),
-                    ),
-                  ],
-                ],
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  _infoCard(_errorMessage!, isError: true),
-                ],
-              ],
+      appBar: ForestringAppBar(
+        title: widget.manager.isActive ? '퇴사 관리' : '퇴사 정보',
+        actions: [
+          if (widget.manager.isActive && _departure != null)
+            IconButton(
+              tooltip: '새로고침',
+              onPressed: _loading || _saving ? null : _loadDeparture,
+              icon: const Icon(Icons.refresh_rounded),
             ),
-            if (_saving)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Color(0x22000000),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
+          children: [
+            Text(
+              _managerLabel(widget.manager.displayName),
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 21,
+                fontWeight: FontWeight.w500,
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.manager.branchName,
+              style: forestringTextStyle.copyWith(color: Colors.black54),
+            ),
+            const SizedBox(height: 14),
+            _policyCard(),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              _errorCard(_errorMessage!),
+            ],
+            const SizedBox(height: 16),
+            if (!widget.manager.isActive)
+              _departedCard()
+            else if (_loading && _departure == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 60),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              _dateSection(),
+              if (_departure != null) ...[
+                const SizedBox(height: 16),
+                _blockerSection(_departure!),
+              ],
+              const SizedBox(height: 20),
+              if (!_isDue)
+                FilledButton(
+                  onPressed: _saving || _selectedDate == null
+                      ? null
+                      : _saveDeparture,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    _saving
+                        ? '처리 중...'
+                        : _departure == null
+                            ? '퇴사 예약'
+                            : '퇴사 예정일 저장',
+                  ),
+                ),
+              if (_departure != null && !_isDue) ...[
+                const SizedBox(height: 9),
+                OutlinedButton(
+                  onPressed: _saving ? null : _cancelDeparture,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    side: BorderSide(color: Colors.red.shade700),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  child: const Text('퇴사 예약 취소'),
+                ),
+              ],
+              if (_departure != null &&
+                  _isDue &&
+                  _departure!.canFinalize) ...[
+                const SizedBox(height: 9),
+                FilledButton(
+                  onPressed: _saving ? null : _finalizeDeparture,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  child: const Text('지금 퇴사 확정'),
+                ),
+              ],
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _blockerCard(ManagerDepartureState state) {
+  Widget _policyCard() {
     return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: primaryColor.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '퇴사 예정일은 지점장이 근무할 수 없는 첫날입니다. '
+        '전날까지는 정상 근무하며, 예정일이 되면 정리 상태를 확인한 뒤 '
+        '자동으로 계정이 비활성화됩니다.',
+        style: forestringTextStyle.copyWith(fontSize: 13),
+      ),
+    );
+  }
+
+  Widget _departedCard() {
+    final date = widget.manager.withdrawalDate;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.18)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black12),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _blockerRow('담당 학생 관계', state.assignmentCount),
-          const Divider(height: 1),
-          _blockerRow('정규 일정', state.seriesCount),
-          const Divider(height: 1),
-          _blockerRow('예정 수업', state.scheduledLessonCount),
+          Text(
+            '퇴사 완료',
+            style: forestringTextStyle.copyWith(
+              color: Colors.red.shade700,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            date == null
+                ? '퇴사일 정보가 없습니다.'
+                : '${DateFormat('yyyy년 M월 d일').format(date)}부터 계정이 비활성화되었습니다.',
+            style: forestringTextStyle,
+          ),
         ],
       ),
     );
   }
 
-  Widget _blockerRow(String label, int count) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: forestringTextStyle)),
+  Widget _dateSection() {
+    final date = _selectedDate;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          _departure == null ? '퇴사 예정일' : '예약된 퇴사일',
+          style: forestringTextStyle.copyWith(
+            color: primaryColor,
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _saving || _isDue ? null : _chooseDate,
+          icon: const Icon(Icons.calendar_month_outlined),
+          label: Text(
+            date == null
+                ? '날짜 선택'
+                : DateFormat('yyyy년 M월 d일').format(date),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: primaryColor,
+            side: const BorderSide(color: primaryColor),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+        if (_isDue) ...[
+          const SizedBox(height: 8),
           Text(
-            '$count개',
+            '퇴사 예정일이 도래하여 날짜 변경과 예약 취소가 제한됩니다.',
             style: forestringTextStyle.copyWith(
-              color: count == 0 ? primaryColor : Colors.red.shade700,
+              color: Colors.red.shade700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _blockerSection(ManagerDepartureState departure) {
+    final color = departure.canFinalize
+        ? primaryColor
+        : Colors.orange.shade800;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            departure.canFinalize ? '퇴사 준비 완료' : '퇴사 전 정리 필요',
+            style: forestringTextStyle.copyWith(
+              color: color,
+              fontSize: 17,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _countTile('담당 학생', departure.assignmentCount),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _countTile('정규 일정', departure.seriesCount),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _countTile(
+                  '예정 수업',
+                  departure.scheduledLessonCount,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            departure.canFinalize
+                ? '정리할 항목이 없습니다. 예정일이 되면 자동으로 퇴사 처리됩니다.'
+                : '퇴사 확정 전까지 담당 학생 변경, 정규 일정 종료와 예정 수업 변경·취소가 필요합니다.',
+            style: forestringTextStyle.copyWith(
+              color: Colors.black54,
+              fontSize: 13,
             ),
           ),
         ],
@@ -358,21 +532,54 @@ class _ManagerDeparturePageState extends State<ManagerDeparturePage> {
     );
   }
 
-  Widget _infoCard(String text, {bool isError = false}) {
+  Widget _countTile(String label, int count) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       decoration: BoxDecoration(
-        color: isError
-            ? Colors.red.withValues(alpha: 0.06)
-            : secondaryColor.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
+        color: neutralIvory,
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        text,
-        style: forestringTextStyle.copyWith(
-          color: isError ? Colors.red.shade700 : Colors.black54,
-        ),
+      child: Column(
+        children: [
+          Text(
+            '$count개',
+            style: forestringTextStyle.copyWith(
+              color: primaryColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: forestringTextStyle.copyWith(
+              color: Colors.black54,
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _errorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        message,
+        style: forestringTextStyle.copyWith(color: Colors.redAccent),
+      ),
+    );
+  }
+}
+
+String _managerLabel(String name) {
+  final trimmed = name.trim();
+  return trimmed.endsWith('지점장') ? trimmed : '$trimmed 지점장';
 }
