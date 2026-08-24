@@ -47,23 +47,14 @@ class LessonRepository {
           );
 
       if (from != null) {
-        query = query.gte(
-          'starts_at',
-          from.toUtc().toIso8601String(),
-        );
+        query = query.gte('starts_at', from.toUtc().toIso8601String());
       }
-
       if (to != null) {
-        query = query.lt(
-          'starts_at',
-          to.toUtc().toIso8601String(),
-        );
+        query = query.lt('starts_at', to.toUtc().toIso8601String());
       }
-
       if (teacherId != null && teacherId.isNotEmpty) {
         query = query.eq('teacher_id', teacherId);
       }
-
       if (studentId != null && studentId.isNotEmpty) {
         query = query.eq('student_id', studentId);
       }
@@ -76,7 +67,6 @@ class LessonRepository {
             ),
           )
           .toList();
-
       final names = await _fetchVisibleProfileNames();
 
       return lessons
@@ -88,13 +78,9 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     } catch (error) {
-      throw LessonFailure(
-        '수업 정보를 불러오지 못했습니다.\n$error',
-      );
+      throw LessonFailure('수업 정보를 불러오지 못했습니다.\n$error');
     }
   }
 
@@ -110,7 +96,6 @@ class LessonRepository {
       final rows = (rawRows as List)
           .map((raw) => Map<String, dynamic>.from(raw as Map))
           .toList();
-
       final managerIds = rows
           .where((row) => row['role']?.toString() == 'manager')
           .map((row) => row['id'] as String)
@@ -122,7 +107,6 @@ class LessonRepository {
             .from('teacher_work_hours')
             .select('teacher_id')
             .inFilter('teacher_id', managerIds);
-
         for (final raw in workHourRows as List) {
           teachingManagerIds.add(raw['teacher_id'] as String);
         }
@@ -144,9 +128,7 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     }
   }
 
@@ -186,9 +168,7 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     } catch (error) {
       throw LessonFailure('수강생 정보를 불러오지 못했습니다.\n$error');
     }
@@ -205,19 +185,11 @@ class LessonRepository {
           );
 
       if (from != null) {
-        query = query.gt(
-          'ends_at',
-          from.toUtc().toIso8601String(),
-        );
+        query = query.gt('ends_at', from.toUtc().toIso8601String());
       }
-
       if (to != null) {
-        query = query.lt(
-          'starts_at',
-          to.toUtc().toIso8601String(),
-        );
+        query = query.lt('starts_at', to.toUtc().toIso8601String());
       }
-
       if (teacherId != null && teacherId.isNotEmpty) {
         query = query.eq('teacher_id', teacherId);
       }
@@ -234,19 +206,13 @@ class LessonRepository {
 
       return periods
           .map(
-            (period) => period.copyWithTeacherName(
-              names[period.teacherId],
-            ),
+            (period) => period.copyWithTeacherName(names[period.teacherId]),
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     } catch (error) {
-      throw LessonFailure(
-        '개인 일정을 불러오지 못했습니다.\n$error',
-      );
+      throw LessonFailure('개인 일정을 불러오지 못했습니다.\n$error');
     }
   }
 
@@ -257,26 +223,40 @@ class LessonRepository {
       dynamic query = _client.from('teacher_work_hours').select(
             'teacher_id, weekday, start_time, end_time',
           );
-
       if (teacherId != null && teacherId.isNotEmpty) {
         query = query.eq('teacher_id', teacherId);
       }
 
       final rows = await query.order('weekday');
       final result = <String, List<TeacherWorkHour>>{};
-
       for (final raw in rows as List) {
         final workHour = TeacherWorkHour.fromJson(
           Map<String, dynamic>.from(raw as Map),
         );
         result.putIfAbsent(workHour.teacherId, () => []).add(workHour);
       }
-
       return result;
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+    }
+  }
+
+  Future<int> fetchAvailableLessonRightCount({
+    required String studentId,
+    required String semesterId,
+    required int durationMinutes,
+  }) async {
+    try {
+      final rows = await _client
+          .from('lesson_rights')
+          .select('id')
+          .eq('student_id', studentId)
+          .eq('usable_semester_id', semesterId)
+          .eq('duration_minutes', durationMinutes)
+          .eq('status', 'available');
+      return (rows as List).length;
+    } on PostgrestException catch (error) {
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     }
   }
 
@@ -293,9 +273,7 @@ class LessonRepository {
         },
       );
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     }
   }
 
@@ -312,9 +290,7 @@ class LessonRepository {
         },
       );
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     }
   }
 
@@ -324,11 +300,12 @@ class LessonRepository {
     required DateTime startsAt,
     required int durationMinutes,
     bool confirmWarnings = false,
+    bool deductLessonRight = false,
     String? reason,
   }) async {
     try {
       final data = await _client.rpc(
-        'create_makeup_lesson',
+        'create_managed_makeup_lesson',
         params: {
           'p_student_id': studentId,
           'p_teacher_id': teacherId,
@@ -336,6 +313,7 @@ class LessonRepository {
           'p_duration_minutes': durationMinutes,
           'p_confirm_warnings': confirmWarnings,
           'p_reason': _nullIfBlank(reason),
+          'p_deduct_lesson_right': deductLessonRight,
         },
       );
 
@@ -349,9 +327,7 @@ class LessonRepository {
     } on LessonFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     }
   }
 
@@ -375,9 +351,7 @@ class LessonRepository {
       );
 
       if (data is! Map) {
-        throw const LessonFailure(
-          '수업 수정 결과를 확인하지 못했습니다.',
-        );
+        throw const LessonFailure('수업 수정 결과를 확인하지 못했습니다.');
       }
 
       return LessonMutationResult.fromJson(
@@ -386,17 +360,12 @@ class LessonRepository {
     } on LessonFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      throw LessonFailure(
-        _friendlyDatabaseMessage(error.message),
-      );
+      throw LessonFailure(_friendlyDatabaseMessage(error.message));
     }
   }
 
   Future<Map<String, String>> _fetchVisibleProfileNames() async {
-    final rows = await _client
-        .from('profiles')
-        .select('id, display_name');
-
+    final rows = await _client.from('profiles').select('id, display_name');
     return {
       for (final row in rows as List)
         row['id'] as String: row['display_name'] as String,
@@ -432,6 +401,9 @@ class LessonRepository {
     }
     if (message.contains('FORESTRING_SEMESTER_NOT_FOUND_FOR_DATE')) {
       return '선택한 날짜에 적용되는 학기가 없습니다.';
+    }
+    if (message.contains('FORESTRING_NO_MATCHING_AVAILABLE_LESSON_RIGHT')) {
+      return '선택한 수업 길이와 같은 사용 가능한 수업권이 없습니다.';
     }
     if (message.contains('FORESTRING_CLOSURE_CONFLICT')) {
       return '휴원 기간에는 보강 수업을 등록할 수 없습니다.';
