@@ -20,13 +20,11 @@ class ManagerWorkHourInput {
   final String startTime;
   final String endTime;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'weekday': weekday,
-      'startTime': startTime,
-      'endTime': endTime,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'weekday': weekday,
+        'startTime': startTime,
+        'endTime': endTime,
+      };
 }
 
 class CreatedManager {
@@ -41,6 +39,64 @@ class CreatedManager {
   final String branchId;
 }
 
+class ManagedManager {
+  const ManagedManager({
+    required this.id,
+    required this.displayName,
+    required this.branchId,
+    required this.branchName,
+    required this.isActive,
+    this.withdrawalDate,
+  });
+
+  final String id;
+  final String displayName;
+  final String branchId;
+  final String branchName;
+  final bool isActive;
+  final DateTime? withdrawalDate;
+
+  bool get hasScheduledWithdrawal => isActive && withdrawalDate != null;
+
+  String get statusLabel {
+    if (!isActive) return '퇴사';
+    if (hasScheduledWithdrawal) return '퇴사 예정';
+    return '재직';
+  }
+}
+
+class ManagerDepartureState {
+  const ManagerDepartureState({
+    required this.managerId,
+    required this.withdrawalDate,
+    required this.assignmentCount,
+    required this.seriesCount,
+    required this.scheduledLessonCount,
+    required this.canFinalize,
+  });
+
+  final String managerId;
+  final DateTime withdrawalDate;
+  final int assignmentCount;
+  final int seriesCount;
+  final int scheduledLessonCount;
+  final bool canFinalize;
+
+  int get blockerCount =>
+      assignmentCount + seriesCount + scheduledLessonCount;
+
+  factory ManagerDepartureState.fromJson(Map<String, dynamic> json) {
+    return ManagerDepartureState(
+      managerId: json['staffId'] as String,
+      withdrawalDate: DateTime.parse(json['withdrawalDate'].toString()),
+      assignmentCount: (json['assignmentCount'] as num).toInt(),
+      seriesCount: (json['seriesCount'] as num).toInt(),
+      scheduledLessonCount: (json['scheduledLessonCount'] as num).toInt(),
+      canFinalize: json['canFinalize'] == true,
+    );
+  }
+}
+
 class ManagerRepository {
   ManagerRepository({
     SupabaseClient? client,
@@ -48,92 +104,316 @@ class ManagerRepository {
 
   final SupabaseClient _client;
 
+  Future<List<ManagedManager>> fetchManagers() async {
+    try {
+      final profiles = await _client
+          .from('profiles')
+          .select('id, display_name, branch_id, is_active')
+          .eq('role', 'manager')
+          .eq('is_review_account', false)
+          .order('display_name');
+
+      if (profiles.isEmpty) return const [];
+
+      final managerIds = profiles
+          .map((row) => row['id'] as String)
+          .toList();
+      final branchIds = profiles
+          .map((row) => row['branch_id'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      final results = await Future.wait([
+        _client
+            .from('teachers')
+            .select('id, withdrawal_date')
+            .inFilter('id', managerIds),
+        branchIds.isEmpty
+            ? Future.value(<dynamic>[])
+            : _client
+                .from('branches')
+                .select('id, name')
+                .inFilter('id', branchIds),
+      ]);
+
+      final withdrawalByManager = <String, DateTime?>{
+        for (final raw in results[0])
+          raw['id'] as String: raw['withdrawal_date'] == null
+              ? null
+              : DateTime.parse(raw['withdrawal_date'].toString()),
+      };
+      final branchNames = <String, String>{
+        for (final raw in results[1])
+          raw['id'] as String: raw['name'].toString(),
+      };
+
+      return profiles.map((row) {
+        final id = row['id'] as String;
+        final branchId = row['branch_id'] as String?;
+        return ManagedManager(
+          id: id,
+          displayName: row['display_name'].toString(),
+          branchId: branchId ?? '',
+          branchName: branchId == null
+              ? '지점 미지정'
+              : (branchNames[branchId] ?? '지점 확인 필요'),
+          isActive: row['is_active'] == true,
+          withdrawalDate: withdrawalByManager[id],
+        );
+      }).toList()
+        ..sort((a, b) => a.displayName.compareTo(b.displayName));
+    } on PostgrestException catch (error) {
+      throw ManagerFailure('지점장 목록을 불러오지 못했습니다.\n${error.message}');
+    } catch (error) {
+      throw ManagerFailure('지점장 목록을 불러오지 못했습니다.\n$error');
+    }
+  }
+
   Future<CreatedManager> createManager({
     required String name,
     required String pin,
     required String branchId,
     List<ManagerWorkHourInput> workHours = const [],
   }) async {
-    final normalizedName = name.trim().replaceAll(
-          RegExp(r'\s+'),
-          ' ',
-        );
+    final normalizedName = _normalizeName(name);
 
     if (normalizedName.isEmpty) {
-      throw const ManagerFailure(
-        '지점장 이름을 입력해주세요.',
-      );
+      throw const ManagerFailure('지점장 이름을 입력해주세요.');
     }
-
     if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
-      throw const ManagerFailure(
-        'PIN은 4자리 숫자로 입력해주세요.',
-      );
+      throw const ManagerFailure('PIN은 4자리 숫자로 입력해주세요.');
     }
-
     if (branchId.isEmpty) {
-      throw const ManagerFailure(
-        '지점을 선택해주세요.',
-      );
+      throw const ManagerFailure('지점을 선택해주세요.');
     }
 
     final session = _client.auth.currentSession;
-
     if (session == null) {
-      throw const ManagerFailure(
-        '로그인이 필요합니다.',
-      );
+      throw const ManagerFailure('로그인이 필요합니다.');
     }
 
     try {
       final response = await _client.functions.invoke(
         'master-create-manager',
-        headers: {
-          'Authorization': 'Bearer ${session.accessToken}',
-        },
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
         body: {
           'name': normalizedName,
           'pin': pin,
           'branchId': branchId,
-          'workHours': workHours
-              .map(
-                (item) => item.toJson(),
-              )
-              .toList(),
+          'workHours': workHours.map((item) => item.toJson()).toList(),
         },
       );
-
       final data = response.data;
-
       if (data is! Map) {
-        throw const ManagerFailure(
-          '서버 응답 형식이 올바르지 않습니다.',
-        );
+        throw const ManagerFailure('서버 응답 형식이 올바르지 않습니다.');
       }
-
       final managerId = data['managerId'];
-
       if (managerId is! String || managerId.isEmpty) {
         final message = data['message'];
-
         throw ManagerFailure(
           message is String ? message : '지점장 생성에 실패했습니다.',
         );
       }
-
       return CreatedManager(
         id: managerId,
         displayName: data['displayName'] is String
-            ? data['displayName']
+            ? data['displayName'] as String
             : normalizedName,
-        branchId: data['branchId'] is String ? data['branchId'] : branchId,
+        branchId: data['branchId'] is String
+            ? data['branchId'] as String
+            : branchId,
       );
     } on ManagerFailure {
       rethrow;
     } catch (error) {
-      throw ManagerFailure(
-        '지점장 생성 요청에 실패했습니다.\n$error',
-      );
+      throw ManagerFailure('지점장 생성 요청에 실패했습니다.\n$error');
     }
   }
+
+  Future<void> updateManagerName({
+    required String managerId,
+    required String name,
+  }) async {
+    final normalizedName = _normalizeName(name);
+    if (normalizedName.isEmpty || normalizedName.length > 100) {
+      throw const ManagerFailure('이름은 1~100자로 입력해주세요.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'staff-update-account-name',
+        body: {
+          'profileId': managerId,
+          'name': normalizedName,
+        },
+      );
+      _throwFunctionError(response.data, fallback: '이름을 변경하지 못했습니다.');
+    } catch (error) {
+      if (error is ManagerFailure) rethrow;
+      throw ManagerFailure('이름 변경 요청에 실패했습니다.\n$error');
+    }
+  }
+
+  Future<void> resetManagerPin({
+    required String managerId,
+    required String pin,
+  }) async {
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      throw const ManagerFailure('PIN은 4자리 숫자로 입력해주세요.');
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'staff-reset-account-pin',
+        body: {
+          'profileId': managerId,
+          'pin': pin,
+        },
+      );
+      _throwFunctionError(response.data, fallback: 'PIN을 재설정하지 못했습니다.');
+    } catch (error) {
+      if (error is ManagerFailure) rethrow;
+      throw ManagerFailure('PIN 재설정 요청에 실패했습니다.\n$error');
+    }
+  }
+
+  Future<void> changeManagerBranch({
+    required String managerId,
+    required String branchId,
+  }) async {
+    try {
+      await _client.rpc(
+        'change_manager_branch',
+        params: {
+          'p_manager_id': managerId,
+          'p_branch_id': branchId,
+        },
+      );
+    } on PostgrestException catch (error) {
+      final message = error.message;
+      if (message.contains('FORESTRING_MANAGER_BRANCH_CHANGE_BLOCKED')) {
+        throw const ManagerFailure(
+          '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 지점을 변경할 수 없습니다.',
+        );
+      }
+      if (message.contains('FORESTRING_MANAGER_BRANCH_CHANGE_PENDING_DEPARTURE')) {
+        throw const ManagerFailure('퇴사 예정인 지점장은 지점을 변경할 수 없습니다.');
+      }
+      if (message.contains('FORESTRING_ACTIVE_BRANCH_REQUIRED')) {
+        throw const ManagerFailure('운영 중인 지점만 선택할 수 있습니다.');
+      }
+      if (message.contains('FORESTRING_MANAGER_NOT_FOUND')) {
+        throw const ManagerFailure('지점장 정보를 찾을 수 없습니다.');
+      }
+      if (message.contains('FORESTRING_MASTER_REQUIRED')) {
+        throw const ManagerFailure('전체 관리자만 담당 지점을 변경할 수 있습니다.');
+      }
+      throw ManagerFailure('담당 지점을 변경하지 못했습니다.\n$message');
+    }
+  }
+
+  Future<ManagerDepartureState> fetchDepartureState(String managerId) async {
+    try {
+      final data = await _client.rpc(
+        'get_staff_departure_blockers',
+        params: {'p_staff_id': managerId},
+      );
+      if (data is! Map) {
+        throw const ManagerFailure('퇴사 관리 정보를 확인하지 못했습니다.');
+      }
+      return ManagerDepartureState.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on PostgrestException catch (error) {
+      throw ManagerFailure(_departureMessage(error.message));
+    }
+  }
+
+  Future<ManagerDepartureState> scheduleDeparture({
+    required String managerId,
+    required DateTime withdrawalDate,
+  }) async {
+    try {
+      final data = await _client.rpc(
+        'schedule_staff_departure',
+        params: {
+          'p_staff_id': managerId,
+          'p_withdrawal_date': _dateText(withdrawalDate),
+        },
+      );
+      if (data is! Map) {
+        throw const ManagerFailure('퇴사 예약 결과를 확인하지 못했습니다.');
+      }
+      return ManagerDepartureState.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on PostgrestException catch (error) {
+      throw ManagerFailure(_departureMessage(error.message));
+    }
+  }
+
+  Future<void> cancelDeparture(String managerId) async {
+    try {
+      await _client.rpc(
+        'cancel_staff_departure',
+        params: {'p_staff_id': managerId},
+      );
+    } on PostgrestException catch (error) {
+      throw ManagerFailure(_departureMessage(error.message));
+    }
+  }
+
+  Future<void> finalizeDeparture(String managerId) async {
+    try {
+      await _client.rpc(
+        'finalize_staff_departure',
+        params: {'p_staff_id': managerId},
+      );
+    } on PostgrestException catch (error) {
+      throw ManagerFailure(_departureMessage(error.message));
+    }
+  }
+
+  void _throwFunctionError(dynamic data, {required String fallback}) {
+    if (data is Map && data['message'] is String) {
+      throw ManagerFailure(data['message'] as String);
+    }
+    if (data == null) {
+      throw ManagerFailure(fallback);
+    }
+  }
+}
+
+String _normalizeName(String value) =>
+    value.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+String _dateText(DateTime date) {
+  final year = date.year.toString().padLeft(4, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
+String _departureMessage(String message) {
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_DATE_IN_PAST')) {
+    return '오늘보다 이전 날짜로는 퇴사를 예약할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_ALREADY_EFFECTIVE')) {
+    return '이미 퇴사 예정일이 되어 예약을 변경하거나 취소할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_SCHEDULED')) {
+    return '예약된 퇴사가 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_EFFECTIVE_YET')) {
+    return '퇴사 예정일 전에는 퇴사를 확정할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_BLOCKED')) {
+    return '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 퇴사를 확정할 수 없습니다.';
+  }
+  if (message.contains('FORESTRING_STAFF_DEPARTURE_FORBIDDEN') ||
+      message.contains('FORESTRING_MASTER_REQUIRED')) {
+    return '지점장 퇴사를 관리할 권한이 없습니다.';
+  }
+  return '퇴사 관리 작업을 처리하지 못했습니다.';
 }
