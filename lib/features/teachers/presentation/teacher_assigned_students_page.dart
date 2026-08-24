@@ -234,7 +234,17 @@ class _TeacherAssignedStudentsPageState
                     ],
                   ),
                   const SizedBox(height: 5),
-                  if (!student.isFlex) ...[
+                  if (student.isFlex) ...[
+                    Text(
+                      _flexRightCountLabel(student.flexBaseRightCount),
+                      style: forestringTextStyle.copyWith(
+                        color: secondaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                  ] else ...[
                     Text(
                       _regularScheduleLabel(student.regularSchedules),
                       style: forestringTextStyle.copyWith(
@@ -291,6 +301,13 @@ class _TeacherAssignedStudentsPageState
           '${schedule.startTime} (${schedule.durationMinutes}분)',
     );
     return '정규 수업: ${labels.join(', ')}';
+  }
+
+  String _flexRightCountLabel(int? rightCount) {
+    if (rightCount == null) {
+      return '수업권 설정: 확인 필요';
+    }
+    return '수업권 설정: $rightCount개';
   }
 
   String _weekdayLabel(int weekday) {

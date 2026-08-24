@@ -72,6 +72,7 @@ class AssignedStudentSummary {
     required this.assignmentStartsOn,
     required this.isActive,
     required this.regularSchedules,
+    this.flexBaseRightCount,
   });
 
   final String id;
@@ -80,6 +81,7 @@ class AssignedStudentSummary {
   final DateTime assignmentStartsOn;
   final bool isActive;
   final List<AssignedStudentRegularSchedule> regularSchedules;
+  final int? flexBaseRightCount;
 
   bool get isFlex => studentType == 'flex';
   String get typeLabel => isFlex ? '자율 예약 학생' : '정규 학생';
@@ -322,6 +324,13 @@ class TeacherRepository {
             .select('id, student_id, starts_on, ends_on')
             .inFilter('student_id', studentIds)
             .order('starts_on'),
+        _client
+            .from('student_semester_plans')
+            .select('student_id, flex_base_right_count, updated_at')
+            .inFilter('student_id', studentIds)
+            .eq('student_type_snapshot', 'flex')
+            .eq('status', 'active')
+            .order('updated_at', ascending: false),
       ]);
 
       final profilesById = <String, Map<String, dynamic>>{
@@ -332,6 +341,20 @@ class TeacherRepository {
         for (final raw in results[1])
           (raw['id'] as String): Map<String, dynamic>.from(raw),
       };
+      final flexBaseRightCountByStudent = <String, int>{};
+
+      for (final raw in results[3]) {
+        final row = Map<String, dynamic>.from(raw);
+        final studentId = row['student_id'] as String;
+        final rightCount = row['flex_base_right_count'];
+        if (rightCount is! num) continue;
+
+        flexBaseRightCountByStudent.putIfAbsent(
+          studentId,
+          () => rightCount.toInt(),
+        );
+      }
+
       final studentIdByCurrentSlot = <String, String>{};
 
       for (final raw in results[2]) {
@@ -428,6 +451,7 @@ class TeacherRepository {
             regularSchedules: List.unmodifiable(
               schedulesByStudent[entry.key] ?? const [],
             ),
+            flexBaseRightCount: flexBaseRightCountByStudent[entry.key],
           ),
         );
       }
