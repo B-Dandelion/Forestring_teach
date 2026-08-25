@@ -893,7 +893,7 @@ begin
 
   update public.students
   set withdrawal_date =
-      date '2004-06-15'
+      v_today + 1
   where id =
         v_student_id;
 

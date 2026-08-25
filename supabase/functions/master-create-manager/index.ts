@@ -234,6 +234,61 @@ export default {
 
 
         // ====================================================
+        // EFFECTIVE ACCESS PREFLIGHT
+        //
+        // PostgreSQL remains the canonical policy source.
+        // The final mutation RPC checks effective access again.
+        // ====================================================
+
+        const {
+          error: effectiveActorError,
+        } =
+          await (ctx.supabaseAdmin as any).rpc(
+            'admin_get_effective_actor_context',
+            {
+              p_actor_id:
+                actorId,
+            },
+          )
+
+        if (effectiveActorError) {
+          const message =
+            dbMessage(effectiveActorError)
+
+          if (
+            message.includes(
+              'FORESTRING_EFFECTIVE_ACCESS_REQUIRED',
+            )
+          ) {
+            return Response.json(
+              {
+                message:
+                  '현재 계정은 더 이상 사용할 수 없습니다.',
+              },
+              {
+                status: 403,
+              },
+            )
+          }
+
+          console.error(
+            'Effective actor preflight failed:',
+            effectiveActorError,
+          )
+
+          return Response.json(
+            {
+              message:
+                '계정 권한을 확인할 수 없습니다.',
+            },
+            {
+              status: 500,
+            },
+          )
+        }
+
+
+        // ====================================================
         // MASTER ONLY
         // ====================================================
 

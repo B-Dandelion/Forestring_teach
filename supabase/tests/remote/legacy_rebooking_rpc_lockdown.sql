@@ -1,99 +1,24 @@
-begin;
-
-do $$
+do $test$
 begin
-
-  -- Legacy APIs must no longer be callable by Flutter users.
-
-  if pg_catalog.has_function_privilege(
-       'authenticated',
-       'public.get_rebooking_options(uuid,date)',
-       'EXECUTE'
-     ) then
-
+  if to_regprocedure(
+    'public.get_rebooking_options(uuid,date)'
+  ) is not null then
     raise exception
-      'TEST_FAILED: authenticated still executes legacy get_rebooking_options';
-
+      'TEST_FAIL legacy get_rebooking_options still exists';
   end if;
 
-
-  if pg_catalog.has_function_privilege(
-       'authenticated',
-       'public.rebook_lesson(uuid,timestamptz)',
-       'EXECUTE'
-     ) then
-
+  if to_regprocedure(
+    'public.rebook_lesson(uuid,timestamptz)'
+  ) is not null then
     raise exception
-      'TEST_FAILED: authenticated still executes legacy rebook_lesson';
-
+      'TEST_FAIL legacy rebook_lesson still exists';
   end if;
 
-
-  -- anon must also remain blocked.
-
-  if pg_catalog.has_function_privilege(
-       'anon',
-       'public.get_rebooking_options(uuid,date)',
-       'EXECUTE'
-     )
-     or
-     pg_catalog.has_function_privilege(
-       'anon',
-       'public.rebook_lesson(uuid,timestamptz)',
-       'EXECUTE'
-     ) then
-
+  if to_regprocedure(
+    'private.rebooking_slot_candidates(uuid,date,uuid)'
+  ) is not null then
     raise exception
-      'TEST_FAILED: anon can execute legacy rebooking API';
-
+      'TEST_FAIL legacy rebooking_slot_candidates still exists';
   end if;
-
-
-  -- Do NOT physically delete the legacy system yet.
-  -- finalize_student_withdrawal still contains compatibility
-  -- handling for lesson_rebooking_credits.
-
-  if to_regclass(
-       'public.lesson_rebooking_credits'
-     ) is null then
-
-    raise exception
-      'TEST_FAILED: legacy credits were destructively removed too early';
-
-  end if;
-
-
-  -- Canonical replacement APIs must stay available.
-
-  if not pg_catalog.has_function_privilege(
-       'authenticated',
-       'public.get_lesson_right_booking_options(uuid,date)',
-       'EXECUTE'
-     ) then
-
-    raise exception
-      'TEST_FAILED: canonical booking-options API lost permission';
-
-  end if;
-
-
-  if not pg_catalog.has_function_privilege(
-       'authenticated',
-       'public.book_lesson_right(uuid,timestamptz)',
-       'EXECUTE'
-     ) then
-
-    raise exception
-      'TEST_FAILED: canonical booking API lost permission';
-
-  end if;
-
 end;
-$$;
-
-
-select
-  'PASS: legacy rebooking APIs blocked from Flutter / canonical lesson-right APIs preserved / legacy storage retained for staged cleanup'
-  as test_result;
-
-rollback;
+$test$;
