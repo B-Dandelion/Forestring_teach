@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -6,6 +8,9 @@ import '../domain/current_profile.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController(this._repository);
+
+  static const _sessionCheckTimeout = Duration(seconds: 8);
+  static const _signOutTimeout = Duration(seconds: 3);
 
   final AuthRepository _repository;
 
@@ -40,19 +45,25 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      _profile = await _repository.fetchCurrentProfile();
+      _profile = await _repository
+          .fetchCurrentProfile()
+          .timeout(_sessionCheckTimeout);
+    } on TimeoutException {
+      _profile = null;
+      await _bestEffortSignOut();
+      _errorMessage = '이전 로그인 정보를 확인하는 데 시간이 오래 걸려 로그아웃했습니다. 다시 로그인해주세요.';
     } on AuthFailure catch (error) {
       _profile = null;
 
-      await _repository.signOut();
+      await _bestEffortSignOut();
 
       _errorMessage = error.message;
     } catch (_) {
       _profile = null;
 
-      await _repository.signOut();
+      await _bestEffortSignOut();
 
-      _errorMessage = '로그인 정보를 확인하지 못했습니다.';
+      _errorMessage = '로그인 정보를 확인하지 못했습니다. 다시 로그인해주세요.';
     } finally {
       _isInitializing = false;
       notifyListeners();
@@ -77,14 +88,21 @@ class AuthController extends ChangeNotifier {
         pin: pin,
       );
 
-      _profile = await _repository.fetchCurrentProfile();
+      _profile = await _repository
+          .fetchCurrentProfile()
+          .timeout(_sessionCheckTimeout);
 
       return true;
+    } on TimeoutException {
+      _profile = null;
+      await _bestEffortSignOut();
+      _errorMessage = '로그인 확인이 지연되고 있습니다. 잠시 후 다시 시도해주세요.';
+      return false;
     } on AuthFailure catch (error) {
       _profile = null;
 
       if (_repository.currentSession != null) {
-        await _repository.signOut();
+        await _bestEffortSignOut();
       }
 
       _errorMessage = error.message;
@@ -94,7 +112,7 @@ class AuthController extends ChangeNotifier {
       _profile = null;
 
       if (_repository.currentSession != null) {
-        await _repository.signOut();
+        await _bestEffortSignOut();
       }
 
       _errorMessage = '로그인 중 알 수 없는 오류가 발생했습니다.';
@@ -107,12 +125,21 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    await _repository.signOut();
+    await _bestEffortSignOut();
 
     _profile = null;
     _errorMessage = null;
 
     notifyListeners();
+  }
+
+  Future<void> _bestEffortSignOut() async {
+    try {
+      await _repository.signOut().timeout(_signOutTimeout);
+    } catch (_) {
+      // Even if the server/network is unavailable, the app must leave the
+      // initialization state instead of remaining on the splash screen.
+    }
   }
 
   void clearError() {
