@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/img/FORESTRING_Logo_small.png" width="180" alt="Forestring logo" />
+  <img src="assets/img/포레스트링_선생님_로고.png" width="180" alt="Forestring Teacher logo" />
 </p>
 
 <h1 align="center">Forestring Teacher</h1>
