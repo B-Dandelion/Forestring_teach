@@ -42,6 +42,27 @@ Forestring은 선생님과 수강생이 같은 수업 데이터를 기준으로 
 - 학기 / 휴원 기간 관리와 다음 학기 일정 준비
 - 역할별 데이터 접근 범위 및 관리자 권한 분리
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/1.png" width="30%" alt="전체 관리자 메뉴" />
+  <img src="docs/2.png" width="30%" alt="수업 관리" />
+  <img src="docs/3.png" width="30%" alt="수강생 관리" />
+</p>
+
+<p align="center">
+  <b>전체 관리자</b> · <b>수업 관리</b> · <b>수강생 관리</b>
+</p>
+
+<p align="center">
+  <img src="docs/4.png" width="30%" alt="선생님 관리" />
+  <img src="docs/5.png" width="30%" alt="학기 상세" />
+</p>
+
+<p align="center">
+  <b>선생님 관리</b> · <b>학기 / 휴원 관리</b>
+</p>
+
 ## Architecture
 
 ```mermaid
