@@ -476,6 +476,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: _safeSemesterValue,
                   decoration: _decoration('학기'),
                   items: _semesters
@@ -495,6 +496,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: _safeBranchValue,
                   decoration: _decoration('지점'),
                   items: [
@@ -540,6 +542,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: _statusFilter,
                   decoration: _decoration('상태'),
                   items: const [
