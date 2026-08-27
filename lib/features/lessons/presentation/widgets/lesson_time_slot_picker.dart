@@ -23,6 +23,8 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
     fallback: controller.workHoursFor(lesson.teacherId),
   );
 
+  if (!context.mounted) return null;
+
   final slots = _buildSlots(
     teacherId: lesson.teacherId,
     studentId: lesson.studentId,
@@ -113,6 +115,8 @@ Future<TimeOfDay?> showMakeupLessonTimeSlotPicker({
   } catch (_) {
     loadFailed = true;
   }
+
+  if (!context.mounted) return null;
 
   final slots = _buildSlots(
     teacherId: teacherId,
@@ -377,11 +381,9 @@ List<_LessonTimeSlot> _buildSlots({
     final endMinutes = _parseMinutes(workHour.endTime);
     if (startMinutes == null || endMinutes == null) continue;
 
-    for (
-      var minute = _ceilToQuarter(startMinutes);
-      minute + durationMinutes <= endMinutes;
-      minute += 15
-    ) {
+    for (var minute = _ceilToQuarter(startMinutes);
+        minute + durationMinutes <= endMinutes;
+        minute += 15) {
       if (!seenMinutes.add(minute)) continue;
 
       final startsAt = DateTime(

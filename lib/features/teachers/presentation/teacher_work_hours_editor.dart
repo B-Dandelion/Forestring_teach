@@ -128,7 +128,7 @@ class TeacherWorkHoursEditor extends StatelessWidget {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(
-                    value: value.weekday,
+                    initialValue: value.weekday,
                     decoration: _decoration('요일'),
                     items: const [
                       DropdownMenuItem(value: 1, child: Text('월요일')),

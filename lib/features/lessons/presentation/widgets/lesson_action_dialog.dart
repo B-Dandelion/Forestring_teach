@@ -141,7 +141,7 @@ Future<void> showLessonActionDialog({
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: selectedDuration,
+                    initialValue: selectedDuration,
                     decoration: const InputDecoration(
                       labelText: '수업 길이',
                       border: OutlineInputBorder(),

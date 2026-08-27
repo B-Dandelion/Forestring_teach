@@ -258,7 +258,7 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
         const SizedBox(height: 10),
         if (widget.profile.isMaster) ...[
           DropdownButtonFormField<String>(
-            value: _branchId ?? _allBranches,
+            initialValue: _branchId ?? _allBranches,
             decoration: _filterDecoration('지점'),
             items: [
               const DropdownMenuItem(
@@ -284,7 +284,7 @@ class _TeacherManagementPageState extends State<TeacherManagementPage> {
           const SizedBox(height: 10),
         ],
         DropdownButtonFormField<String>(
-          value: _statusFilter,
+          initialValue: _statusFilter,
           decoration: _filterDecoration('상태'),
           items: const [
             DropdownMenuItem(value: 'all', child: Text('전체')),

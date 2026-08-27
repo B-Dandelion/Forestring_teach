@@ -256,7 +256,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
         const SizedBox(height: 10),
         if (widget.profile.isMaster) ...[
           DropdownButtonFormField<String>(
-            value: _branchId ?? _allBranches,
+            initialValue: _branchId ?? _allBranches,
             decoration: _filterDecoration('지점'),
             items: [
               const DropdownMenuItem(
@@ -285,7 +285,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _typeFilter,
+                initialValue: _typeFilter,
                 decoration: _filterDecoration('수강 형태'),
                 items: const [
                   DropdownMenuItem(value: 'all', child: Text('전체')),
@@ -302,7 +302,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
             const SizedBox(width: 10),
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _statusFilter,
+                initialValue: _statusFilter,
                 decoration: _filterDecoration('상태'),
                 items: const [
                   DropdownMenuItem(value: 'all', child: Text('전체')),

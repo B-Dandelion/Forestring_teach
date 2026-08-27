@@ -207,7 +207,7 @@ class _CreateManagerSmokePageState extends State<CreateManagerSmokePage> {
               )
             else
               DropdownButtonFormField<String>(
-                value: _branchId,
+                initialValue: _branchId,
                 decoration: const InputDecoration(
                   labelText: '지점',
                   border: OutlineInputBorder(),

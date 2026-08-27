@@ -285,7 +285,7 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
               )
             else
               DropdownButtonFormField<String>(
-                value: _branchId,
+                initialValue: _branchId,
                 decoration: const InputDecoration(
                   labelText: '지점',
                   border: OutlineInputBorder(),
@@ -331,7 +331,7 @@ class _CreateTeacherSmokePageState extends State<CreateTeacherSmokePage> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
-              value: _weekday,
+              initialValue: _weekday,
               decoration: const InputDecoration(
                 labelText: '근무 요일',
                 border: OutlineInputBorder(),

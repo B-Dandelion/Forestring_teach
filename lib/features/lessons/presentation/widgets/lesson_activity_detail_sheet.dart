@@ -32,8 +32,8 @@ Future<bool> showLessonActivityDetailSheet({
                 builder: (context, snapshot) {
                   final loading =
                       snapshot.connectionState == ConnectionState.waiting;
-                  final data = snapshot.data ??
-                      const _LessonActivityData(events: []);
+                  final data =
+                      snapshot.data ?? const _LessonActivityData(events: []);
 
                   return Column(
                     mainAxisSize: MainAxisSize.min,
@@ -82,8 +82,9 @@ Future<bool> showLessonActivityDetailSheet({
                         style: forestringTextStyle.copyWith(
                           color: Colors.black54,
                           fontSize: 13,
-                          decoration:
-                              lesson.isCanceled ? TextDecoration.lineThrough : null,
+                          decoration: lesson.isCanceled
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -157,7 +158,8 @@ Future<bool> showLessonActivityDetailSheet({
                         )
                       else
                         FilledButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(false),
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(false),
                           style: FilledButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -190,9 +192,7 @@ Widget _emptyActivityCard(_LessonActivityData data) {
       ),
     ),
     child: Text(
-      data.loadFailed
-          ? '처리 이력을 불러오지 못했습니다.'
-          : '이력이 저장되지 않은 수업입니다.',
+      data.loadFailed ? '처리 이력을 불러오지 못했습니다.' : '이력이 저장되지 않은 수업입니다.',
       textAlign: TextAlign.center,
       style: forestringTextStyle.copyWith(
         color: Colors.black54,
@@ -252,13 +252,13 @@ Widget _activityCard(_LessonActivity event) {
             fontWeight: FontWeight.w500,
           ),
         ),
-        finalDescription(event),
+        _finalDescription(event),
       ],
     ),
   );
 }
 
-Widget finalDescription(_LessonActivity event) {
+Widget _finalDescription(_LessonActivity event) {
   final description = _eventDescription(event);
   if (description == null || description.isEmpty) {
     return const SizedBox.shrink();
@@ -371,20 +371,18 @@ Future<_LessonActivityData> _loadLessonActivity(Lesson lesson) async {
         .select('event_type, actor_id, details, created_at')
         .eq('subject_profile_id', lesson.studentId)
         .inFilter('event_type', const [
-          'LESSON_CANCELED',
-          'LESSON_MANUALLY_UPDATED',
-          'LESSON_RIGHT_BOOKED',
-          'MAKEUP_LESSON_CREATED',
-        ])
-        .order('created_at');
+      'LESSON_CANCELED',
+      'LESSON_MANUALLY_UPDATED',
+      'LESSON_RIGHT_BOOKED',
+      'MAKEUP_LESSON_CREATED',
+    ]).order('created_at');
 
     final rows = (rawRows as List)
         .map((raw) => Map<String, dynamic>.from(raw as Map))
         .where((row) {
-          final details = _asMap(row['details']);
-          return details['lessonId']?.toString() == lesson.id;
-        })
-        .toList();
+      final details = _asMap(row['details']);
+      return details['lessonId']?.toString() == lesson.id;
+    }).toList();
 
     final actorIds = rows
         .map((row) => row['actor_id']?.toString())

@@ -80,7 +80,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       if (_selectedBranchId != null && lesson.branchId != _selectedBranchId) {
         return false;
       }
-      if (_selectedStudentId != null && lesson.studentId != _selectedStudentId) {
+      if (_selectedStudentId != null &&
+          lesson.studentId != _selectedStudentId) {
         return false;
       }
       if (!_matchesCategory(lesson)) return false;
@@ -114,8 +115,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
 
   String? get _safeBranchValue {
     final selected = _selectedBranchId;
-    final exists = selected != null &&
-        _branches.any((branch) => branch.id == selected);
+    final exists =
+        selected != null && _branches.any((branch) => branch.id == selected);
 
     if (_isMaster) return exists ? selected : '__all__';
     return exists ? selected : null;
@@ -332,7 +333,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       return;
     }
 
-    final activeBranches = _branches.where((branch) => branch.isActive).toList();
+    final activeBranches =
+        _branches.where((branch) => branch.isActive).toList();
     if (activeBranches.isEmpty) {
       _message('추가 수업을 등록할 운영 지점이 없습니다.');
       return;
@@ -365,9 +367,8 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
     final start = branchId == null
         ? semester.startsOn
         : semester.effectiveStart(branchId);
-    final end = branchId == null
-        ? semester.endsOn
-        : semester.effectiveEnd(branchId);
+    final end =
+        branchId == null ? semester.endsOn : semester.effectiveEnd(branchId);
     final tomorrow = _dateOnly(DateTime.now().add(const Duration(days: 1)));
     if (tomorrow.isBefore(start)) return start;
     if (tomorrow.isAfter(end)) return end;
@@ -502,7 +503,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   isExpanded: true,
-                  value: _safeBranchValue,
+                  initialValue: _safeBranchValue,
                   decoration: _decoration('지점'),
                   items: [
                     if (_isMaster)
@@ -548,7 +549,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   isExpanded: true,
-                  value: _statusFilter,
+                  initialValue: _statusFilter,
                   decoration: _decoration('구분'),
                   items: const [
                     DropdownMenuItem<String>(
@@ -827,12 +828,6 @@ List<T> _uniqueById<T>(Iterable<T> items, String Function(T item) idOf) {
     result[idOf(item)] = item;
   }
   return result.values.toList();
-}
-
-String _semesterLabel(String code) {
-  final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
-  if (match == null) return code;
-  return '${match.group(1)}년 ${int.parse(match.group(2)!)}월';
 }
 
 DateTime _dateOnly(DateTime value) =>

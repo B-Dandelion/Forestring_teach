@@ -196,7 +196,7 @@ class _TeacherCreatePageState extends State<TeacherCreatePage> {
                   _sectionTitle('계정 정보'),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _branchId,
+                    initialValue: _branchId,
                     decoration: _decoration(
                       widget.profile.isManager ? '지점 (변경 불가)' : '지점',
                     ),

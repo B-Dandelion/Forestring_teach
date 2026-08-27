@@ -574,7 +574,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         builder: (dialogContext, setDialogState) => AlertDialog(
           title: const Text('담당 지점 변경'),
           content: DropdownButtonFormField<String>(
-            value: selectedId,
+            initialValue: selectedId,
             decoration: const InputDecoration(
               labelText: '담당 지점',
               border: OutlineInputBorder(),
@@ -817,7 +817,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
-          value: _branchFilter,
+          initialValue: _branchFilter,
           decoration: _filterDecoration('지점'),
           items: [
             const DropdownMenuItem(
@@ -837,7 +837,7 @@ class _ManagerManagementPageState extends State<ManagerManagementPage> {
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
-          value: _statusFilter,
+          initialValue: _statusFilter,
           decoration: _filterDecoration('상태'),
           items: const [
             DropdownMenuItem(value: 'all', child: Text('전체')),

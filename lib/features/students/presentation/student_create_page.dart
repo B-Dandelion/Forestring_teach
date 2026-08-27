@@ -301,7 +301,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                   _sectionTitle('계정 정보'),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _branchId,
+                    initialValue: _branchId,
                     decoration: _decoration('지점'),
                     items: _branches
                         .map(
@@ -324,7 +324,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<_StudentCreateType>(
-                    value: _studentType,
+                    initialValue: _studentType,
                     decoration: _decoration('수강 형태'),
                     items: _StudentCreateType.values
                         .map(
@@ -374,7 +374,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                   _sectionTitle(_isRegular ? '정규 수업 설정' : '자율 예약 설정'),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _teacherId,
+                    initialValue: _teacherId,
                     decoration: _decoration('담당 선생님'),
                     items: _teachers
                         .map(
@@ -390,7 +390,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _semesterId,
+                    initialValue: _semesterId,
                     decoration: _decoration('시작 학기'),
                     items: _semesters
                         .map(
@@ -443,7 +443,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<int>(
-                      value: _flexDurationMinutes,
+                      initialValue: _flexDurationMinutes,
                       decoration: _decoration('수업 길이'),
                       items: const [
                         DropdownMenuItem(value: 15, child: Text('15분')),
@@ -501,7 +501,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(
-                    value: schedule.weekday,
+                    initialValue: schedule.weekday,
                     decoration: _decoration('요일'),
                     items: const [
                       DropdownMenuItem(value: 1, child: Text('월요일')),
@@ -557,7 +557,7 @@ class _StudentCreatePageState extends State<StudentCreatePage> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: DropdownButtonFormField<int>(
-                    value: schedule.durationMinutes,
+                    initialValue: schedule.durationMinutes,
                     decoration: _decoration('수업 길이'),
                     items: const [
                       DropdownMenuItem(value: 15, child: Text('15분')),

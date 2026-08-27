@@ -138,7 +138,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<int>(
-                      value: weekCount,
+                      initialValue: weekCount,
                       decoration: const InputDecoration(
                         labelText: '학기 길이',
                         border: OutlineInputBorder(),
@@ -270,7 +270,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _filter,
+                initialValue: _filter,
                 decoration: InputDecoration(
                   labelText: '표시 범위',
                   filled: true,

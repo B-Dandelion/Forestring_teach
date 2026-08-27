@@ -669,7 +669,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
             ),
             const SizedBox(height: 18),
             DropdownButtonFormField<String>(
-              value: _semester?.id,
+              initialValue: _semester?.id,
               decoration: const InputDecoration(
                 labelText: '적용 학기',
                 border: OutlineInputBorder(),
@@ -711,7 +711,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: _weekday,
+              initialValue: _weekday,
               decoration: const InputDecoration(
                 labelText: '요일',
                 border: OutlineInputBorder(),
@@ -735,7 +735,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: _durationMinutes,
+              initialValue: _durationMinutes,
               decoration: const InputDecoration(
                 labelText: '수업 길이',
                 border: OutlineInputBorder(),
@@ -758,7 +758,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: _startMinutes != null &&
+              initialValue: _startMinutes != null &&
                       timeOptions.contains(_startMinutes)
                   ? _startMinutes
                   : null,
@@ -1073,7 +1073,7 @@ class _RegularScheduleEditPageState extends State<_RegularScheduleEditPage> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: _weekday,
+              initialValue: _weekday,
               decoration: const InputDecoration(
                 labelText: '요일',
                 border: OutlineInputBorder(),
@@ -1097,7 +1097,7 @@ class _RegularScheduleEditPageState extends State<_RegularScheduleEditPage> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: durationOptions.contains(_durationMinutes)
+              initialValue: durationOptions.contains(_durationMinutes)
                   ? _durationMinutes
                   : null,
               decoration: const InputDecoration(
@@ -1122,7 +1122,7 @@ class _RegularScheduleEditPageState extends State<_RegularScheduleEditPage> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: _startMinutes != null && timeOptions.contains(_startMinutes)
+              initialValue: _startMinutes != null && timeOptions.contains(_startMinutes)
                   ? _startMinutes
                   : null,
               decoration: const InputDecoration(

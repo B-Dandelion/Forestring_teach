@@ -174,7 +174,7 @@ class _StudentTeacherChangeDialogState
                 )
               else ...[
                 DropdownButtonFormField<String>(
-                  value: _teacherId,
+                  initialValue: _teacherId,
                   decoration: const InputDecoration(
                     labelText: '새 담당 선생님',
                     border: OutlineInputBorder(),

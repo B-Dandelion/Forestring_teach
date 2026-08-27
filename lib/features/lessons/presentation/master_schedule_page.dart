@@ -186,7 +186,7 @@ class MasterSchedulePage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: selectedBranchId,
+                      initialValue: selectedBranchId,
                       decoration: _selectorDecoration('지점 선택'),
                       items: controller.branches
                           .map(
@@ -214,7 +214,7 @@ class MasterSchedulePage extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: selectedTeacherId,
+                      initialValue: selectedTeacherId,
                       decoration: _selectorDecoration('선생님 선택'),
                       items: controller.branchTeachers
                           .map(

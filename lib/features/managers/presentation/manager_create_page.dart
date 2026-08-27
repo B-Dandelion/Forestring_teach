@@ -106,16 +106,14 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
         pin: _pinController.text,
         branchId: branchId,
         workHours: _teachesLessons
-            ? _workHours
-                .map((draft) {
-                  final input = draft.toInput();
-                  return ManagerWorkHourInput(
-                    weekday: input.weekday,
-                    startTime: input.startTime,
-                    endTime: input.endTime,
-                  );
-                })
-                .toList(growable: false)
+            ? _workHours.map((draft) {
+                final input = draft.toInput();
+                return ManagerWorkHourInput(
+                  weekday: input.weekday,
+                  startTime: input.startTime,
+                  endTime: input.endTime,
+                );
+              }).toList(growable: false)
             : const [],
       );
 
@@ -179,7 +177,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                   _sectionTitle('계정 정보'),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _branchId,
+                    initialValue: _branchId,
                     decoration: _decoration('지점'),
                     items: _branches
                         .map(
@@ -192,8 +190,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                     onChanged: _saving
                         ? null
                         : (value) => setState(() => _branchId = value),
-                    validator: (value) =>
-                        value == null ? '지점을 선택해주세요.' : null,
+                    validator: (value) => value == null ? '지점을 선택해주세요.' : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -243,7 +240,8 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                       if (!_saving && !_teachesLessons) _submit();
                     },
                     validator: (value) {
-                      if (value == null || !RegExp(r'^\d{4}$').hasMatch(value)) {
+                      if (value == null ||
+                          !RegExp(r'^\d{4}$').hasMatch(value)) {
                         return 'PIN을 한 번 더 입력해주세요.';
                       }
                       if (value != _pinController.text) {
@@ -271,7 +269,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                       ),
                     ),
                     value: _teachesLessons,
-                    activeColor: primaryColor,
+                    activeThumbColor: primaryColor,
                     onChanged: _saving
                         ? null
                         : (value) {
@@ -307,8 +305,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
                   ],
                   const SizedBox(height: 18),
                   FilledButton(
-                    onPressed:
-                        _saving || _branches.isEmpty ? null : _submit,
+                    onPressed: _saving || _branches.isEmpty ? null : _submit,
                     style: FilledButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
@@ -386,9 +383,7 @@ class _ManagerCreatePageState extends State<ManagerCreatePage> {
     return _decoration(label).copyWith(
       suffixIcon: IconButton(
         tooltip: _showPin ? 'PIN 숨기기' : 'PIN 보기',
-        onPressed: _saving
-            ? null
-            : () => setState(() => _showPin = !_showPin),
+        onPressed: _saving ? null : () => setState(() => _showPin = !_showPin),
         icon: Icon(
           _showPin ? Icons.visibility_off_outlined : Icons.visibility_outlined,
         ),

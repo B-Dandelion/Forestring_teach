@@ -255,7 +255,7 @@ class _CreateStudentSmokePageState
             else
               DropdownButtonFormField<
                   String>(
-                value: _branchId,
+                initialValue: _branchId,
                 decoration:
                     const InputDecoration(
                   labelText: '지점',
@@ -342,7 +342,7 @@ class _CreateStudentSmokePageState
 
             DropdownButtonFormField<
                 StudentType>(
-              value: _studentType,
+              initialValue: _studentType,
               decoration:
                   const InputDecoration(
                 labelText: '학생 유형',
