@@ -435,7 +435,7 @@ class StudentManagementRepository {
       );
 
       if (day == today) {
-        return finalizeWithdrawal(studentId: studentId);
+        return await finalizeWithdrawal(studentId: studentId);
       }
 
       return StudentWithdrawalResult(
