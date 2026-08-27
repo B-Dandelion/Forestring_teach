@@ -46,6 +46,16 @@ class TeacherWorkHourDraft {
   }
 }
 
+class TeacherWorkTimeRange {
+  const TeacherWorkTimeRange({
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+}
+
 class TeacherWorkHoursEditor extends StatelessWidget {
   const TeacherWorkHoursEditor({
     super.key,
@@ -159,23 +169,31 @@ class TeacherWorkHoursEditor extends StatelessWidget {
                     context: context,
                     label: '시작',
                     value: value.startTime,
-                    onSelected: (time) {
-                      _replaceAt(index, value.copyWith(startTime: time));
-                    },
+                    onPressed: () => _editTimeRange(
+                      context,
+                      index,
+                      initialEditingStart: true,
+                    ),
                   ),
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('~'),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: Colors.black45,
+                  ),
                 ),
                 Expanded(
                   child: _timeButton(
                     context: context,
                     label: '종료',
                     value: value.endTime,
-                    onSelected: (time) {
-                      _replaceAt(index, value.copyWith(endTime: time));
-                    },
+                    onPressed: () => _editTimeRange(
+                      context,
+                      index,
+                      initialEditingStart: false,
+                    ),
                   ),
                 ),
               ],
@@ -186,25 +204,40 @@ class TeacherWorkHoursEditor extends StatelessWidget {
     );
   }
 
+  Future<void> _editTimeRange(
+    BuildContext context,
+    int index, {
+    required bool initialEditingStart,
+  }) async {
+    if (!enabled) return;
+
+    final current = values[index];
+    final picked = await showTeacherWorkTimeRangePicker(
+      context: context,
+      initialStartTime: current.startTime,
+      initialEndTime: current.endTime,
+      initialEditingStart: initialEditingStart,
+    );
+
+    if (picked == null) return;
+
+    _replaceAt(
+      index,
+      current.copyWith(
+        startTime: picked.startTime,
+        endTime: picked.endTime,
+      ),
+    );
+  }
+
   Widget _timeButton({
     required BuildContext context,
     required String label,
     required TimeOfDay value,
-    required ValueChanged<TimeOfDay> onSelected,
+    required VoidCallback onPressed,
   }) {
     return OutlinedButton(
-      onPressed: !enabled
-          ? null
-          : () async {
-              final picked = await showTeacherWorkTimePicker(
-                context: context,
-                title: '$label 시간',
-                initialTime: value,
-              );
-              if (picked != null) {
-                onSelected(picked);
-              }
-            },
+      onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
         foregroundColor: primaryColor,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
@@ -269,79 +302,278 @@ class TeacherWorkHoursEditor extends StatelessWidget {
   }
 }
 
-Future<TimeOfDay?> showTeacherWorkTimePicker({
+Future<TeacherWorkTimeRange?> showTeacherWorkTimeRangePicker({
   required BuildContext context,
-  required String title,
-  required TimeOfDay initialTime,
+  required TimeOfDay initialStartTime,
+  required TimeOfDay initialEndTime,
+  bool initialEditingStart = true,
 }) async {
-  var selected = TimeOfDay(
-    hour: initialTime.hour,
-    minute: initialTime.minute - (initialTime.minute % 15),
-  );
+  var startTime = _roundToQuarter(initialStartTime);
+  var endTime = _roundToQuarter(initialEndTime);
+  var editingStart = initialEditingStart;
 
-  return showModalBottomSheet<TimeOfDay>(
+  return showModalBottomSheet<TeacherWorkTimeRange>(
     context: context,
-    backgroundColor: neutralIvory,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.42),
     builder: (sheetContext) {
-      return SafeArea(
-        child: SizedBox(
-          height: 330,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 8, 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: forestringTextStyle.copyWith(
-                          color: primaryColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          final selectedTime = editingStart ? startTime : endTime;
+          final startMinutes = _minutes(startTime);
+          final endMinutes = _minutes(endTime);
+          final isValid = startMinutes < endMinutes;
+          final durationMinutes = isValid ? endMinutes - startMinutes : 0;
+
+          return SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+              decoration: const BoxDecoration(
+                color: neutralIvory,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '근무시간 설정',
+                          style: forestringTextStyle.copyWith(
+                            color: primaryColor,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      child: const Text('취소'),
-                    ),
-                    TextButton(
-                      onPressed: () =>
-                          Navigator.of(sheetContext).pop(selected),
-                      child: const Text('선택'),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  use24hFormat: true,
-                  minuteInterval: 15,
-                  initialDateTime: DateTime(
-                    2000,
-                    1,
-                    1,
-                    selected.hour,
-                    selected.minute,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '15분 단위',
+                          style: forestringTextStyle.copyWith(
+                            color: primaryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  onDateTimeChanged: (value) {
-                    selected = TimeOfDay(
-                      hour: value.hour,
-                      minute: value.minute,
-                    );
-                  },
-                ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '시작과 종료를 한 화면에서 설정할 수 있습니다.',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _timeRangeTarget(
+                          label: '시작',
+                          value: startTime,
+                          selected: editingStart,
+                          onTap: () {
+                            setSheetState(() => editingStart = true);
+                          },
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.black45,
+                        ),
+                      ),
+                      Expanded(
+                        child: _timeRangeTarget(
+                          label: '종료',
+                          value: endTime,
+                          selected: !editingStart,
+                          onTap: () {
+                            setSheetState(() => editingStart = false);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    child: isValid
+                        ? Row(
+                            key: const ValueKey('duration'),
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.schedule_rounded,
+                                size: 16,
+                                color: Colors.black45,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _durationLabel(durationMinutes),
+                                style: forestringTextStyle.copyWith(
+                                  color: Colors.black54,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            '종료시간은 시작시간보다 뒤여야 합니다.',
+                            key: const ValueKey('error'),
+                            style: forestringTextStyle.copyWith(
+                              color: Colors.redAccent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 210,
+                    child: CupertinoDatePicker(
+                      key: ValueKey(editingStart),
+                      mode: CupertinoDatePickerMode.time,
+                      use24hFormat: true,
+                      minuteInterval: 15,
+                      backgroundColor: Colors.transparent,
+                      initialDateTime: DateTime(
+                        2000,
+                        1,
+                        1,
+                        selectedTime.hour,
+                        selectedTime.minute,
+                      ),
+                      onDateTimeChanged: (value) {
+                        final next = TimeOfDay(
+                          hour: value.hour,
+                          minute: value.minute,
+                        );
+                        setSheetState(() {
+                          if (editingStart) {
+                            startTime = next;
+                          } else {
+                            endTime = next;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: !isValid
+                          ? null
+                          : () {
+                              Navigator.of(sheetContext).pop(
+                                TeacherWorkTimeRange(
+                                  startTime: startTime,
+                                  endTime: endTime,
+                                ),
+                              );
+                            },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            primaryColor.withValues(alpha: 0.2),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('완료'),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
     },
+  );
+}
+
+Widget _timeRangeTarget({
+  required String label,
+  required TimeOfDay value,
+  required bool selected,
+  required VoidCallback onTap,
+}) {
+  return Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? primaryColor.withValues(alpha: 0.08)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? primaryColor
+                : primaryColor.withValues(alpha: 0.16),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: forestringTextStyle.copyWith(
+                color: selected ? primaryColor : Colors.black54,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              formatTeacherWorkTime(value),
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -415,6 +647,19 @@ String teacherWeekdayLabel(int weekday) {
     7 => '일',
     _ => '-',
   };
+}
+
+TimeOfDay _roundToQuarter(TimeOfDay value) {
+  final roundedMinute = value.minute - (value.minute % 15);
+  return TimeOfDay(hour: value.hour, minute: roundedMinute);
+}
+
+String _durationLabel(int minutes) {
+  final hours = minutes ~/ 60;
+  final remainder = minutes % 60;
+  if (hours == 0) return '총 $remainder분';
+  if (remainder == 0) return '총 $hours시간';
+  return '총 $hours시간 $remainder분';
 }
 
 int _minutes(TimeOfDay value) => value.hour * 60 + value.minute;
