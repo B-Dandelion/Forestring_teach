@@ -1,0 +1,369 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../../core/theme/forestring_theme.dart';
+import '../../domain/lesson.dart';
+import '../lesson_controller.dart';
+
+Future<TimeOfDay?> showLessonTimeSlotPicker({
+  required BuildContext context,
+  required Lesson lesson,
+  required LessonController controller,
+  required DateTime selectedDate,
+  required TimeOfDay initialTime,
+  required int durationMinutes,
+}) async {
+  final slots = _buildSlots(
+    lesson: lesson,
+    controller: controller,
+    selectedDate: selectedDate,
+    durationMinutes: durationMinutes,
+  );
+
+  final picked = await showModalBottomSheet<TimeOfDay>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.42),
+    builder: (sheetContext) {
+      return SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.72,
+          ),
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
+          decoration: const BoxDecoration(
+            color: neutralIvory,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '시간 선택',
+                style: forestringTextStyle.copyWith(
+                  color: primaryColor,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${selectedDate.month}월 ${selectedDate.day}일 · $durationMinutes분 수업',
+                style: forestringTextStyle.copyWith(
+                  color: Colors.black54,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (slots.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    '이 날짜에 등록된 근무시간이 없습니다.',
+                    textAlign: TextAlign.center,
+                    style: forestringTextStyle.copyWith(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: 1.9,
+                    ),
+                    itemCount: slots.length,
+                    itemBuilder: (context, index) {
+                      final slot = slots[index];
+                      final selected = _sameTime(slot.time, initialTime);
+
+                      return OutlinedButton(
+                        onPressed: slot.available
+                            ? () => Navigator.of(sheetContext).pop(slot.time)
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor:
+                              selected ? Colors.white : primaryColor,
+                          backgroundColor:
+                              selected ? primaryColor : Colors.white,
+                          disabledForegroundColor: Colors.black38,
+                          disabledBackgroundColor:
+                              Colors.black.withValues(alpha: 0.04),
+                          side: BorderSide(
+                            color: selected
+                                ? primaryColor
+                                : slot.available
+                                    ? primaryColor.withValues(alpha: 0.32)
+                                    : Colors.black.withValues(alpha: 0.08),
+                          ),
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          _formatTime(slot.time),
+                          style: forestringTextStyle.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: selected
+                                ? Colors.white
+                                : slot.available
+                                    ? primaryColor
+                                    : Colors.black38,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              if (slots.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '회색 시간은 기존 수업 또는 개인 일정과 겹칩니다.',
+                  textAlign: TextAlign.center,
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.black45,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final direct = await _showDirectTimeInput(
+                    context: sheetContext,
+                    initialTime: initialTime,
+                  );
+                  if (direct != null && sheetContext.mounted) {
+                    Navigator.of(sheetContext).pop(direct);
+                  }
+                },
+                icon: const Icon(Icons.keyboard_outlined, size: 18),
+                label: const Text('직접 입력'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primaryColor,
+                  side: BorderSide(
+                    color: primaryColor.withValues(alpha: 0.35),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  return picked;
+}
+
+List<_LessonTimeSlot> _buildSlots({
+  required Lesson lesson,
+  required LessonController controller,
+  required DateTime selectedDate,
+  required int durationMinutes,
+}) {
+  final workHours = controller
+      .workHoursFor(lesson.teacherId)
+      .where((workHour) => workHour.weekday == selectedDate.weekday)
+      .toList()
+    ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+  final result = <_LessonTimeSlot>[];
+  final seenMinutes = <int>{};
+
+  for (final workHour in workHours) {
+    final startMinutes = _parseMinutes(workHour.startTime);
+    final endMinutes = _parseMinutes(workHour.endTime);
+    if (startMinutes == null || endMinutes == null) continue;
+
+    for (
+      var minute = _ceilToQuarter(startMinutes);
+      minute + durationMinutes <= endMinutes;
+      minute += 15
+    ) {
+      if (!seenMinutes.add(minute)) continue;
+
+      final startsAt = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        minute ~/ 60,
+        minute % 60,
+      );
+      final endsAt = startsAt.add(Duration(minutes: durationMinutes));
+
+      final lessonConflict = controller.lessons.any((other) {
+        if (other.id == lesson.id || other.isCanceled) return false;
+        if (other.teacherId != lesson.teacherId &&
+            other.studentId != lesson.studentId) {
+          return false;
+        }
+        return _overlaps(startsAt, endsAt, other.startsAt, other.endsAt);
+      });
+
+      final blockedConflict = controller.blockedPeriods.any((period) {
+        if (period.teacherId != lesson.teacherId) return false;
+        return _overlaps(startsAt, endsAt, period.startsAt, period.endsAt);
+      });
+
+      result.add(
+        _LessonTimeSlot(
+          time: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
+          available: !lessonConflict && !blockedConflict,
+        ),
+      );
+    }
+  }
+
+  result.sort((a, b) => _minutes(a.time).compareTo(_minutes(b.time)));
+  return result;
+}
+
+Future<TimeOfDay?> _showDirectTimeInput({
+  required BuildContext context,
+  required TimeOfDay initialTime,
+}) async {
+  final controller = TextEditingController(text: _formatTime(initialTime));
+  String? errorText;
+
+  final result = await showDialog<TimeOfDay>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          void submit() {
+            final parsed = _parseTimeInput(controller.text);
+            if (parsed == null) {
+              setState(() => errorText = '00:00 ~ 23:59 형식으로 입력해주세요.');
+              return;
+            }
+            Navigator.of(dialogContext).pop(parsed);
+          }
+
+          return AlertDialog(
+            title: Text(
+              '시간 직접 입력',
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 19,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.datetime,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+                LengthLimitingTextInputFormatter(5),
+              ],
+              decoration: InputDecoration(
+                labelText: '시간',
+                hintText: '13:30',
+                errorText: errorText,
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => submit(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: submit,
+                style: FilledButton.styleFrom(backgroundColor: primaryColor),
+                child: const Text('선택'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  controller.dispose();
+  return result;
+}
+
+TimeOfDay? _parseTimeInput(String raw) {
+  final value = raw.trim();
+  final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(value);
+  if (match == null) return null;
+
+  final hour = int.tryParse(match.group(1)!);
+  final minute = int.tryParse(match.group(2)!);
+  if (hour == null || minute == null) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+int? _parseMinutes(String value) {
+  final parts = value.split(':');
+  if (parts.length < 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+int _ceilToQuarter(int minutes) => ((minutes + 14) ~/ 15) * 15;
+
+bool _overlaps(
+  DateTime aStart,
+  DateTime aEnd,
+  DateTime bStart,
+  DateTime bEnd,
+) {
+  return aStart.isBefore(bEnd) && aEnd.isAfter(bStart);
+}
+
+bool _sameTime(TimeOfDay a, TimeOfDay b) =>
+    a.hour == b.hour && a.minute == b.minute;
+
+String _formatTime(TimeOfDay value) {
+  return '${value.hour.toString().padLeft(2, '0')}:'
+      '${value.minute.toString().padLeft(2, '0')}';
+}
+
+int _minutes(TimeOfDay value) => value.hour * 60 + value.minute;
+
+class _LessonTimeSlot {
+  const _LessonTimeSlot({
+    required this.time,
+    required this.available,
+  });
+
+  final TimeOfDay time;
+  final bool available;
+}
