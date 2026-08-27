@@ -14,9 +14,8 @@ import 'features/auth/presentation/auth_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  AppConfig.validate();
-
   try {
+    AppConfig.validate();
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
       publishableKey: AppConfig.supabasePublishableKey,
