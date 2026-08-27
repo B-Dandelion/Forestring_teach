@@ -63,7 +63,9 @@ class LessonSemesterPicker extends StatelessWidget {
     );
     final initialOffset = selectedIndex <= 2
         ? 0.0
-        : (selectedIndex * 56.0 - 112.0).clamp(0.0, double.infinity);
+        : (selectedIndex * 56.0 - 112.0)
+            .clamp(0.0, double.infinity)
+            .toDouble();
     final scrollController = ScrollController(initialScrollOffset: initialOffset);
 
     final picked = await showModalBottomSheet<String>(
