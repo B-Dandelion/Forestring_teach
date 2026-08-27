@@ -23,7 +23,7 @@ Future<void> showCanceledLessonDetailSheet({
             color: neutralIvory,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: FutureBuilder<_CancellationActor>(
+          child: FutureBuilder<_CancellationActor?>(
             future: _loadCancellationActor(lesson),
             builder: (context, snapshot) {
               final actor = snapshot.data;
