@@ -32,6 +32,17 @@ Future<void> showLessonActionDialog({
         builder: (dialogBodyContext, setState) {
           final canEdit = !lesson.isCanceled;
 
+          Future<void> editTime() async {
+            if (!canEdit || isSaving) return;
+            final picked = await _showLessonTimePicker(
+              context: dialogBodyContext,
+              initialTime: selectedTime,
+            );
+            if (picked != null) {
+              setState(() => selectedTime = picked);
+            }
+          }
+
           return AlertDialog(
             title: Text(
               lesson.isCanceled ? '취소된 수업' : '일정 변경',
@@ -77,29 +88,29 @@ Future<void> showLessonActionDialog({
                       ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '시간  ${selectedTime.format(dialogBodyContext)}',
-                          style: forestringTextStyle,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: canEdit && !isSaving ? editTime : null,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '시간  ${_formatLessonTime(selectedTime)}',
+                                style: forestringTextStyle,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: canEdit && !isSaving ? editTime : null,
+                              icon: const Icon(Icons.access_time_rounded),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: canEdit && !isSaving
-                            ? () async {
-                                final picked = await showTimePicker(
-                                  context: dialogBodyContext,
-                                  initialTime: selectedTime,
-                                );
-                                if (picked != null) {
-                                  setState(() => selectedTime = picked);
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.access_time_rounded),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
@@ -282,6 +293,32 @@ Future<void> showLessonActionDialog({
       );
     },
   );
+}
+
+Future<TimeOfDay?> _showLessonTimePicker({
+  required BuildContext context,
+  required TimeOfDay initialTime,
+}) {
+  return showTimePicker(
+    context: context,
+    initialTime: initialTime,
+    initialEntryMode: TimePickerEntryMode.input,
+    helpText: '시간 입력',
+    cancelText: '취소',
+    confirmText: '확인',
+    builder: (context, child) {
+      final mediaQuery = MediaQuery.of(context);
+      return MediaQuery(
+        data: mediaQuery.copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      );
+    },
+  );
+}
+
+String _formatLessonTime(TimeOfDay value) {
+  return '${value.hour.toString().padLeft(2, '0')}:'
+      '${value.minute.toString().padLeft(2, '0')}';
 }
 
 Future<bool> _confirmCancel(BuildContext context) async {
