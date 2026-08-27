@@ -23,7 +23,7 @@ Future<void> showCanceledLessonDetailSheet({
             color: neutralIvory,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: FutureBuilder<_CancellationActor?>(
+          child: FutureBuilder<_CancellationActor>(
             future: _loadCancellationActor(lesson),
             builder: (context, snapshot) {
               final actor = snapshot.data;
@@ -221,7 +221,7 @@ Widget _pill(String text) {
   );
 }
 
-Future<_CancellationActor?> _loadCancellationActor(Lesson lesson) async {
+Future<_CancellationActor> _loadCancellationActor(Lesson lesson) async {
   try {
     final client = Supabase.instance.client;
     final lessonRow = await client
@@ -230,7 +230,13 @@ Future<_CancellationActor?> _loadCancellationActor(Lesson lesson) async {
         .eq('id', lesson.id)
         .maybeSingle();
     final actorId = lessonRow?['canceled_by']?.toString();
-    if (actorId == null || actorId.isEmpty) return null;
+    if (actorId == null || actorId.isEmpty) {
+      return const _CancellationActor(
+        id: '',
+        name: null,
+        role: null,
+      );
+    }
 
     final profileRow = await client
         .from('profiles')
@@ -244,7 +250,11 @@ Future<_CancellationActor?> _loadCancellationActor(Lesson lesson) async {
       role: profileRow?['role']?.toString(),
     );
   } catch (_) {
-    return null;
+    return const _CancellationActor(
+      id: '',
+      name: null,
+      role: null,
+    );
   }
 }
 
@@ -260,6 +270,8 @@ class _CancellationActor {
   final String? role;
 
   String get displayLabel {
+    if (id.isEmpty) return '확인되지 않음';
+
     final roleLabel = switch (role) {
       'master' => '전체 관리자',
       'manager' => '지점장',
