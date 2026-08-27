@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/forestring_theme.dart';
+import '../../../teachers/data/teacher_work_hours_schedule_repository.dart';
+import '../../data/lesson_repository.dart';
 import '../../domain/lesson.dart';
 import '../lesson_controller.dart';
 
@@ -15,13 +17,158 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
   required TimeOfDay initialTime,
   required int durationMinutes,
 }) async {
-  final slots = _buildSlots(
-    lesson: lesson,
-    controller: controller,
+  final workHours = await _loadDateAwareWorkHours(
+    teacherId: lesson.teacherId,
     selectedDate: selectedDate,
-    durationMinutes: durationMinutes,
+    fallback: controller.workHoursFor(lesson.teacherId),
   );
 
+  final slots = _buildSlots(
+    teacherId: lesson.teacherId,
+    studentId: lesson.studentId,
+    excludedLessonId: lesson.id,
+    selectedDate: selectedDate,
+    durationMinutes: durationMinutes,
+    workHours: workHours,
+    lessons: controller.lessons,
+    blockedPeriods: controller.blockedPeriods,
+  );
+
+  return _showSlotSheet(
+    context: context,
+    slots: slots,
+    selectedDate: selectedDate,
+    initialTime: initialTime,
+    durationMinutes: durationMinutes,
+  );
+}
+
+Future<TimeOfDay?> showMakeupLessonTimeSlotPicker({
+  required BuildContext context,
+  required LessonRepository repository,
+  required String teacherId,
+  required String studentId,
+  required DateTime selectedDate,
+  required TimeOfDay initialTime,
+  required int durationMinutes,
+}) async {
+  final dayStart = DateTime(
+    selectedDate.year,
+    selectedDate.month,
+    selectedDate.day,
+  );
+  final dayEnd = dayStart.add(const Duration(days: 1));
+
+  var loadFailed = false;
+  List<TeacherWorkHour> workHours = const [];
+  List<Lesson> lessons = const [];
+  List<TeacherBlockedPeriod> blockedPeriods = const [];
+
+  try {
+    final results = await Future.wait([
+      TeacherWorkHoursScheduleRepository().fetchForDate(
+        teacherId: teacherId,
+        onDate: selectedDate,
+      ),
+      repository.fetchVisibleLessons(
+        from: dayStart,
+        to: dayEnd,
+        teacherId: teacherId,
+      ),
+      repository.fetchVisibleLessons(
+        from: dayStart,
+        to: dayEnd,
+        studentId: studentId,
+      ),
+      repository.fetchVisibleBlockedPeriods(
+        from: dayStart,
+        to: dayEnd,
+        teacherId: teacherId,
+      ),
+    ]);
+
+    final rawWorkHours = results[0] as List;
+    workHours = rawWorkHours
+        .map(
+          (raw) => TeacherWorkHour(
+            teacherId: teacherId,
+            weekday: raw.weekday as int,
+            startTime: raw.startTime.toString(),
+            endTime: raw.endTime.toString(),
+          ),
+        )
+        .toList();
+
+    final mergedLessons = <String, Lesson>{};
+    for (final raw in results[1] as List) {
+      final lesson = raw as Lesson;
+      mergedLessons[lesson.id] = lesson;
+    }
+    for (final raw in results[2] as List) {
+      final lesson = raw as Lesson;
+      mergedLessons[lesson.id] = lesson;
+    }
+    lessons = mergedLessons.values.toList();
+    blockedPeriods = List<TeacherBlockedPeriod>.from(results[3] as List);
+  } catch (_) {
+    loadFailed = true;
+  }
+
+  final slots = _buildSlots(
+    teacherId: teacherId,
+    studentId: studentId,
+    selectedDate: selectedDate,
+    durationMinutes: durationMinutes,
+    workHours: workHours,
+    lessons: lessons,
+    blockedPeriods: blockedPeriods,
+  );
+
+  return _showSlotSheet(
+    context: context,
+    slots: slots,
+    selectedDate: selectedDate,
+    initialTime: initialTime,
+    durationMinutes: durationMinutes,
+    emptyMessage: loadFailed
+        ? '가능한 시간을 불러오지 못했습니다. 직접 입력을 이용해주세요.'
+        : '이 날짜에 등록된 근무시간이 없습니다.',
+  );
+}
+
+Future<List<TeacherWorkHour>> _loadDateAwareWorkHours({
+  required String teacherId,
+  required DateTime selectedDate,
+  required List<TeacherWorkHour> fallback,
+}) async {
+  try {
+    final hours = await TeacherWorkHoursScheduleRepository().fetchForDate(
+      teacherId: teacherId,
+      onDate: selectedDate,
+    );
+    return hours
+        .map(
+          (hour) => TeacherWorkHour(
+            teacherId: teacherId,
+            weekday: hour.weekday,
+            startTime: hour.startTime,
+            endTime: hour.endTime,
+          ),
+        )
+        .toList();
+  } catch (_) {
+    return fallback;
+  }
+}
+
+Future<TimeOfDay?> _showSlotSheet({
+  required BuildContext context,
+  required List<_LessonTimeSlot> slots,
+  required DateTime selectedDate,
+  required TimeOfDay initialTime,
+  required int durationMinutes,
+  String emptyMessage = '이 날짜에 등록된 근무시간이 없습니다.',
+}) async {
   final rowCount = (slots.length + 3) ~/ 4;
   final viewportHeight = math.min(rowCount * 54.0, 270.0);
   final selectedIndex = slots.indexWhere(
@@ -90,7 +237,7 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Text(
-                    '이 날짜에 등록된 근무시간이 없습니다.',
+                    emptyMessage,
                     textAlign: TextAlign.center,
                     style: forestringTextStyle.copyWith(
                       color: Colors.black54,
@@ -208,13 +355,16 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
 }
 
 List<_LessonTimeSlot> _buildSlots({
-  required Lesson lesson,
-  required LessonController controller,
+  required String teacherId,
+  required String studentId,
   required DateTime selectedDate,
   required int durationMinutes,
+  required List<TeacherWorkHour> workHours,
+  required List<Lesson> lessons,
+  required List<TeacherBlockedPeriod> blockedPeriods,
+  String? excludedLessonId,
 }) {
-  final workHours = controller
-      .workHoursFor(lesson.teacherId)
+  final dayWorkHours = workHours
       .where((workHour) => workHour.weekday == selectedDate.weekday)
       .toList()
     ..sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -222,7 +372,7 @@ List<_LessonTimeSlot> _buildSlots({
   final result = <_LessonTimeSlot>[];
   final seenMinutes = <int>{};
 
-  for (final workHour in workHours) {
+  for (final workHour in dayWorkHours) {
     final startMinutes = _parseMinutes(workHour.startTime);
     final endMinutes = _parseMinutes(workHour.endTime);
     if (startMinutes == null || endMinutes == null) continue;
@@ -243,17 +393,16 @@ List<_LessonTimeSlot> _buildSlots({
       );
       final endsAt = startsAt.add(Duration(minutes: durationMinutes));
 
-      final lessonConflict = controller.lessons.any((other) {
-        if (other.id == lesson.id || other.isCanceled) return false;
-        if (other.teacherId != lesson.teacherId &&
-            other.studentId != lesson.studentId) {
+      final lessonConflict = lessons.any((other) {
+        if (other.id == excludedLessonId || other.isCanceled) return false;
+        if (other.teacherId != teacherId && other.studentId != studentId) {
           return false;
         }
         return _overlaps(startsAt, endsAt, other.startsAt, other.endsAt);
       });
 
-      final blockedConflict = controller.blockedPeriods.any((period) {
-        if (period.teacherId != lesson.teacherId) return false;
+      final blockedConflict = blockedPeriods.any((period) {
+        if (period.teacherId != teacherId) return false;
         return _overlaps(startsAt, endsAt, period.startsAt, period.endsAt);
       });
 
