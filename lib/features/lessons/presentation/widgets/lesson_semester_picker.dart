@@ -124,47 +124,57 @@ class LessonSemesterPicker extends StatelessWidget {
                               ? '예정'
                               : null;
 
-                      return ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        onTap: () => Navigator.of(sheetContext).pop(semester.id),
-                        title: Text(
-                          _semesterLabel(semester.code),
-                          style: forestringTextStyle.copyWith(
-                            color: selected ? primaryColor : Colors.black87,
-                            fontSize: 16,
-                            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                      return Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          onTap: () =>
+                              Navigator.of(sheetContext).pop(semester.id),
+                          title: Text(
+                            _semesterLabel(semester.code),
+                            style: forestringTextStyle.copyWith(
+                              color: selected ? primaryColor : Colors.black87,
+                              fontSize: 16,
+                              fontWeight: selected
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          '${semester.startsOn.month}월 ${semester.startsOn.day}일 ~ '
-                          '${semester.endsOn.month}월 ${semester.endsOn.day}일',
-                          style: forestringTextStyle.copyWith(
-                            color: Colors.black45,
-                            fontSize: 12,
+                          subtitle: Text(
+                            '${semester.startsOn.month}월 ${semester.startsOn.day}일 ~ '
+                            '${semester.endsOn.month}월 ${semester.endsOn.day}일',
+                            style: forestringTextStyle.copyWith(
+                              color: Colors.black45,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        trailing: selected
-                            ? const Icon(Icons.check_rounded, color: primaryColor)
-                            : stateLabel == null
-                                ? null
-                                : Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: primaryColor.withValues(alpha: 0.09),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      stateLabel,
-                                      style: forestringTextStyle.copyWith(
-                                        color: primaryColor,
-                                        fontSize: 11,
+                          trailing: selected
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  color: primaryColor,
+                                )
+                              : stateLabel == null
+                                  ? null
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withValues(alpha: 0.09),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        stateLabel,
+                                        style: forestringTextStyle.copyWith(
+                                          color: primaryColor,
+                                          fontSize: 11,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                        ),
                       );
                     },
                   ),
