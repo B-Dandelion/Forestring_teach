@@ -83,12 +83,27 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
       if (_selectedStudentId != null && lesson.studentId != _selectedStudentId) {
         return false;
       }
-      if (_statusFilter == 'scheduled' && lesson.isCanceled) return false;
-      if (_statusFilter == 'canceled' && !lesson.isCanceled) return false;
+      if (!_matchesCategory(lesson)) return false;
       return true;
     }).toList()
       ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
     return result;
+  }
+
+  bool _matchesCategory(Lesson lesson) {
+    return switch (_statusFilter) {
+      'base' => !lesson.isCanceled &&
+          !lesson.isRescheduled &&
+          lesson.type != LessonType.makeup &&
+          lesson.type != LessonType.flex,
+      'changed' => !lesson.isCanceled && lesson.isStaffChanged,
+      'canceled' => lesson.isCanceled,
+      'special' => !lesson.isCanceled &&
+          (lesson.type == LessonType.makeup ||
+              lesson.type == LessonType.flex ||
+              lesson.isStudentRebooked),
+      _ => true,
+    };
   }
 
   String? get _safeSemesterValue {
@@ -447,7 +462,7 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
             children: [
               Expanded(
                 child: Text(
-                  '전체 수업 $count건',
+                  '수업 $count건',
                   style: forestringTextStyle.copyWith(
                     color: primaryColor,
                     fontSize: 16,
@@ -534,19 +549,27 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
                 child: DropdownButtonFormField<String>(
                   isExpanded: true,
                   value: _statusFilter,
-                  decoration: _decoration('상태'),
+                  decoration: _decoration('구분'),
                   items: const [
                     DropdownMenuItem<String>(
                       value: 'all',
-                      child: Text('전체 상태'),
+                      child: Text('전체'),
                     ),
                     DropdownMenuItem<String>(
-                      value: 'scheduled',
-                      child: Text('예정'),
+                      value: 'base',
+                      child: Text('기본 수업'),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'changed',
+                      child: Text('일정 변경'),
                     ),
                     DropdownMenuItem<String>(
                       value: 'canceled',
                       child: Text('취소'),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'special',
+                      child: Text('보강·예약'),
                     ),
                   ],
                   onChanged: _loading
