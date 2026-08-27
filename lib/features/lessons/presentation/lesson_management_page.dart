@@ -13,6 +13,7 @@ import '../domain/lesson.dart';
 import 'lesson_controller.dart';
 import 'makeup_lesson_create_page.dart';
 import 'widgets/lesson_action_dialog.dart';
+import 'widgets/lesson_semester_picker.dart';
 import 'widgets/student_search_picker.dart';
 import 'widgets/student_style_lesson_calendar.dart';
 
@@ -475,22 +476,11 @@ class _LessonManagementPageState extends State<LessonManagementPage> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  value: _safeSemesterValue,
-                  decoration: _decoration('학기'),
-                  items: _semesters
-                      .map(
-                        (item) => DropdownMenuItem<String>(
-                          value: item.id,
-                          child: Text(
-                            _semesterLabel(item.code),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _loading ? null : _changeSemester,
+                child: LessonSemesterPicker(
+                  semesters: _semesters,
+                  selectedSemesterId: _safeSemesterValue,
+                  enabled: !_loading,
+                  onChanged: (value) => _changeSemester(value),
                 ),
               ),
               const SizedBox(width: 8),
