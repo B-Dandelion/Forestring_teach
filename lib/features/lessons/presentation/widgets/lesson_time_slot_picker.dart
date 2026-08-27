@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -20,6 +22,21 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
     durationMinutes: durationMinutes,
   );
 
+  final rowCount = (slots.length + 3) ~/ 4;
+  final viewportHeight = math.min(rowCount * 54.0, 270.0);
+  final selectedIndex = slots.indexWhere(
+    (slot) => _sameTime(slot.time, initialTime),
+  );
+  final selectedRow = selectedIndex < 0 ? 0 : selectedIndex ~/ 4;
+  final maxScrollOffset = math.max(0.0, rowCount * 54.0 - viewportHeight);
+  final initialScrollOffset = math.min(
+    maxScrollOffset,
+    math.max(0.0, (selectedRow - 2) * 54.0),
+  );
+  final slotScrollController = ScrollController(
+    initialScrollOffset: initialScrollOffset,
+  );
+
   final picked = await showModalBottomSheet<TimeOfDay>(
     context: context,
     isScrollControlled: true,
@@ -30,7 +47,7 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
         top: false,
         child: Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.72,
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.62,
           ),
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
           decoration: const BoxDecoration(
@@ -68,7 +85,7 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               if (slots.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
@@ -82,70 +99,76 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
                   ),
                 )
               else
-                Flexible(
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 1.9,
-                    ),
-                    itemCount: slots.length,
-                    itemBuilder: (context, index) {
-                      final slot = slots[index];
-                      final selected = _sameTime(slot.time, initialTime);
+                SizedBox(
+                  height: viewportHeight,
+                  child: Scrollbar(
+                    controller: slotScrollController,
+                    thumbVisibility: rowCount > 5,
+                    radius: const Radius.circular(999),
+                    child: GridView.builder(
+                      controller: slotScrollController,
+                      padding: EdgeInsets.zero,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                        mainAxisExtent: 46,
+                      ),
+                      itemCount: slots.length,
+                      itemBuilder: (context, index) {
+                        final slot = slots[index];
+                        final selected = _sameTime(slot.time, initialTime);
 
-                      return OutlinedButton(
-                        onPressed: slot.available
-                            ? () => Navigator.of(sheetContext).pop(slot.time)
-                            : null,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor:
-                              selected ? Colors.white : primaryColor,
-                          backgroundColor:
-                              selected ? primaryColor : Colors.white,
-                          disabledForegroundColor: Colors.black38,
-                          disabledBackgroundColor:
-                              Colors.black.withValues(alpha: 0.04),
-                          side: BorderSide(
-                            color: selected
-                                ? primaryColor
-                                : slot.available
-                                    ? primaryColor.withValues(alpha: 0.32)
-                                    : Colors.black.withValues(alpha: 0.08),
+                        return OutlinedButton(
+                          onPressed: slot.available
+                              ? () => Navigator.of(sheetContext).pop(slot.time)
+                              : null,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                selected ? Colors.white : primaryColor,
+                            backgroundColor:
+                                selected ? primaryColor : Colors.white,
+                            disabledForegroundColor: Colors.black38,
+                            disabledBackgroundColor:
+                                Colors.black.withValues(alpha: 0.04),
+                            side: BorderSide(
+                              color: selected
+                                  ? primaryColor
+                                  : slot.available
+                                      ? primaryColor.withValues(alpha: 0.32)
+                                      : Colors.black.withValues(alpha: 0.08),
+                            ),
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          child: Text(
+                            _formatTime(slot.time),
+                            style: forestringTextStyle.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: selected
+                                  ? Colors.white
+                                  : slot.available
+                                      ? primaryColor
+                                      : Colors.black38,
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          _formatTime(slot.time),
-                          style: forestringTextStyle.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: selected
-                                ? Colors.white
-                                : slot.available
-                                    ? primaryColor
-                                    : Colors.black38,
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               if (slots.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   '회색 시간은 기존 수업 또는 개인 일정과 겹칩니다.',
                   textAlign: TextAlign.center,
                   style: forestringTextStyle.copyWith(
                     color: Colors.black45,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -180,6 +203,7 @@ Future<TimeOfDay?> showLessonTimeSlotPicker({
     },
   );
 
+  slotScrollController.dispose();
   return picked;
 }
 
