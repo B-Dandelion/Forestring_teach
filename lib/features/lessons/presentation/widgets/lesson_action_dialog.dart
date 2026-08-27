@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/forestring_theme.dart';
 import '../../domain/lesson.dart';
 import '../lesson_controller.dart';
+import 'lesson_time_slot_picker.dart';
 
 Future<void> showLessonActionDialog({
   required BuildContext context,
@@ -34,9 +35,13 @@ Future<void> showLessonActionDialog({
 
           Future<void> editTime() async {
             if (!canEdit || isSaving) return;
-            final picked = await _showLessonTimePicker(
+            final picked = await showLessonTimeSlotPicker(
               context: dialogBodyContext,
+              lesson: lesson,
+              controller: controller,
+              selectedDate: selectedDate,
               initialTime: selectedTime,
+              durationMinutes: selectedDuration,
             );
             if (picked != null) {
               setState(() => selectedTime = picked);
@@ -290,27 +295,6 @@ Future<void> showLessonActionDialog({
             ],
           );
         },
-      );
-    },
-  );
-}
-
-Future<TimeOfDay?> _showLessonTimePicker({
-  required BuildContext context,
-  required TimeOfDay initialTime,
-}) {
-  return showTimePicker(
-    context: context,
-    initialTime: initialTime,
-    initialEntryMode: TimePickerEntryMode.input,
-    helpText: '시간 입력',
-    cancelText: '취소',
-    confirmText: '확인',
-    builder: (context, child) {
-      final mediaQuery = MediaQuery.of(context);
-      return MediaQuery(
-        data: mediaQuery.copyWith(alwaysUse24HourFormat: true),
-        child: child!,
       );
     },
   );
