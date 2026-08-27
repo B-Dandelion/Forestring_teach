@@ -8,6 +8,7 @@ import '../../branches/domain/academy_branch.dart';
 import '../../semesters/domain/managed_semester.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson.dart';
+import 'widgets/lesson_time_slot_picker.dart';
 import 'widgets/student_search_picker.dart';
 
 class MakeupLessonCreatePage extends StatefulWidget {
@@ -229,12 +230,21 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
+    final studentId = _studentId;
+    final teacherId = _teacherId;
+    if (studentId == null || teacherId == null) {
+      _message('학생과 수업 담당자를 먼저 선택해주세요.');
+      return;
+    }
+
+    final picked = await showMakeupLessonTimeSlotPicker(
       context: context,
+      repository: _repository,
+      teacherId: teacherId,
+      studentId: studentId,
+      selectedDate: _date,
       initialTime: _time,
-      helpText: '추가 수업 시간',
-      cancelText: '취소',
-      confirmText: '선택',
+      durationMinutes: _durationMinutes,
     );
     if (picked != null && mounted) {
       setState(() => _time = picked);
@@ -414,7 +424,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                 const SizedBox(height: 18),
                 if (widget.profile.isMaster)
                   DropdownButtonFormField<String>(
-                    value: _branchId,
+                    initialValue: _branchId,
                     decoration: _decoration('지점'),
                     items: widget.branches
                         .map(
@@ -451,7 +461,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                 ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: teachers.any((item) => item.id == _teacherId)
+                  initialValue: teachers.any((item) => item.id == _teacherId)
                       ? _teacherId
                       : null,
                   decoration: _decoration('수업 담당자'),
@@ -506,7 +516,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                         child: OutlinedButton.icon(
                           onPressed: _saving ? null : _pickTime,
                           icon: const Icon(Icons.schedule_outlined),
-                          label: Text(_time.format(context)),
+                          label: Text(_formatTime(_time)),
                         ),
                       ),
                     ),
@@ -514,7 +524,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: _durationMinutes,
+                  initialValue: _durationMinutes,
                   decoration: _decoration('수업 길이'),
                   items: const [15, 30, 45, 60, 75, 90]
                       .map(
@@ -559,7 +569,7 @@ class _MakeupLessonCreatePageState extends State<MakeupLessonCreatePage> {
                         ? (value) =>
                             setState(() => _deductLessonRight = value)
                         : null,
-                    activeColor: primaryColor,
+                    activeThumbColor: primaryColor,
                     title: Text(
                       '수업권 1회 사용',
                       style: forestringTextStyle.copyWith(
@@ -678,6 +688,11 @@ String _semesterLabel(String code) {
   final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(code.trim());
   if (match == null) return code;
   return '${match.group(1)}년 ${int.parse(match.group(2)!)}월';
+}
+
+String _formatTime(TimeOfDay value) {
+  return '${value.hour.toString().padLeft(2, '0')}:'
+      '${value.minute.toString().padLeft(2, '0')}';
 }
 
 DateTime _dateOnly(DateTime value) =>
