@@ -348,46 +348,14 @@ Future<TeacherWorkTimeRange?> showTeacherWorkTimeRangePicker({
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '근무시간 설정',
-                          style: forestringTextStyle.copyWith(
-                            color: primaryColor,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '15분 단위',
-                          style: forestringTextStyle.copyWith(
-                            color: primaryColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '시작과 종료를 한 화면에서 설정할 수 있습니다.',
+                      '근무시간 설정',
                       style: forestringTextStyle.copyWith(
-                        color: Colors.black54,
-                        fontSize: 13,
+                        color: primaryColor,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
