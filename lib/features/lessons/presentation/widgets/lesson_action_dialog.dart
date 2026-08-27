@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/forestring_theme.dart';
 import '../../domain/lesson.dart';
 import '../lesson_controller.dart';
-import 'canceled_lesson_detail_sheet.dart';
+import 'lesson_activity_detail_sheet.dart';
 import 'lesson_time_slot_picker.dart';
 
 Future<void> showLessonActionDialog({
@@ -13,11 +13,24 @@ Future<void> showLessonActionDialog({
   required LessonController controller,
 }) async {
   if (lesson.isCanceled) {
-    await showCanceledLessonDetailSheet(
+    await showLessonActivityDetailSheet(
       context: context,
       lesson: lesson,
     );
     return;
+  }
+
+  if (lesson.isRescheduled ||
+      lesson.type == LessonType.makeup ||
+      lesson.type == LessonType.flex) {
+    final editRequested = await showLessonActivityDetailSheet(
+      context: context,
+      lesson: lesson,
+      allowEdit: true,
+    );
+    if (!editRequested || !context.mounted) {
+      return;
+    }
   }
 
   final hostContext = context;
