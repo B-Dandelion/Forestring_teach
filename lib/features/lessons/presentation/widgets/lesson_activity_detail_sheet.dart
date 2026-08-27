@@ -96,26 +96,27 @@ Future<bool> showLessonActivityDetailSheet({
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Flexible(
-                        child: loading
-                            ? const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 28),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
-                            : data.events.isEmpty
-                                ? _emptyActivityCard(data)
-                                : ListView.separated(
-                                    shrinkWrap: true,
-                                    padding: EdgeInsets.zero,
-                                    itemCount: data.events.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(height: 8),
-                                    itemBuilder: (_, index) =>
-                                        _activityCard(data.events[index]),
-                                  ),
-                      ),
+                      if (loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (data.events.isEmpty)
+                        _emptyActivityCard(data)
+                      else
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            padding: EdgeInsets.zero,
+                            itemCount: data.events.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (_, index) =>
+                                _activityCard(data.events[index]),
+                          ),
+                        ),
                       const SizedBox(height: 14),
                       if (allowEdit)
                         Row(
@@ -179,8 +180,6 @@ Future<bool> showLessonActivityDetailSheet({
 }
 
 Widget _emptyActivityCard(_LessonActivityData data) {
-  final registeredAt = data.lessonCreatedAt;
-
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
     decoration: BoxDecoration(
@@ -190,41 +189,16 @@ Widget _emptyActivityCard(_LessonActivityData data) {
         color: primaryColor.withValues(alpha: 0.12),
       ),
     ),
-    child: Column(
-      children: [
-        Text(
-          data.loadFailed
-              ? '처리 이력을 불러오지 못했습니다.'
-              : '등록 당시 처리자 이력이 저장되지 않은 수업입니다.',
-          textAlign: TextAlign.center,
-          style: forestringTextStyle.copyWith(
-            color: Colors.black54,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        if (data.loadFailed) ...[
-          const SizedBox(height: 4),
-          Text(
-            '잠시 후 다시 시도해주세요.',
-            textAlign: TextAlign.center,
-            style: forestringTextStyle.copyWith(
-              color: Colors.black38,
-              fontSize: 12,
-            ),
-          ),
-        ] else if (registeredAt != null) ...[
-          const SizedBox(height: 7),
-          Text(
-            'DB 등록 ${DateFormat('yyyy.MM.dd HH:mm').format(registeredAt)} · 처리자 기록 없음',
-            textAlign: TextAlign.center,
-            style: forestringTextStyle.copyWith(
-              color: Colors.black38,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ],
+    child: Text(
+      data.loadFailed
+          ? '처리 이력을 불러오지 못했습니다.'
+          : '이력이 저장되지 않은 수업입니다.',
+      textAlign: TextAlign.center,
+      style: forestringTextStyle.copyWith(
+        color: Colors.black54,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
     ),
   );
 }
@@ -392,13 +366,6 @@ Future<_LessonActivityData> _loadLessonActivity(Lesson lesson) async {
   try {
     final client = Supabase.instance.client;
 
-    final lessonRow = await client
-        .from('lessons')
-        .select('created_at')
-        .eq('id', lesson.id)
-        .maybeSingle();
-    final lessonCreatedAt = _parseDate(lessonRow?['created_at']);
-
     final rawRows = await client
         .from('audit_events')
         .select('event_type, actor_id, details, created_at')
@@ -458,10 +425,7 @@ Future<_LessonActivityData> _loadLessonActivity(Lesson lesson) async {
     }).toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    return _LessonActivityData(
-      events: events,
-      lessonCreatedAt: lessonCreatedAt,
-    );
+    return _LessonActivityData(events: events);
   } catch (_) {
     return const _LessonActivityData(
       events: [],
@@ -509,12 +473,10 @@ int? _asInt(dynamic value) {
 class _LessonActivityData {
   const _LessonActivityData({
     required this.events,
-    this.lessonCreatedAt,
     this.loadFailed = false,
   });
 
   final List<_LessonActivity> events;
-  final DateTime? lessonCreatedAt;
   final bool loadFailed;
 }
 
