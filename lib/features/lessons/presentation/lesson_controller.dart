@@ -13,6 +13,9 @@ class LessonController extends ChangeNotifier {
     BranchRepository? branchRepository,
   }) : _branchRepository = branchRepository ?? BranchRepository();
 
+  static const _preferredMasterBranchName = '포레스트링 키즈';
+  static const _preferredMasterTeacherName = '포링키즈';
+
   final LessonRepository _repository;
   final BranchRepository _branchRepository;
   final CurrentProfile _profile;
@@ -167,14 +170,13 @@ class LessonController extends ChangeNotifier {
           (a, b) => a.name.compareTo(b.name),
         );
 
-        _workHours =
-            results[2] as Map<String, List<TeacherWorkHour>>;
+        _workHours = results[2] as Map<String, List<TeacherWorkHour>>;
 
         final branchStillExists = _selectedBranchId != null &&
             _branches.any((branch) => branch.id == _selectedBranchId);
 
         if (!branchStillExists) {
-          _selectedBranchId = _branches.isNotEmpty ? _branches.first.id : null;
+          _selectedBranchId = _initialBranchId();
         }
 
         _ensureTeacherSelectionForBranch();
@@ -196,8 +198,7 @@ class LessonController extends ChangeNotifier {
         ]);
 
         _lessons = results[0] as List<Lesson>;
-        _workHours =
-            results[1] as Map<String, List<TeacherWorkHour>>;
+        _workHours = results[1] as Map<String, List<TeacherWorkHour>>;
         _blockedPeriods = results[2] as List<TeacherBlockedPeriod>;
         _teachers = [
           VisibleTeacher(
@@ -219,6 +220,18 @@ class LessonController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String? _initialBranchId() {
+    if (_branches.isEmpty) return null;
+    if (!isMaster) return _branches.first.id;
+
+    for (final branch in _branches) {
+      if (branch.name == _preferredMasterBranchName) {
+        return branch.id;
+      }
+    }
+    return _branches.first.id;
   }
 
   void selectBranch(String branchId) {
@@ -256,9 +269,18 @@ class LessonController extends ChangeNotifier {
     final teacherStillVisible = _selectedTeacherId != null &&
         candidates.any((teacher) => teacher.id == _selectedTeacherId);
 
-    if (!teacherStillVisible) {
-      _selectedTeacherId = candidates.isNotEmpty ? candidates.first.id : null;
+    if (teacherStillVisible) return;
+
+    if (isMaster) {
+      for (final teacher in candidates) {
+        if (teacher.displayName == _preferredMasterTeacherName) {
+          _selectedTeacherId = teacher.id;
+          return;
+        }
+      }
     }
+
+    _selectedTeacherId = candidates.isNotEmpty ? candidates.first.id : null;
   }
 
   List<Lesson> lessonsOn(DateTime date) {
