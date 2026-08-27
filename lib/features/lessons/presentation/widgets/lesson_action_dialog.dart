@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/forestring_theme.dart';
 import '../../domain/lesson.dart';
 import '../lesson_controller.dart';
+import 'canceled_lesson_detail_sheet.dart';
 import 'lesson_time_slot_picker.dart';
 
 Future<void> showLessonActionDialog({
@@ -11,6 +12,14 @@ Future<void> showLessonActionDialog({
   required Lesson lesson,
   required LessonController controller,
 }) async {
+  if (lesson.isCanceled) {
+    await showCanceledLessonDetailSheet(
+      context: context,
+      lesson: lesson,
+    );
+    return;
+  }
+
   final hostContext = context;
   var selectedDate = DateTime(
     lesson.startsAt.year,
@@ -31,7 +40,7 @@ Future<void> showLessonActionDialog({
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (dialogBodyContext, setState) {
-          final canEdit = !lesson.isCanceled;
+          const canEdit = true;
 
           Future<void> editTime() async {
             if (!canEdit || isSaving) return;
@@ -50,7 +59,7 @@ Future<void> showLessonActionDialog({
 
           return AlertDialog(
             title: Text(
-              lesson.isCanceled ? '취소된 수업' : '일정 변경',
+              '일정 변경',
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 20,
@@ -76,7 +85,7 @@ Future<void> showLessonActionDialog({
                         ),
                       ),
                       IconButton(
-                        onPressed: canEdit && !isSaving
+                        onPressed: !isSaving
                             ? () async {
                                 final picked = await showDatePicker(
                                   context: dialogBodyContext,
@@ -96,7 +105,7 @@ Future<void> showLessonActionDialog({
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: canEdit && !isSaving ? editTime : null,
+                      onTap: !isSaving ? editTime : null,
                       borderRadius: BorderRadius.circular(10),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -109,7 +118,7 @@ Future<void> showLessonActionDialog({
                               ),
                             ),
                             IconButton(
-                              onPressed: canEdit && !isSaving ? editTime : null,
+                              onPressed: !isSaving ? editTime : null,
                               icon: const Icon(Icons.access_time_rounded),
                             ),
                           ],
@@ -132,7 +141,7 @@ Future<void> showLessonActionDialog({
                           ),
                         )
                         .toList(),
-                    onChanged: canEdit && !isSaving
+                    onChanged: !isSaving
                         ? (value) {
                             if (value != null) {
                               setState(() => selectedDuration = value);
@@ -140,158 +149,144 @@ Future<void> showLessonActionDialog({
                           }
                         : null,
                   ),
-                  if (lesson.isCanceled) ...[
-                    const SizedBox(height: 14),
-                    Text(
-                      lesson.lessonRightId == null
-                          ? '이 수업에는 반환된 수업권이 없습니다.'
-                          : '취소로 반환된 수업권의 예약 변경은 학생용 앱에서 진행합니다.',
-                      style: forestringTextStyle.copyWith(
-                        color: Colors.black54,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
             actions: [
-              if (!lesson.isCanceled)
-                TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final confirmed = await _confirmCancel(
-                            dialogBodyContext,
-                          );
-                          if (!confirmed || !dialogBodyContext.mounted) {
-                            return;
-                          }
+              TextButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final confirmed = await _confirmCancel(
+                          dialogBodyContext,
+                        );
+                        if (!confirmed || !dialogBodyContext.mounted) {
+                          return;
+                        }
 
-                          setState(() => isSaving = true);
-                          final ok = await controller.cancelLesson(
-                            lesson,
-                            reason: '앱에서 수업 취소',
-                          );
+                        setState(() => isSaving = true);
+                        final ok = await controller.cancelLesson(
+                          lesson,
+                          reason: '앱에서 수업 취소',
+                        );
 
-                          if (!dialogBodyContext.mounted) {
-                            return;
-                          }
+                        if (!dialogBodyContext.mounted) {
+                          return;
+                        }
 
-                          if (ok) {
-                            Navigator.of(dialogContext).pop();
-                            if (hostContext.mounted) {
-                              _showMessage(hostContext, '수업이 취소되었습니다.');
-                            }
-                          } else {
-                            setState(() => isSaving = false);
-                            if (hostContext.mounted) {
-                              _showMessage(
-                                hostContext,
-                                controller.errorMessage ?? '수업을 취소하지 못했습니다.',
-                              );
-                            }
+                        if (ok) {
+                          Navigator.of(dialogContext).pop();
+                          if (hostContext.mounted) {
+                            _showMessage(hostContext, '수업이 취소되었습니다.');
                           }
-                        },
-                  child: const Text(
-                    '수업 취소',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
+                        } else {
+                          setState(() => isSaving = false);
+                          if (hostContext.mounted) {
+                            _showMessage(
+                              hostContext,
+                              controller.errorMessage ?? '수업을 취소하지 못했습니다.',
+                            );
+                          }
+                        }
+                      },
+                child: const Text(
+                  '수업 취소',
+                  style: TextStyle(color: Colors.redAccent),
                 ),
+              ),
               TextButton(
                 onPressed: isSaving
                     ? null
                     : () => Navigator.of(dialogContext).pop(),
                 child: const Text('닫기'),
               ),
-              if (!lesson.isCanceled)
-                TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final startsAt = DateTime(
-                            selectedDate.year,
-                            selectedDate.month,
-                            selectedDate.day,
-                            selectedTime.hour,
-                            selectedTime.minute,
-                          );
+              TextButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final startsAt = DateTime(
+                          selectedDate.year,
+                          selectedDate.month,
+                          selectedDate.day,
+                          selectedTime.hour,
+                          selectedTime.minute,
+                        );
 
-                          setState(() => isSaving = true);
+                        setState(() => isSaving = true);
 
-                          var result = await controller.updateLessonOnce(
-                            lesson: lesson,
-                            startsAt: startsAt,
-                            durationMinutes: selectedDuration,
-                            reason: '앱에서 수업 1회 수정',
-                          );
+                        var result = await controller.updateLessonOnce(
+                          lesson: lesson,
+                          startsAt: startsAt,
+                          durationMinutes: selectedDuration,
+                          reason: '앱에서 수업 1회 수정',
+                        );
 
-                          if (!dialogBodyContext.mounted) {
-                            return;
-                          }
+                        if (!dialogBodyContext.mounted) {
+                          return;
+                        }
 
-                          if (result == null) {
-                            setState(() => isSaving = false);
-                            if (hostContext.mounted) {
-                              _showMessage(
-                                hostContext,
-                                controller.errorMessage ?? '일정을 변경하지 못했습니다.',
-                              );
-                            }
-                            return;
-                          }
-
-                          if (result.requiresConfirmation) {
-                            final confirmWarnings = await _confirmWarnings(
-                              dialogBodyContext,
-                              result.warningCodes,
-                            );
-
-                            if (!confirmWarnings ||
-                                !dialogBodyContext.mounted) {
-                              setState(() => isSaving = false);
-                              return;
-                            }
-
-                            result = await controller.updateLessonOnce(
-                              lesson: lesson,
-                              startsAt: startsAt,
-                              durationMinutes: selectedDuration,
-                              confirmWarnings: true,
-                              reason: '앱에서 수업 1회 수정',
-                            );
-                          }
-
-                          if (!dialogBodyContext.mounted) {
-                            return;
-                          }
-
-                          if (result == null || result.requiresConfirmation) {
-                            setState(() => isSaving = false);
-                            if (hostContext.mounted) {
-                              _showMessage(
-                                hostContext,
-                                controller.errorMessage ?? '일정을 변경하지 못했습니다.',
-                              );
-                            }
-                            return;
-                          }
-
-                          Navigator.of(dialogContext).pop();
+                        if (result == null) {
+                          setState(() => isSaving = false);
                           if (hostContext.mounted) {
                             _showMessage(
                               hostContext,
-                              result.changed
-                                  ? '일정이 변경되었습니다.'
-                                  : '변경된 내용이 없습니다.',
+                              controller.errorMessage ?? '일정을 변경하지 못했습니다.',
                             );
                           }
-                        },
-                  child: Text(
-                    isSaving ? '변경 중...' : '일정 변경',
-                    style: const TextStyle(color: primaryColor),
-                  ),
+                          return;
+                        }
+
+                        if (result.requiresConfirmation) {
+                          final confirmWarnings = await _confirmWarnings(
+                            dialogBodyContext,
+                            result.warningCodes,
+                          );
+
+                          if (!confirmWarnings ||
+                              !dialogBodyContext.mounted) {
+                            setState(() => isSaving = false);
+                            return;
+                          }
+
+                          result = await controller.updateLessonOnce(
+                            lesson: lesson,
+                            startsAt: startsAt,
+                            durationMinutes: selectedDuration,
+                            confirmWarnings: true,
+                            reason: '앱에서 수업 1회 수정',
+                          );
+                        }
+
+                        if (!dialogBodyContext.mounted) {
+                          return;
+                        }
+
+                        if (result == null || result.requiresConfirmation) {
+                          setState(() => isSaving = false);
+                          if (hostContext.mounted) {
+                            _showMessage(
+                              hostContext,
+                              controller.errorMessage ?? '일정을 변경하지 못했습니다.',
+                            );
+                          }
+                          return;
+                        }
+
+                        Navigator.of(dialogContext).pop();
+                        if (hostContext.mounted) {
+                          _showMessage(
+                            hostContext,
+                            result.changed
+                                ? '일정이 변경되었습니다.'
+                                : '변경된 내용이 없습니다.',
+                          );
+                        }
+                      },
+                child: Text(
+                  isSaving ? '변경 중...' : '일정 변경',
+                  style: const TextStyle(color: primaryColor),
                 ),
+              ),
             ],
           );
         },
