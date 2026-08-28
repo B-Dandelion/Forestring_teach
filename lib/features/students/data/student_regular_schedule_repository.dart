@@ -553,13 +553,6 @@ class StudentRegularScheduleRepository {
       userMessage = '이 정규 일정을 관리할 권한이 없습니다.';
     }
 
-    return _withErrorCode(userMessage ?? fallback, message);
-  }
-
-  String _withErrorCode(String userMessage, String rawMessage) {
-    final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
-    final code = match?.group(0);
-    if (code == null) return userMessage;
-    return '$userMessage\n오류 코드: $code';
+    return userMessage ?? fallback;
   }
 }
