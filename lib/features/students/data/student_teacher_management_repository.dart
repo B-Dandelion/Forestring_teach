@@ -75,13 +75,13 @@ class StudentTeacherManagementRepository {
             ),
           )
           .toList();
-    } on PostgrestException catch (error) {
-      throw StudentTeacherManagementFailure(
-        '선생님 목록을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const StudentTeacherManagementFailure(
+        '선생님 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw StudentTeacherManagementFailure(
-        '선생님 목록을 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentTeacherManagementFailure(
+        '선생님 목록을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -143,9 +143,9 @@ class StudentTeacherManagementRepository {
       throw StudentTeacherManagementFailure(
         _friendlyDatabaseMessage(error.message),
       );
-    } catch (error) {
-      throw StudentTeacherManagementFailure(
-        '담당 선생님을 변경하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentTeacherManagementFailure(
+        '담당 선생님을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -159,39 +159,56 @@ class StudentTeacherManagementRepository {
   }
 
   String _friendlyDatabaseMessage(String message) {
-    if (message.contains('FORESTRING_BACKDATED_TEACHER_CHANGE_FORBIDDEN')) {
-      return '과거 날짜로 담당 선생님을 변경할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_BRANCH_MISMATCH') ||
-        message.contains('FORESTRING_MANAGER_BRANCH')) {
-      return '같은 지점의 선생님만 담당 선생님으로 지정할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_FUTURE_TEACHER_ASSIGNMENT_EXISTS')) {
-      return '이미 예정된 담당 선생님 변경이 있습니다. 기존 변경 일정을 먼저 확인해주세요.';
-    }
-    if (message.contains('FORESTRING_CURRENT_TEACHER_ASSIGNMENT_NOT_FOUND')) {
-      return '현재 담당 선생님 배정을 찾지 못했습니다.';
-    }
-    if (message.contains('FORESTRING_ASSIGNMENT_PERIOD_OVERLAP')) {
-      return '담당 선생님 배정 기간이 기존 배정과 겹칩니다.';
-    }
-    if (message.contains('FORESTRING_TEACHER_INACTIVE') ||
-        message.contains('FORESTRING_ASSIGNMENT_AFTER_TEACHER_WITHDRAWAL')) {
-      return '선택한 선생님은 해당 날짜에 담당 선생님으로 지정할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_OCCURRENCE_OUTSIDE_WORK_HOURS')) {
-      return '기존 정규 수업 시간이 새 선생님의 근무시간 밖입니다.';
-    }
-    if (message.contains('TIME_CONFLICT') ||
+    String? userMessage;
+
+    if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+      userMessage = '로그인이 필요합니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_USER_REQUIRED')) {
+      userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+    } else if (message.contains('FORESTRING_BACKDATED_TEACHER_CHANGE_FORBIDDEN')) {
+      userMessage = '과거 날짜로 담당 선생님을 변경할 수 없습니다.';
+    } else if (message.contains('FORESTRING_EFFECTIVE_DATE_REQUIRED')) {
+      userMessage = '담당 선생님 변경 적용일을 선택해주세요.';
+    } else if (message.contains('FORESTRING_BRANCH_MISMATCH') ||
+        message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+      userMessage = '같은 지점의 선생님만 담당 선생님으로 지정할 수 있습니다.';
+    } else if (message.contains('FORESTRING_FUTURE_TEACHER_ASSIGNMENT_EXISTS')) {
+      userMessage = '이미 예정된 담당 선생님 변경이 있습니다. 기존 변경 일정을 먼저 확인해주세요.';
+    } else if (message.contains('FORESTRING_CURRENT_TEACHER_ASSIGNMENT_NOT_FOUND')) {
+      userMessage = '현재 담당 선생님 배정을 찾지 못했습니다.';
+    } else if (message.contains('FORESTRING_ASSIGNMENT_PERIOD_OVERLAP')) {
+      userMessage = '담당 선생님 배정 기간이 기존 배정과 겹칩니다.';
+    } else if (message.contains('FORESTRING_ASSIGNMENT_AFTER_TEACHER_WITHDRAWAL') ||
+        message.contains('FORESTRING_TEACHER_INACTIVE')) {
+      userMessage = '선택한 선생님은 해당 날짜에 담당 선생님으로 지정할 수 없습니다.';
+    } else if (message.contains('FORESTRING_TEACHER_CHANGE_AFTER_STUDENT_WITHDRAWAL') ||
+        message.contains('FORESTRING_STUDENT_INACTIVE')) {
+      userMessage = '퇴원했거나 퇴원 예정일 이후인 학생의 담당 선생님은 변경할 수 없습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_NOT_FOUND')) {
+      userMessage = '학생 정보를 찾을 수 없습니다.';
+    } else if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+      userMessage = '선생님 정보를 찾을 수 없습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_SERIES_NOT_FOUND_FOR_TEACHER_CHANGE')) {
+      userMessage = '변경할 정규 수업 일정을 찾지 못했습니다. 학생의 정규 일정 상태를 확인해주세요.';
+    } else if (message.contains('FORESTRING_REGULAR_OCCURRENCE_OUTSIDE_WORK_HOURS')) {
+      userMessage = '기존 정규 수업 시간이 새 선생님의 근무시간 밖입니다.';
+    } else if (message.contains('TIME_CONFLICT') ||
         message.contains('FORESTRING_REGULAR_INITIAL_SETUP_CONFLICT')) {
-      return '새 선생님의 기존 수업과 시간이 겹칩니다.';
+      userMessage = '새 선생님의 기존 수업과 시간이 겹칩니다.';
+    } else if (message.contains('FORESTRING_TEACHER_CHANGE_FORBIDDEN')) {
+      userMessage = '담당 선생님 변경 권한이 없습니다.';
     }
-    if (message.contains('FORESTRING_TEACHER_CHANGE_FORBIDDEN')) {
-      return '담당 선생님 변경 권한이 없습니다.';
-    }
-    if (message.contains('FORESTRING_')) {
-      return '담당 선생님을 변경하지 못했습니다. ($message)';
-    }
-    return '담당 선생님을 변경하지 못했습니다.';
+
+    return _withErrorCode(
+      userMessage ?? '담당 선생님을 변경하지 못했습니다.',
+      message,
+    );
+  }
+
+  String _withErrorCode(String userMessage, String rawMessage) {
+    final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+    final code = match?.group(0);
+    if (code == null) return userMessage;
+    return '$userMessage\n오류 코드: $code';
   }
 }
