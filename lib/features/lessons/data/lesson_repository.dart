@@ -78,9 +78,16 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
-    } catch (error) {
-      throw LessonFailure('수업 정보를 불러오지 못했습니다.\n$error');
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '수업 정보를 불러오지 못했습니다.',
+        ),
+      );
+    } catch (_) {
+      throw const LessonFailure(
+        '수업 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -128,7 +135,12 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '선생님 목록을 불러오지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -168,9 +180,16 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
-    } catch (error) {
-      throw LessonFailure('수강생 정보를 불러오지 못했습니다.\n$error');
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '수강생 정보를 불러오지 못했습니다.',
+        ),
+      );
+    } catch (_) {
+      throw const LessonFailure(
+        '수강생 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -210,9 +229,16 @@ class LessonRepository {
           )
           .toList();
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
-    } catch (error) {
-      throw LessonFailure('개인 일정을 불러오지 못했습니다.\n$error');
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '개인 일정을 불러오지 못했습니다.',
+        ),
+      );
+    } catch (_) {
+      throw const LessonFailure(
+        '개인 일정을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -237,7 +263,12 @@ class LessonRepository {
       }
       return result;
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '근무시간을 불러오지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -256,7 +287,12 @@ class LessonRepository {
           .eq('status', 'available');
       return (rows as List).length;
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '사용 가능한 수업권을 확인하지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -273,7 +309,12 @@ class LessonRepository {
         },
       );
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '수업을 취소하지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -290,7 +331,12 @@ class LessonRepository {
         },
       );
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '보강 수업을 취소하지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -327,7 +373,12 @@ class LessonRepository {
     } on LessonFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '보강 수업을 등록하지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -360,7 +411,12 @@ class LessonRepository {
     } on LessonFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      throw LessonFailure(_friendlyDatabaseMessage(error.message));
+      throw LessonFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '수업을 변경하지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -377,70 +433,84 @@ class LessonRepository {
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
-  String _friendlyDatabaseMessage(String message) {
-    if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-      return '현재 계정은 더 이상 사용할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_LESSON_MANAGEMENT_REQUIRED')) {
-      return '마스터 또는 지점장만 수업을 관리할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-      return '다른 지점의 수업은 관리할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_ACTIVE_STUDENT_REQUIRED')) {
-      return '현재 재원 중인 학생만 보강 수업을 등록할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
-      return '현재 수업 가능한 선생님 또는 지점장을 선택해주세요.';
-    }
-    if (message.contains('FORESTRING_MAKEUP_START_IN_PAST')) {
-      return '과거 시간으로 보강 수업을 등록할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_MAKEUP_CROSSES_DAY')) {
-      return '보강 수업은 자정을 넘길 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_SEMESTER_NOT_FOUND_FOR_DATE')) {
-      return '선택한 날짜에 적용되는 학기가 없습니다.';
-    }
-    if (message.contains('FORESTRING_NO_MATCHING_AVAILABLE_LESSON_RIGHT')) {
-      return '선택한 수업 길이와 같은 사용 가능한 수업권이 없습니다.';
-    }
-    if (message.contains('FORESTRING_CLOSURE_CONFLICT')) {
-      return '휴원 기간에는 보강 수업을 등록할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_TEACHER_LESSON_OVERLAP') ||
+  String _friendlyDatabaseMessage(
+    String message, {
+    required String fallback,
+  }) {
+    String? userMessage;
+
+    if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+      userMessage = '로그인이 필요합니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_USER_REQUIRED') ||
+        message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+      userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+    } else if (message.contains('FORESTRING_LESSON_MANAGEMENT_REQUIRED')) {
+      userMessage = '마스터 또는 지점장만 수업을 관리할 수 있습니다.';
+    } else if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+      userMessage = '다른 지점의 수업은 관리할 수 없습니다.';
+    } else if (message.contains('FORESTRING_LESSON_UPDATE_FORBIDDEN') ||
+        message.contains('FORESTRING_CANCELLATION_FORBIDDEN') ||
+        message.contains('FORESTRING_LESSON_FORBIDDEN')) {
+      userMessage = '이 수업을 변경하거나 취소할 권한이 없습니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_STUDENT_REQUIRED')) {
+      userMessage = '현재 재원 중인 학생만 보강 수업을 등록할 수 있습니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
+      userMessage = '현재 수업 가능한 선생님 또는 지점장을 선택해주세요.';
+    } else if (message.contains('FORESTRING_MAKEUP_START_IN_PAST')) {
+      userMessage = '과거 시간으로 보강 수업을 등록할 수 없습니다.';
+    } else if (message.contains('FORESTRING_MAKEUP_CROSSES_DAY')) {
+      userMessage = '보강 수업은 자정을 넘길 수 없습니다.';
+    } else if (message.contains('FORESTRING_MAKEUP_INPUT_REQUIRED')) {
+      userMessage = '보강 수업의 학생, 선생님, 시간 정보를 확인해주세요.';
+    } else if (message.contains('FORESTRING_MAKEUP_LESSON_NOT_FOUND_AFTER_CREATE')) {
+      userMessage = '보강 수업은 생성되었지만 결과를 확인하지 못했습니다. 새로고침 후 확인해주세요.';
+    } else if (message.contains('FORESTRING_SEMESTER_NOT_FOUND_FOR_DATE')) {
+      userMessage = '선택한 날짜에 적용되는 학기가 없습니다.';
+    } else if (message.contains('FORESTRING_NO_MATCHING_AVAILABLE_LESSON_RIGHT')) {
+      userMessage = '선택한 수업 길이와 같은 사용 가능한 수업권이 없습니다.';
+    } else if (message.contains('FORESTRING_CLOSURE_CONFLICT')) {
+      userMessage = '휴원 기간에는 보강 수업을 등록할 수 없습니다.';
+    } else if (message.contains('FORESTRING_TEACHER_LESSON_OVERLAP') ||
         message.contains('FORESTRING_STUDENT_LESSON_OVERLAP') ||
         message.contains('FORESTRING_LESSON_TIME_CONFLICT')) {
-      return '겹치는 수업이 있어 해당 시간을 사용할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_LESSON_BLOCKED_PERIOD_CONFLICT')) {
-      return '선생님의 개인 일정과 겹쳐 해당 시간에 수업을 등록할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_LESSON_AFTER_STUDENT_WITHDRAWAL')) {
-      return '학생의 퇴원일 이후에는 수업을 등록할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_LESSON_AFTER_TEACHER_WITHDRAWAL')) {
-      return '선생님의 퇴사일 이후에는 수업을 등록할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_STANDALONE_MAKEUP_REQUIRED')) {
-      return '이 수업은 보강 수업 취소 기능으로 처리할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_ONLY_SCHEDULED_LESSON_EDITABLE') ||
+      userMessage = '겹치는 수업이 있어 해당 시간을 사용할 수 없습니다.';
+    } else if (message.contains('FORESTRING_LESSON_BLOCKED_PERIOD_CONFLICT') ||
+        message.contains('FORESTRING_OVERLAPS_BLOCKED_PERIOD')) {
+      userMessage = '선생님의 개인 일정과 겹쳐 해당 시간을 사용할 수 없습니다.';
+    } else if (message.contains('FORESTRING_OUTSIDE_WORK_HOURS')) {
+      userMessage = '선택한 시간이 선생님의 근무시간 밖입니다.';
+    } else if (message.contains('FORESTRING_LESSON_AFTER_STUDENT_WITHDRAWAL')) {
+      userMessage = '학생의 퇴원일 이후에는 수업을 등록할 수 없습니다.';
+    } else if (message.contains('FORESTRING_LESSON_AFTER_TEACHER_WITHDRAWAL')) {
+      userMessage = '선생님의 퇴사일 이후에는 수업을 등록할 수 없습니다.';
+    } else if (message.contains('FORESTRING_STANDALONE_MAKEUP_REQUIRED')) {
+      userMessage = '이 수업은 보강 수업 취소 기능으로 처리할 수 없습니다.';
+    } else if (message.contains('FORESTRING_ONLY_SCHEDULED_LESSON_EDITABLE') ||
         message.contains('FORESTRING_LESSON_NOT_SCHEDULED')) {
-      return '예정된 수업만 수정하거나 취소할 수 있습니다.';
+      userMessage = '예정된 수업만 수정하거나 취소할 수 있습니다.';
+    } else if (message.contains('FORESTRING_CANCELLATION_TOO_LATE')) {
+      userMessage = '취소 가능 시간이 지나 이 수업을 취소할 수 없습니다.';
+    } else if (message.contains('FORESTRING_CANCELLATION_LIMIT_REACHED')) {
+      userMessage = '이번 학기의 수업 취소 가능 횟수를 모두 사용했습니다.';
+    } else if (message.contains('FORESTRING_INVALID_LESSON_DURATION')) {
+      userMessage = '수업 시간은 15분 단위로 입력해주세요.';
+    } else if (message.contains('FORESTRING_NONSTANDARD_DURATION')) {
+      userMessage = '일반적이지 않은 수업 길이입니다. 내용을 확인한 뒤 다시 진행해주세요.';
+    } else if (message.contains('FORESTRING_LESSON_START_REQUIRED')) {
+      userMessage = '변경할 수업 시작 시간을 선택해주세요.';
+    } else if (message.contains('FORESTRING_LESSON_BRANCH_REQUIRED')) {
+      userMessage = '수업의 지점 정보를 확인해주세요.';
+    } else if (message.contains('FORESTRING_LESSON_NOT_FOUND')) {
+      userMessage = '수업을 찾을 수 없습니다. 새로고침 후 다시 확인해주세요.';
     }
-    if (message.contains('FORESTRING_INVALID_LESSON_DURATION')) {
-      return '수업 시간은 15분 단위로 입력해주세요.';
-    }
-    if (message.contains('FORESTRING_CANCEL')) {
-      return '현재 정책상 이 수업을 취소할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_LESSON_NOT_FOUND')) {
-      return '수업을 찾을 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_')) {
-      return '요청을 처리할 수 없습니다. ($message)';
-    }
-    return '요청 처리 중 오류가 발생했습니다.';
+
+    return _withErrorCode(userMessage ?? fallback, message);
+  }
+
+  String _withErrorCode(String userMessage, String rawMessage) {
+    final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+    final code = match?.group(0);
+    if (code == null) return userMessage;
+    return '$userMessage\n오류 코드: $code';
   }
 }
