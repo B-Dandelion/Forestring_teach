@@ -285,6 +285,10 @@ class LessonController extends ChangeNotifier {
 
   List<Lesson> lessonsOn(DateTime date) {
     return visibleLessons.where((lesson) {
+      if (lesson.isCanceled) {
+        return false;
+      }
+
       final local = lesson.startsAt;
       return local.year == date.year &&
           local.month == date.month &&
