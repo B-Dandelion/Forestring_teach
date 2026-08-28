@@ -76,8 +76,10 @@ class StudentAdminRepository {
             },
           )
           .toList();
-    } on PostgrestException catch (error) {
-      throw StudentAdminFailure('선생님 목록을 불러오지 못했습니다.\n${error.message}');
+    } on PostgrestException {
+      throw const StudentAdminFailure(
+        '선생님 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -134,8 +136,10 @@ class StudentAdminRepository {
 
       result.sort((a, b) => a.startsOn.compareTo(b.startsOn));
       return result;
-    } on PostgrestException catch (error) {
-      throw StudentAdminFailure('학기 목록을 불러오지 못했습니다.\n${error.message}');
+    } on PostgrestException {
+      throw const StudentAdminFailure(
+        '학기 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -181,12 +185,20 @@ class StudentAdminRepository {
         throw const StudentAdminFailure('생성된 학생 계정을 확인하지 못했습니다.');
       }
       return studentId;
+    } on StudentAdminFailure {
+      rethrow;
     } on FunctionException catch (error) {
       final details = error.details;
       if (details is Map && details['message'] != null) {
         throw StudentAdminFailure(details['message'].toString());
       }
-      throw const StudentAdminFailure('학생 계정을 생성하지 못했습니다.');
+      throw const StudentAdminFailure(
+        '학생 생성 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const StudentAdminFailure(
+        '학생 계정을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -222,8 +234,15 @@ class StudentAdminRepository {
         throw const StudentAdminFailure('자율 예약 설정 결과를 확인하지 못했습니다.');
       }
       return Map<String, dynamic>.from(result);
+    } on StudentAdminFailure {
+      rethrow;
     } on PostgrestException catch (error) {
-      throw StudentAdminFailure(_friendlyDatabaseMessage(error.message));
+      throw StudentAdminFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '자율 예약 설정을 완료하지 못했습니다.',
+        ),
+      );
     }
   }
 
@@ -248,52 +267,78 @@ class StudentAdminRepository {
         throw const StudentAdminFailure('정규 일정 생성 결과를 확인하지 못했습니다.');
       }
       return Map<String, dynamic>.from(result);
+    } on StudentAdminFailure {
+      rethrow;
     } on PostgrestException catch (error) {
-      throw StudentAdminFailure(_friendlyDatabaseMessage(error.message));
+      throw StudentAdminFailure(
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '정규 일정 설정을 완료하지 못했습니다.',
+        ),
+      );
     }
   }
 
-  String _friendlyDatabaseMessage(String message) {
-    if (message.contains('FORESTRING_FLEX_INITIAL_SETUP_ALREADY_EXISTS')) {
-      return '이미 이 학기의 자율 예약 설정이 완료되어 있습니다.';
-    }
-    if (message.contains('FORESTRING_INVALID_FLEX_RIGHT_COUNT')) {
-      return '수강권 횟수는 1회 이상이어야 합니다.';
-    }
-    if (message.contains('FORESTRING_INVALID_FLEX_DURATION') ||
-        message.contains('FORESTRING_FLEX_PLAN_CONFIGURATION_REQUIRED')) {
-      return '자율 예약 수업 길이를 확인해주세요.';
-    }
-    if (message.contains('FORESTRING_REGULAR_INITIAL_SETUP_ALREADY_EXISTS')) {
-      return '이미 이 학기의 정규 일정이 설정되어 있습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_OCCURRENCE_OUTSIDE_WORK_HOURS')) {
-      return '선택한 정규 시간이 선생님 근무시간 밖입니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_INITIAL_SETUP_CONFLICT') ||
+  String _friendlyDatabaseMessage(
+    String message, {
+    required String fallback,
+  }) {
+    String? userMessage;
+
+    if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+      userMessage = '로그인이 필요합니다.';
+    } else if (message.contains('FORESTRING_STAFF_REQUIRED')) {
+      userMessage = '학생의 학기 설정을 관리할 권한이 없습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_NOT_FOUND')) {
+      userMessage = '학생 정보를 찾을 수 없습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_INACTIVE')) {
+      userMessage = '현재 재원 중인 학생만 학기 설정을 진행할 수 있습니다.';
+    } else if (message.contains('FORESTRING_SEMESTER_NOT_FOUND')) {
+      userMessage = '선택한 학기 정보를 찾을 수 없습니다.';
+    } else if (message.contains('FORESTRING_FLEX_INITIAL_SETUP_ALREADY_EXISTS')) {
+      userMessage = '이미 이 학기의 자율 예약 설정이 완료되어 있습니다.';
+    } else if (message.contains('FORESTRING_INVALID_FLEX_RIGHT_COUNT')) {
+      userMessage = '수강권 횟수는 1회 이상이어야 합니다.';
+    } else if (message.contains('FORESTRING_INVALID_FLEX_DURATION')) {
+      userMessage = '자율 예약 수업 길이는 15분 단위로 설정해주세요.';
+    } else if (message.contains('FORESTRING_FLEX_STUDENT_REQUIRED')) {
+      userMessage = '자율 예약 학생에게만 이 설정을 적용할 수 있습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_INITIAL_SETUP_ALREADY_EXISTS')) {
+      userMessage = '이미 이 학기의 정규 일정이 설정되어 있습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_STUDENT_REQUIRED')) {
+      userMessage = '정규 학생에게만 정규 일정을 설정할 수 있습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_OCCURRENCE_OUTSIDE_WORK_HOURS')) {
+      userMessage = '선택한 정규 시간이 담당 선생님의 근무시간 밖입니다.';
+    } else if (message.contains('FORESTRING_INVALID_REGULAR_DURATION')) {
+      userMessage = '정규 수업 길이를 확인해주세요.';
+    } else if (message.contains('FORESTRING_INVALID_WEEKDAY')) {
+      userMessage = '정규 수업 요일을 확인해주세요.';
+    } else if (message.contains('FORESTRING_REGULAR_START_NOT_15_MINUTE_ALIGNED')) {
+      userMessage = '정규 수업 시작 시간은 15분 단위로 선택해주세요.';
+    } else if (message.contains('FORESTRING_INVALID_REGULAR_SCHEDULE') ||
+        message.contains('FORESTRING_REGULAR_SCHEDULES_REQUIRED')) {
+      userMessage = '정규 수업 일정을 하나 이상 올바르게 입력해주세요.';
+    } else if (message.contains('FORESTRING_REGULAR_INITIAL_SETUP_CONFLICT') ||
         message.contains('FORESTRING_FLEX_INITIAL_SETUP_CONFLICT') ||
         message.contains('FORESTRING_ASSIGNMENT_PERIOD_OVERLAP') ||
         message.contains('TIME_CONFLICT')) {
-      return '겹치는 담당 배정 또는 수업 일정이 있습니다.';
+      userMessage = '겹치는 담당 배정 또는 수업 일정이 있습니다.';
+    } else if (message.contains('FORESTRING_MANAGER_BRANCH_MISMATCH') ||
+        message.contains('FORESTRING_BRANCH_MISMATCH')) {
+      userMessage = '학생과 담당 선생님의 지점이 일치하지 않습니다.';
+    } else if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+      userMessage = '담당 선생님 정보를 찾을 수 없습니다.';
+    } else if (message.contains('FORESTRING_ASSIGNMENT_AFTER_TEACHER_WITHDRAWAL')) {
+      userMessage = '퇴사 예정일 이후에는 해당 선생님을 배정할 수 없습니다.';
     }
-    if (message.contains('FORESTRING_SEMESTER_NOT_FOUR_TEACHING_WEEKS')) {
-      return '선택한 학기의 수업 주차 설정을 확인해주세요.';
-    }
-    if (message.contains('FORESTRING_MANAGER_BRANCH')) {
-      return '본인 지점의 학생만 등록할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_BRANCH_MISMATCH')) {
-      return '학생과 담당 선생님의 지점이 일치하지 않습니다.';
-    }
-    if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
-      return '담당 선생님 정보를 확인해주세요.';
-    }
-    if (message.contains('FORESTRING_ASSIGNMENT_AFTER_TEACHER_WITHDRAWAL')) {
-      return '퇴사 예정일 이후에는 해당 선생님을 배정할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_')) {
-      return '수강생 설정을 완료하지 못했습니다. ($message)';
-    }
-    return '수강생 설정을 완료하지 못했습니다.';
+
+    return _withErrorCode(userMessage ?? fallback, message);
+  }
+
+  String _withErrorCode(String userMessage, String rawMessage) {
+    final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+    final code = match?.group(0);
+    if (code == null) return userMessage;
+    return '$userMessage\n오류 코드: $code';
   }
 }
