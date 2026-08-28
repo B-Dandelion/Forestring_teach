@@ -451,13 +451,13 @@ class TeacherRepository {
         );
       }).toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName));
-    } on PostgrestException catch (error) {
-      throw TeacherFailure(
-        '선생님 목록을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const TeacherFailure(
+        '선생님 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '선생님 목록을 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '선생님 목록을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -645,13 +645,13 @@ class TeacherRepository {
 
       students.sort((a, b) => a.displayName.compareTo(b.displayName));
       return students;
-    } on PostgrestException catch (error) {
-      throw TeacherFailure(
-        '담당 수강생을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const TeacherFailure(
+        '담당 수강생을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '담당 수강생을 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '담당 수강생을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -708,7 +708,7 @@ class TeacherRepository {
 
       if (data is! Map) {
         throw const TeacherFailure(
-          '서버 응답 형식이 올바르지 않습니다.',
+          '선생님 생성 서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
         );
       }
 
@@ -719,7 +719,7 @@ class TeacherRepository {
         final message = data['message'];
 
         throw TeacherFailure(
-          message is String ? message : '선생님 생성에 실패했습니다.',
+          message is String ? message : '선생님 계정을 생성하지 못했습니다.',
         );
       }
 
@@ -734,10 +734,12 @@ class TeacherRepository {
       if (details is Map && details['message'] != null) {
         throw TeacherFailure(details['message'].toString());
       }
-      throw const TeacherFailure('선생님 생성 요청에 실패했습니다.');
-    } catch (error) {
-      throw TeacherFailure(
-        '선생님 생성 요청에 실패했습니다.\n$error',
+      throw const TeacherFailure(
+        '선생님 생성 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const TeacherFailure(
+        '선생님 계정을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -780,9 +782,13 @@ class TeacherRepository {
       if (details is Map && details['message'] != null) {
         throw TeacherFailure(details['message'].toString());
       }
-      throw const TeacherFailure('이름을 변경하지 못했습니다.');
-    } catch (error) {
-      throw TeacherFailure('이름을 변경하지 못했습니다.\n$error');
+      throw const TeacherFailure(
+        '이름 변경 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const TeacherFailure(
+        '이름을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -820,9 +826,13 @@ class TeacherRepository {
       if (details is Map && details['message'] != null) {
         throw TeacherFailure(details['message'].toString());
       }
-      throw const TeacherFailure('PIN을 변경하지 못했습니다.');
-    } catch (error) {
-      throw TeacherFailure('PIN을 변경하지 못했습니다.\n$error');
+      throw const TeacherFailure(
+        'PIN 변경 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const TeacherFailure(
+        'PIN을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -852,9 +862,9 @@ class TeacherRepository {
       throw TeacherFailure(
         _workHourFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '근무시간을 변경하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '근무시간을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -876,13 +886,13 @@ class TeacherRepository {
             ),
           )
           .toList();
-    } on PostgrestException catch (error) {
-      throw TeacherFailure(
-        '개인 일정을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const TeacherFailure(
+        '개인 일정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '개인 일정을 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '개인 일정을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -909,9 +919,9 @@ class TeacherRepository {
       throw TeacherFailure(
         _blockedPeriodFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '개인 일정을 저장하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '개인 일정을 저장하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -928,9 +938,9 @@ class TeacherRepository {
       throw TeacherFailure(
         _blockedPeriodFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '개인 일정을 삭제하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '개인 일정을 삭제하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -961,9 +971,9 @@ class TeacherRepository {
       throw TeacherFailure(
         _lessonStatsFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '수업 통계를 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '수업 통계를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -994,9 +1004,9 @@ class TeacherRepository {
       throw TeacherFailure(
         _staffDepartureFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure(
-        '퇴사 관리 정보를 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const TeacherFailure(
+        '퇴사 관리 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -1029,8 +1039,10 @@ class TeacherRepository {
       throw TeacherFailure(
         _staffDepartureFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure('퇴사를 예약하지 못했습니다.\n$error');
+    } catch (_) {
+      throw const TeacherFailure(
+        '퇴사를 예약하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -1056,8 +1068,10 @@ class TeacherRepository {
       throw TeacherFailure(
         _staffDepartureFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure('퇴사 예약을 취소하지 못했습니다.\n$error');
+    } catch (_) {
+      throw const TeacherFailure(
+        '퇴사 예약을 취소하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -1083,8 +1097,10 @@ class TeacherRepository {
       throw TeacherFailure(
         _staffDepartureFailureMessage(error.message),
       );
-    } catch (error) {
-      throw TeacherFailure('퇴사를 확정하지 못했습니다.\n$error');
+    } catch (_) {
+      throw const TeacherFailure(
+        '퇴사를 확정하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -1100,134 +1116,138 @@ String _shortTime(dynamic value) {
 }
 
 String _workHourFailureMessage(String message) {
+  String? userMessage;
+
   if (message.contains('FORESTRING_AUTH_REQUIRED')) {
-    return '로그인이 필요합니다.';
-  }
-  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-    return '현재 계정은 더 이상 사용할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_REQUIRED')) {
-    return '근무시간을 변경할 권한이 없습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
-    return '선생님 정보를 찾을 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_BRANCH_REQUIRED')) {
-    return '선생님의 지점 정보가 필요합니다.';
-  }
-  if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
-    return '재직 중인 선생님의 근무시간만 변경할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-    return '지점 관리자는 자기 지점 선생님의 근무시간만 변경할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_OVERLAP')) {
-    return '같은 요일에 서로 겹치는 근무시간이 있습니다.';
-  }
-  if (message.contains('FORESTRING_INVALID_WORK_HOURS_RANGE')) {
-    return '종료시간은 시작시간보다 뒤여야 합니다.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_NOT_ON_15_MINUTE_GRID')) {
-    return '근무시간은 15분 단위로 입력해주세요.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_ARRAY_REQUIRED') ||
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED') ||
+      message.contains('FORESTRING_ACTIVE_USER_REQUIRED')) {
+    userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_REQUIRED')) {
+    userMessage = '근무시간을 변경할 권한이 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+    userMessage = '선생님 정보를 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_BRANCH_REQUIRED')) {
+    userMessage = '선생님의 지점 정보를 확인해주세요.';
+  } else if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
+    userMessage = '재직 중인 선생님의 근무시간만 변경할 수 있습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    userMessage = '다른 지점 선생님의 근무시간은 변경할 수 없습니다.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_OVERLAP')) {
+    userMessage = '같은 요일에 서로 겹치는 근무시간이 있습니다.';
+  } else if (message.contains('FORESTRING_INVALID_WORK_HOURS_RANGE')) {
+    userMessage = '종료시간은 시작시간보다 뒤여야 합니다.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_NOT_ON_15_MINUTE_GRID')) {
+    userMessage = '근무시간은 15분 단위로 입력해주세요.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_ARRAY_REQUIRED') ||
       message.contains('FORESTRING_INVALID_WORK_HOURS_FORMAT')) {
-    return '근무시간 입력 형식이 올바르지 않습니다.';
+    userMessage = '근무시간 입력 형식이 올바르지 않습니다.';
   }
 
-  return '근무시간을 변경하지 못했습니다.';
+  return _withErrorCode(
+    userMessage ?? '근무시간을 변경하지 못했습니다.',
+    message,
+  );
 }
 
 String _blockedPeriodFailureMessage(String message) {
+  String? userMessage;
+
   if (message.contains('FORESTRING_AUTH_REQUIRED')) {
-    return '로그인이 필요합니다.';
-  }
-  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-    return '현재 계정은 더 이상 사용할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_REQUIRED')) {
-    return '개인 일정을 관리할 권한이 없습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
-    return '선생님 정보를 찾을 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
-    return '재직 중인 선생님의 개인 일정만 등록할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-    return '지점 관리자는 자기 지점 선생님의 개인 일정만 관리할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_BLOCKED_PERIOD_LESSON_CONFLICT')) {
-    return '해당 시간에 예정된 수업이 있습니다. 수업을 먼저 변경하거나 취소해주세요.';
-  }
-  if (message.contains('FORESTRING_BLOCKED_PERIOD_OVERLAP')) {
-    return '이미 등록된 개인 일정과 시간이 겹칩니다.';
-  }
-  if (message.contains('FORESTRING_INVALID_BLOCKED_PERIOD_RANGE')) {
-    return '개인 일정의 종료시간은 시작시간보다 뒤여야 합니다.';
-  }
-  if (message.contains('FORESTRING_BLOCKED_PERIOD_NOT_FOUND')) {
-    return '개인 일정을 찾을 수 없습니다.';
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED') ||
+      message.contains('FORESTRING_ACTIVE_USER_REQUIRED')) {
+    userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_REQUIRED')) {
+    userMessage = '개인 일정을 관리할 권한이 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+    userMessage = '선생님 정보를 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
+    userMessage = '재직 중인 선생님의 개인 일정만 등록할 수 있습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    userMessage = '다른 지점 선생님의 개인 일정은 관리할 수 없습니다.';
+  } else if (message.contains('FORESTRING_BLOCKED_PERIOD_LESSON_CONFLICT') ||
+      message.contains('FORESTRING_BLOCKED_PERIOD_HAS_EXISTING_LESSONS')) {
+    userMessage = '해당 시간에 예정된 수업이 있습니다. 수업을 먼저 변경하거나 취소해주세요.';
+  } else if (message.contains('FORESTRING_BLOCKED_PERIOD_OVERLAP')) {
+    userMessage = '이미 등록된 개인 일정과 시간이 겹칩니다.';
+  } else if (message.contains('FORESTRING_INVALID_BLOCKED_PERIOD_RANGE')) {
+    userMessage = '개인 일정의 종료시간은 시작시간보다 뒤여야 합니다.';
+  } else if (message.contains('FORESTRING_BLOCKED_PERIOD_NOT_FOUND')) {
+    userMessage = '개인 일정을 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_BLOCKED_PERIOD_TEACHER_MISMATCH')) {
+    userMessage = '선택한 개인 일정과 선생님 정보가 일치하지 않습니다.';
   }
 
-  return '개인 일정을 처리하지 못했습니다.';
+  return _withErrorCode(
+    userMessage ?? '개인 일정을 처리하지 못했습니다.',
+    message,
+  );
 }
 
 String _lessonStatsFailureMessage(String message) {
+  String? userMessage;
+
   if (message.contains('FORESTRING_AUTH_REQUIRED')) {
-    return '로그인이 필요합니다.';
-  }
-  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-    return '현재 계정은 더 이상 사용할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_STATS_FORBIDDEN')) {
-    return '수업 통계를 조회할 권한이 없습니다.';
-  }
-  if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-    return '지점 관리자는 자기 지점 선생님의 통계만 조회할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
-    return '선생님 정보를 찾을 수 없습니다.';
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED') ||
+      message.contains('FORESTRING_ACTIVE_USER_REQUIRED')) {
+    userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_STATS_FORBIDDEN')) {
+    userMessage = '수업 통계를 조회할 권한이 없습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    userMessage = '다른 지점 선생님의 통계는 조회할 수 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+    userMessage = '선생님 정보를 찾을 수 없습니다.';
   }
 
-  return '수업 통계를 불러오지 못했습니다.';
+  return _withErrorCode(
+    userMessage ?? '수업 통계를 불러오지 못했습니다.',
+    message,
+  );
 }
 
 String _staffDepartureFailureMessage(String message) {
+  String? userMessage;
+
   if (message.contains('FORESTRING_AUTH_REQUIRED')) {
-    return '로그인이 필요합니다.';
-  }
-  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-    return '현재 계정은 더 이상 사용할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_FORBIDDEN') ||
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED') ||
+      message.contains('FORESTRING_ACTIVE_USER_REQUIRED')) {
+    userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_FORBIDDEN') ||
       message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-    return '이 선생님의 퇴사를 관리할 권한이 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_NOT_FOUND') ||
+    userMessage = '이 선생님의 퇴사를 관리할 권한이 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_NOT_FOUND') ||
       message.contains('FORESTRING_TARGET_NOT_STAFF')) {
-    return '선생님 정보를 찾을 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_ACTIVE_STAFF_REQUIRED')) {
-    return '재직 중인 선생님만 퇴사를 예약할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_DATE_IN_PAST')) {
-    return '오늘보다 이전 날짜로는 퇴사를 예약할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_ALREADY_EFFECTIVE')) {
-    return '이미 퇴사 예정일이 되어 예약을 변경하거나 취소할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_SCHEDULED')) {
-    return '예약된 퇴사가 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_EFFECTIVE_YET')) {
-    return '퇴사 예정일 전에는 퇴사를 확정할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_BLOCKED')) {
-    return '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 퇴사를 확정할 수 없습니다.';
+    userMessage = '선생님 정보를 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_ACTIVE_STAFF_REQUIRED')) {
+    userMessage = '재직 중인 선생님만 퇴사를 예약할 수 있습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_DATE_IN_PAST')) {
+    userMessage = '오늘보다 이전 날짜로는 퇴사를 예약할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_ALREADY_EFFECTIVE')) {
+    userMessage = '이미 퇴사 예정일이 되어 예약을 변경하거나 취소할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_SCHEDULED')) {
+    userMessage = '예약된 퇴사가 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_EFFECTIVE_YET')) {
+    userMessage = '퇴사 예정일 전에는 퇴사를 확정할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_BLOCKED')) {
+    userMessage = '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 퇴사를 확정할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_INPUT_REQUIRED')) {
+    userMessage = '퇴사 예정일을 선택해주세요.';
   }
 
-  return '퇴사 관리 작업을 처리하지 못했습니다.';
+  return _withErrorCode(
+    userMessage ?? '퇴사 관리 작업을 처리하지 못했습니다.',
+    message,
+  );
+}
+
+String _withErrorCode(String userMessage, String rawMessage) {
+  final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+  final code = match?.group(0);
+  if (code == null) return userMessage;
+  return '$userMessage\n오류 코드: $code';
 }
 
 String _dateOnlyText(DateTime date) {
