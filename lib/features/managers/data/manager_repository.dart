@@ -239,12 +239,14 @@ class ManagerRepository {
         );
       }).toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName));
-    } on PostgrestException catch (error) {
-      throw ManagerFailure(
-        '지점장 목록을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const ManagerFailure(
+        '지점장 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw ManagerFailure('지점장 목록을 불러오지 못했습니다.\n$error');
+    } catch (_) {
+      throw const ManagerFailure(
+        '지점장 목록을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -288,11 +290,13 @@ class ManagerRepository {
         throw ManagerFailure(
           data is Map && data['message'] != null
               ? data['message'].toString()
-              : '지점장 생성에 실패했습니다.',
+              : '지점장 계정을 생성하지 못했습니다.',
         );
       }
       if (data is! Map) {
-        throw const ManagerFailure('서버 응답 형식이 올바르지 않습니다.');
+        throw const ManagerFailure(
+          '지점장 생성 서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
+        );
       }
 
       final managerId = data['managerId'];
@@ -316,9 +320,13 @@ class ManagerRepository {
       if (details is Map && details['message'] != null) {
         throw ManagerFailure(details['message'].toString());
       }
-      throw const ManagerFailure('지점장 생성 요청에 실패했습니다.');
-    } catch (error) {
-      throw ManagerFailure('지점장 생성 요청에 실패했습니다.\n$error');
+      throw const ManagerFailure(
+        '지점장 생성 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const ManagerFailure(
+        '지점장 계정을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -358,9 +366,13 @@ class ManagerRepository {
       if (details is Map && details['message'] != null) {
         throw ManagerFailure(details['message'].toString());
       }
-      throw const ManagerFailure('이름을 변경하지 못했습니다.');
-    } catch (error) {
-      throw ManagerFailure('이름을 변경하지 못했습니다.\n$error');
+      throw const ManagerFailure(
+        '이름 변경 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const ManagerFailure(
+        '이름을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -396,9 +408,13 @@ class ManagerRepository {
       if (details is Map && details['message'] != null) {
         throw ManagerFailure(details['message'].toString());
       }
-      throw const ManagerFailure('PIN을 변경하지 못했습니다.');
-    } catch (error) {
-      throw ManagerFailure('PIN을 변경하지 못했습니다.\n$error');
+      throw const ManagerFailure(
+        'PIN 변경 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const ManagerFailure(
+        'PIN을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -415,27 +431,9 @@ class ManagerRepository {
         },
       );
     } on PostgrestException catch (error) {
-      final message = error.message;
-      if (message.contains('FORESTRING_MANAGER_BRANCH_CHANGE_BLOCKED')) {
-        throw const ManagerFailure(
-          '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 지점을 변경할 수 없습니다.',
-        );
-      }
-      if (message.contains(
-        'FORESTRING_MANAGER_BRANCH_CHANGE_PENDING_DEPARTURE',
-      )) {
-        throw const ManagerFailure('퇴사 예정인 지점장은 지점을 변경할 수 없습니다.');
-      }
-      if (message.contains('FORESTRING_ACTIVE_BRANCH_REQUIRED')) {
-        throw const ManagerFailure('운영 중인 지점만 선택할 수 있습니다.');
-      }
-      if (message.contains('FORESTRING_MANAGER_NOT_FOUND')) {
-        throw const ManagerFailure('지점장 정보를 찾을 수 없습니다.');
-      }
-      if (message.contains('FORESTRING_MASTER_REQUIRED')) {
-        throw const ManagerFailure('전체 관리자만 담당 지점을 변경할 수 있습니다.');
-      }
-      throw ManagerFailure('담당 지점을 변경하지 못했습니다.\n$message');
+      throw ManagerFailure(
+        _managerBranchMessage(error.message),
+      );
     }
   }
 
@@ -451,6 +449,8 @@ class ManagerRepository {
       return ManagerDepartureState.fromJson(
         Map<String, dynamic>.from(data),
       );
+    } on ManagerFailure {
+      rethrow;
     } on PostgrestException catch (error) {
       throw ManagerFailure(_departureMessage(error.message));
     }
@@ -474,6 +474,8 @@ class ManagerRepository {
       return ManagerDepartureState.fromJson(
         Map<String, dynamic>.from(data),
       );
+    } on ManagerFailure {
+      rethrow;
     } on PostgrestException catch (error) {
       throw ManagerFailure(_departureMessage(error.message));
     }
@@ -517,25 +519,73 @@ String _dateText(DateTime date) {
   return '$year-$month-$day';
 }
 
+String _managerBranchMessage(String message) {
+  String? userMessage;
+
+  if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_MASTER_REQUIRED')) {
+    userMessage = '전체 관리자만 담당 지점을 변경할 수 있습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_CHANGE_BLOCKED')) {
+    userMessage = '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 지점을 변경할 수 없습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_CHANGE_PENDING_DEPARTURE')) {
+    userMessage = '퇴사 예정인 지점장은 담당 지점을 변경할 수 없습니다.';
+  } else if (message.contains('FORESTRING_ACTIVE_BRANCH_REQUIRED')) {
+    userMessage = '운영 중인 지점만 선택할 수 있습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_NOT_FOUND')) {
+    userMessage = '지점장 정보를 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_ACTIVE_MANAGER_REQUIRED')) {
+    userMessage = '재직 중인 지점장의 담당 지점만 변경할 수 있습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_INPUT_REQUIRED')) {
+    userMessage = '변경할 지점을 선택해주세요.';
+  }
+
+  return _withErrorCode(
+    userMessage ?? '담당 지점을 변경하지 못했습니다.',
+    message,
+  );
+}
+
 String _departureMessage(String message) {
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_DATE_IN_PAST')) {
-    return '오늘보다 이전 날짜로는 퇴사를 예약할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_ALREADY_EFFECTIVE')) {
-    return '이미 퇴사 예정일이 되어 예약을 변경하거나 취소할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_SCHEDULED')) {
-    return '예약된 퇴사가 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_EFFECTIVE_YET')) {
-    return '퇴사 예정일 전에는 퇴사를 확정할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_BLOCKED')) {
-    return '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 퇴사를 확정할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_DEPARTURE_FORBIDDEN') ||
+  String? userMessage;
+
+  if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED') ||
+      message.contains('FORESTRING_ACTIVE_USER_REQUIRED')) {
+    userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_DATE_IN_PAST')) {
+    userMessage = '오늘보다 이전 날짜로는 퇴사를 예약할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_ALREADY_EFFECTIVE')) {
+    userMessage = '이미 퇴사 예정일이 되어 예약을 변경하거나 취소할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_SCHEDULED')) {
+    userMessage = '예약된 퇴사가 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_NOT_EFFECTIVE_YET')) {
+    userMessage = '퇴사 예정일 전에는 퇴사를 확정할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_BLOCKED')) {
+    userMessage = '담당 학생, 정규 일정 또는 예정 수업이 남아 있어 퇴사를 확정할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_FORBIDDEN') ||
+      message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN') ||
       message.contains('FORESTRING_MASTER_REQUIRED')) {
-    return '지점장 퇴사를 관리할 권한이 없습니다.';
+    userMessage = '지점장 퇴사를 관리할 권한이 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_NOT_FOUND') ||
+      message.contains('FORESTRING_TARGET_NOT_STAFF')) {
+    userMessage = '지점장 정보를 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_ACTIVE_STAFF_REQUIRED')) {
+    userMessage = '재직 중인 지점장만 퇴사를 예약할 수 있습니다.';
+  } else if (message.contains('FORESTRING_STAFF_DEPARTURE_INPUT_REQUIRED')) {
+    userMessage = '퇴사 예정일을 선택해주세요.';
   }
-  return '퇴사 관리 작업을 처리하지 못했습니다.';
+
+  return _withErrorCode(
+    userMessage ?? '퇴사 관리 작업을 처리하지 못했습니다.',
+    message,
+  );
+}
+
+String _withErrorCode(String userMessage, String rawMessage) {
+  final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+  final code = match?.group(0);
+  if (code == null) return userMessage;
+  return '$userMessage\n오류 코드: $code';
 }
