@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/forestring_theme.dart';
+import '../../auth/domain/current_profile.dart';
 import '../../lessons/data/lesson_repository.dart';
 import '../../lessons/domain/lesson.dart';
+import '../../lessons/presentation/lesson_controller.dart';
+import '../../lessons/presentation/widgets/lesson_action_dialog.dart';
 import '../data/student_management_repository.dart';
 
 enum _HistoryRange { upcoming, past, all }
@@ -12,10 +15,12 @@ class StudentLessonHistoryPage extends StatefulWidget {
   const StudentLessonHistoryPage({
     super.key,
     required this.student,
+    this.profile,
     this.repository,
   });
 
   final ManagedStudent student;
+  final CurrentProfile? profile;
   final LessonRepository? repository;
 
   @override
@@ -26,16 +31,30 @@ class StudentLessonHistoryPage extends StatefulWidget {
 class _StudentLessonHistoryPageState
     extends State<StudentLessonHistoryPage> {
   late final LessonRepository _repository;
+  LessonController? _actionController;
+  Future<void>? _actionControllerInitialization;
   List<Lesson> _lessons = const [];
   _HistoryRange _range = _HistoryRange.upcoming;
   bool _loading = true;
+  bool _openingLesson = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _repository = widget.repository ?? LessonRepository();
+    final profile = widget.profile;
+    if (profile != null) {
+      _actionController = LessonController(_repository, profile);
+      _actionControllerInitialization = _actionController!.initialize();
+    }
     _load();
+  }
+
+  @override
+  void dispose() {
+    _actionController?.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -55,6 +74,26 @@ class _StudentLessonHistoryPageState
       setState(() => _errorMessage = error.message);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openLesson(Lesson lesson) async {
+    final controller = _actionController;
+    if (controller == null || _openingLesson) return;
+
+    setState(() => _openingLesson = true);
+    try {
+      await _actionControllerInitialization;
+      if (!mounted) return;
+
+      await showLessonActionDialog(
+        context: context,
+        lesson: lesson,
+        controller: controller,
+      );
+      if (mounted) await _load();
+    } finally {
+      if (mounted) setState(() => _openingLesson = false);
     }
   }
 
@@ -188,7 +227,14 @@ class _StudentLessonHistoryPageState
         );
         previousDay = day;
       }
-      widgets.add(_LessonHistoryCard(lesson: lesson));
+      widgets.add(
+        _LessonHistoryCard(
+          lesson: lesson,
+          onTap: _actionController == null || _openingLesson
+              ? null
+              : () => _openLesson(lesson),
+        ),
+      );
       widgets.add(const SizedBox(height: 8));
     }
     return widgets;
@@ -275,9 +321,13 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _LessonHistoryCard extends StatelessWidget {
-  const _LessonHistoryCard({required this.lesson});
+  const _LessonHistoryCard({
+    required this.lesson,
+    this.onTap,
+  });
 
   final Lesson lesson;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -287,90 +337,105 @@ class _LessonHistoryCard extends StatelessWidget {
     final wasMoved = originalTime != null &&
         originalTime.toUtc() != lesson.startsAt.toUtc();
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: lesson.isCanceled
-              ? Colors.redAccent.withValues(alpha: 0.18)
-              : primaryColor.withValues(alpha: 0.15),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            lesson.isCanceled
-                ? Icons.event_busy_outlined
-                : Icons.event_available_outlined,
-            color: lesson.isCanceled ? Colors.redAccent : primaryColor,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        time,
-                        style: forestringTextStyle.copyWith(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          decoration: lesson.isCanceled
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
-                    ),
-                    _StatusBadge(lesson: lesson),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${lesson.displayTypeLabel} · ${lesson.durationMinutes}분',
-                  style: forestringTextStyle.copyWith(
-                    color: Colors.black54,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  lesson.teacherName == null
-                      ? '담당 선생님 정보 없음'
-                      : '${lesson.teacherName} 선생님',
-                  style: forestringTextStyle.copyWith(
-                    color: Colors.black54,
-                    fontSize: 13,
-                  ),
-                ),
-                if (wasMoved) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '변경 전 ${DateFormat('M.d (E) HH:mm', 'ko_KR').format(originalTime)}',
-                    style: forestringTextStyle.copyWith(
-                      color: secondaryColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-                if (lesson.isCanceled &&
-                    lesson.cancellationReason?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '취소 사유 · ${lesson.cancellationReason!.trim()}',
-                    style: forestringTextStyle.copyWith(
-                      color: Colors.redAccent,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ],
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: lesson.isCanceled
+                  ? Colors.redAccent.withValues(alpha: 0.18)
+                  : primaryColor.withValues(alpha: 0.15),
             ),
           ),
-        ],
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                lesson.isCanceled
+                    ? Icons.event_busy_outlined
+                    : Icons.event_available_outlined,
+                color: lesson.isCanceled ? Colors.redAccent : primaryColor,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            time,
+                            style: forestringTextStyle.copyWith(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w500,
+                              decoration: lesson.isCanceled
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        _StatusBadge(lesson: lesson),
+                        if (onTap != null) ...[
+                          const SizedBox(width: 3),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.black38,
+                            size: 19,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${lesson.displayTypeLabel} · ${lesson.durationMinutes}분',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      lesson.teacherName == null
+                          ? '담당 선생님 정보 없음'
+                          : '${lesson.teacherName} 선생님',
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (wasMoved) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '변경 전 ${DateFormat('M.d (E) HH:mm', 'ko_KR').format(originalTime)}',
+                        style: forestringTextStyle.copyWith(
+                          color: secondaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (lesson.isCanceled &&
+                        lesson.cancellationReason?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '취소 사유 · ${lesson.cancellationReason!.trim()}',
+                        style: forestringTextStyle.copyWith(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
