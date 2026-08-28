@@ -266,13 +266,13 @@ class StudentManagementRepository {
         );
       }).toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName));
-    } on PostgrestException catch (error) {
-      throw StudentManagementFailure(
-        '수강생 목록을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const StudentManagementFailure(
+        '수강생 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw StudentManagementFailure(
-        '수강생 목록을 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentManagementFailure(
+        '수강생 목록을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -306,12 +306,20 @@ class StudentManagementRepository {
               : '이름을 변경하지 못했습니다.',
         );
       }
+    } on StudentManagementFailure {
+      rethrow;
     } on FunctionException catch (error) {
       final details = error.details;
       if (details is Map && details['message'] != null) {
         throw StudentManagementFailure(details['message'].toString());
       }
-      throw const StudentManagementFailure('이름을 변경하지 못했습니다.');
+      throw const StudentManagementFailure(
+        '이름 변경 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const StudentManagementFailure(
+        '이름을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -342,12 +350,20 @@ class StudentManagementRepository {
               : 'PIN을 변경하지 못했습니다.',
         );
       }
+    } on StudentManagementFailure {
+      rethrow;
     } on FunctionException catch (error) {
       final details = error.details;
       if (details is Map && details['message'] != null) {
         throw StudentManagementFailure(details['message'].toString());
       }
-      throw const StudentManagementFailure('PIN을 변경하지 못했습니다.');
+      throw const StudentManagementFailure(
+        'PIN 변경 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const StudentManagementFailure(
+        'PIN을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -400,9 +416,9 @@ class StudentManagementRepository {
       throw StudentManagementFailure(
         _friendlyFlexRightCountMessage(error.message),
       );
-    } catch (error) {
-      throw StudentManagementFailure(
-        '수업권을 변경하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentManagementFailure(
+        '수업권을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -510,67 +526,83 @@ class StudentManagementRepository {
   }
 
   String _friendlyWithdrawalMessage(String message) {
-    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_DATE_IN_PAST')) {
-      return '과거 날짜로 퇴원 처리할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_FORBIDDEN') ||
+    String? userMessage;
+
+    if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+      userMessage = '로그인이 필요합니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_USER_REQUIRED') ||
+        message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+      userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_DATE_IN_PAST')) {
+      userMessage = '과거 날짜로 퇴원 처리할 수 없습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_FORBIDDEN') ||
         message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-      return '이 수강생의 퇴원 처리 권한이 없습니다.';
+      userMessage = '이 수강생의 퇴원 처리 권한이 없습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_NOT_ACTIVE')) {
+      userMessage = '이미 퇴원했거나 현재 재원 상태가 아닌 수강생입니다.';
+    } else if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_NOT_READY')) {
+      userMessage = '아직 퇴원 예정일이 되지 않았습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_ALREADY_EFFECTIVE')) {
+      userMessage = '퇴원 예정일이 이미 도래했습니다. 퇴원 확정을 진행해주세요.';
+    } else if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_DATE_REQUIRED')) {
+      userMessage = '퇴원일을 먼저 지정해주세요.';
+    } else if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_INVALID_STATE')) {
+      userMessage = '현재 학생 상태에서는 퇴원을 확정할 수 없습니다. 학생 상태를 새로고침한 뒤 확인해주세요.';
+    } else if (message.contains('FORESTRING_STUDENT_BRANCH_REQUIRED')) {
+      userMessage = '학생의 지점 정보를 확인해주세요.';
+    } else if (message.contains('FORESTRING_STUDENT_NOT_FOUND')) {
+      userMessage = '수강생 정보를 찾지 못했습니다.';
+    } else if (message.contains('FORESTRING_WITHDRAWAL_LESSON_DELETE_COUNT_MISMATCH')) {
+      userMessage = '퇴원 처리 중 예정 수업 정리가 완료되지 않았습니다. 다시 시도해주세요.';
     }
-    if (message.contains('FORESTRING_STUDENT_NOT_ACTIVE')) {
-      return '이미 퇴원했거나 현재 재원 상태가 아닌 수강생입니다.';
-    }
-    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_NOT_READY')) {
-      return '아직 퇴원 예정일이 되지 않았습니다.';
-    }
-    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_ALREADY_EFFECTIVE')) {
-      return '퇴원 예정일이 이미 도래했습니다. 퇴원 확정을 진행해주세요.';
-    }
-    if (message.contains('FORESTRING_STUDENT_WITHDRAWAL_DATE_REQUIRED')) {
-      return '퇴원일을 먼저 지정해주세요.';
-    }
-    if (message.contains('FORESTRING_STUDENT_NOT_FOUND')) {
-      return '수강생 정보를 찾지 못했습니다.';
-    }
-    if (message.contains('FORESTRING_')) {
-      return '퇴원 처리를 완료하지 못했습니다. ($message)';
-    }
-    return '퇴원 처리를 완료하지 못했습니다.';
+
+    return _withErrorCode(
+      userMessage ?? '퇴원 처리를 완료하지 못했습니다.',
+      message,
+    );
   }
 
   String _friendlyFlexRightCountMessage(String message) {
-    if (message.contains('FORESTRING_INVALID_FLEX_RIGHT_COUNT')) {
-      return '수업권 개수는 1개 이상이어야 합니다.';
-    }
-    if (message.contains('FORESTRING_ACTIVE_FLEX_PLAN_REQUIRED') ||
+    String? userMessage;
+
+    if (message.contains('FORESTRING_AUTH_REQUIRED')) {
+      userMessage = '로그인이 필요합니다.';
+    } else if (message.contains('FORESTRING_INVALID_FLEX_RIGHT_COUNT')) {
+      userMessage = '수업권 개수는 1개 이상이어야 합니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_FLEX_PLAN_REQUIRED') ||
         message.contains('FORESTRING_FLEX_PLAN_CONFIGURATION_REQUIRED')) {
-      return '현재 학기의 자율 수업권 설정을 찾지 못했습니다.';
-    }
-    if (message.contains('FORESTRING_FLEX_STUDENT_REQUIRED')) {
-      return '자율 예약 학생의 수업권만 변경할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_ACTIVE_STUDENT_REQUIRED')) {
-      return '현재 재원 중인 학생의 수업권만 변경할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN') ||
+      userMessage = '현재 학기의 자율 수업권 설정을 찾지 못했습니다.';
+    } else if (message.contains('FORESTRING_FLEX_STUDENT_REQUIRED')) {
+      userMessage = '자율 예약 학생의 수업권만 변경할 수 있습니다.';
+    } else if (message.contains('FORESTRING_ACTIVE_STUDENT_REQUIRED')) {
+      userMessage = '현재 재원 중인 학생의 수업권만 변경할 수 있습니다.';
+    } else if (message.contains('FORESTRING_STUDENT_NOT_FOUND')) {
+      userMessage = '학생 정보를 찾을 수 없습니다.';
+    } else if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN') ||
         message.contains('FORESTRING_STAFF_REQUIRED')) {
-      return '이 학생의 수업권을 변경할 권한이 없습니다.';
-    }
-    if (message.contains('FORESTRING_FLEX_RIGHT_COUNT_DECREASE_BLOCKED')) {
-      return '예약 중이거나 이미 완료된 수업이 많아 이 개수까지 줄일 수 없습니다. '
+      userMessage = '이 학생의 수업권을 변경할 권한이 없습니다.';
+    } else if (message.contains('FORESTRING_FLEX_RIGHT_COUNT_DECREASE_BLOCKED')) {
+      userMessage = '예약 중이거나 이미 완료된 수업이 많아 이 개수까지 줄일 수 없습니다. '
           '예정 수업을 관리자 취소한 뒤 다시 시도해주세요.';
-    }
-    if (message.contains('FORESTRING_FLEX_RIGHTS_PLAN_MISMATCH') ||
+    } else if (message.contains('FORESTRING_ACTIVE_PLAN_BRANCH_MISMATCH')) {
+      userMessage = '현재 학기 수업권의 지점 정보가 학생 정보와 일치하지 않습니다.';
+    } else if (message.contains('FORESTRING_FLEX_RIGHTS_PLAN_MISMATCH') ||
         message.contains('FORESTRING_FLEX_RIGHT_COUNT_MISMATCH')) {
-      return '현재 학기 수업권 원장과 설정이 일치하지 않아 '
-          '변경할 수 없습니다.';
+      userMessage = '현재 학기 수업권 원장과 설정이 일치하지 않아 변경할 수 없습니다.';
+    } else if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+      userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
     }
-    if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-      return '현재 계정은 더 이상 사용할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_')) {
-      return '수업권을 변경하지 못했습니다. ($message)';
-    }
-    return '수업권을 변경하지 못했습니다.';
+
+    return _withErrorCode(
+      userMessage ?? '수업권을 변경하지 못했습니다.',
+      message,
+    );
+  }
+
+  String _withErrorCode(String userMessage, String rawMessage) {
+    final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+    final code = match?.group(0);
+    if (code == null) return userMessage;
+    return '$userMessage\n오류 코드: $code';
   }
 }
