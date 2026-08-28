@@ -50,9 +50,18 @@ class AuthRepository {
           'pin': pin,
         },
       );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw AuthFailure(details['message'].toString());
+      }
+
+      throw const AuthFailure(
+        '로그인 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
     } catch (_) {
       throw const AuthFailure(
-        '로그인 서버에 연결하지 못했습니다.',
+        '로그인 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
       );
     }
 
@@ -60,7 +69,7 @@ class AuthRepository {
 
     if (data is! Map) {
       throw const AuthFailure(
-        '로그인 서버 응답 형식이 올바르지 않습니다.',
+        '로그인 서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
 
@@ -81,10 +90,9 @@ class AuthRepository {
         type: OtpType.email,
         tokenHash: tokenHash,
       );
-    } on AuthException catch (error) {
-      throw AuthFailure(
-        '로그인 세션 생성에 실패했습니다: '
-        '${error.message}',
+    } on AuthException {
+      throw const AuthFailure(
+        '로그인 인증 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
 
@@ -92,7 +100,7 @@ class AuthRepository {
 
     if (session == null) {
       throw const AuthFailure(
-        '로그인 세션을 생성하지 못했습니다.',
+        '로그인 세션을 생성하지 못했습니다. 다시 로그인해주세요.',
       );
     }
 
@@ -140,11 +148,11 @@ class AuthRepository {
       rethrow;
     } on PostgrestException {
       throw const AuthFailure(
-        '사용자 정보를 불러오지 못했습니다.',
+        '사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
     } catch (_) {
       throw const AuthFailure(
-        '사용자 정보를 확인하는 중 오류가 발생했습니다.',
+        '사용자 정보를 확인하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
