@@ -47,9 +47,7 @@ class CreatedStudent {
 class StudentRepository {
   StudentRepository({
     SupabaseClient? client,
-  }) : _client =
-            client ??
-            Supabase.instance.client;
+  }) : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
@@ -84,8 +82,7 @@ class StudentRepository {
       );
     }
 
-    final session =
-        _client.auth.currentSession;
+    final session = _client.auth.currentSession;
 
     if (session == null) {
       throw const StudentFailure(
@@ -94,19 +91,16 @@ class StudentRepository {
     }
 
     try {
-      final response =
-          await _client.functions.invoke(
+      final response = await _client.functions.invoke(
         'staff-create-student',
         headers: {
-          'Authorization':
-              'Bearer ${session.accessToken}',
+          'Authorization': 'Bearer ${session.accessToken}',
         },
         body: {
           'name': normalizedName,
           'pin': pin,
           'branchId': branchId,
-          'studentType':
-              studentType.value,
+          'studentType': studentType.value,
         },
       );
 
@@ -114,48 +108,46 @@ class StudentRepository {
 
       if (data is! Map) {
         throw const StudentFailure(
-          '서버 응답 형식이 올바르지 않습니다.',
+          '학생 생성 서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
         );
       }
 
-      final studentId =
-          data['studentId'];
+      final studentId = data['studentId'];
 
-      if (studentId is! String ||
-          studentId.isEmpty) {
-        final message =
-            data['message'];
+      if (studentId is! String || studentId.isEmpty) {
+        final message = data['message'];
 
         throw StudentFailure(
-          message is String
-              ? message
-              : '학생 생성에 실패했습니다.',
+          message is String ? message : '학생 계정을 생성하지 못했습니다.',
         );
       }
 
-      final returnedType =
-          data['studentType'];
+      final returnedType = data['studentType'];
 
       return CreatedStudent(
         id: studentId,
-        displayName:
-            data['displayName'] is String
-                ? data['displayName']
-                : normalizedName,
-        branchId:
-            data['branchId'] is String
-                ? data['branchId']
-                : branchId,
+        displayName: data['displayName'] is String
+            ? data['displayName'] as String
+            : normalizedName,
+        branchId: data['branchId'] is String
+            ? data['branchId'] as String
+            : branchId,
         studentType:
-            returnedType == 'flex'
-                ? StudentType.flex
-                : StudentType.regular,
+            returnedType == 'flex' ? StudentType.flex : StudentType.regular,
       );
     } on StudentFailure {
       rethrow;
-    } catch (error) {
-      throw StudentFailure(
-        '학생 생성 요청에 실패했습니다.\n$error',
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['message'] != null) {
+        throw StudentFailure(details['message'].toString());
+      }
+      throw const StudentFailure(
+        '학생 생성 서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.',
+      );
+    } catch (_) {
+      throw const StudentFailure(
+        '학생 계정을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
