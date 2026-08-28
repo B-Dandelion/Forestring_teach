@@ -221,13 +221,13 @@ class StudentRegularScheduleRepository {
         return a.startMinutes.compareTo(b.startMinutes);
       });
       return schedules;
-    } on PostgrestException catch (error) {
-      throw StudentRegularScheduleFailure(
-        '정규 일정을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const StudentRegularScheduleFailure(
+        '정규 일정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
-    } catch (error) {
-      throw StudentRegularScheduleFailure(
-        '정규 일정을 불러오지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentRegularScheduleFailure(
+        '정규 일정을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -277,9 +277,9 @@ class StudentRegularScheduleRepository {
       );
     } on StudentRegularScheduleFailure {
       rethrow;
-    } on PostgrestException catch (error) {
-      throw StudentRegularScheduleFailure(
-        '담당 선생님 정보를 확인하지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const StudentRegularScheduleFailure(
+        '담당 선생님 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -304,9 +304,9 @@ class StudentRegularScheduleRepository {
             ),
           )
           .toList();
-    } on PostgrestException catch (error) {
-      throw StudentRegularScheduleFailure(
-        '선생님 근무시간을 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const StudentRegularScheduleFailure(
+        '선생님 근무시간을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -362,9 +362,9 @@ class StudentRegularScheduleRepository {
 
       result.sort((a, b) => a.startsOn.compareTo(b.startsOn));
       return result.length <= 12 ? result : result.take(12).toList();
-    } on PostgrestException catch (error) {
-      throw StudentRegularScheduleFailure(
-        '적용할 학기를 불러오지 못했습니다.\n${error.message}',
+    } on PostgrestException {
+      throw const StudentRegularScheduleFailure(
+        '적용할 학기를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -400,11 +400,14 @@ class StudentRegularScheduleRepository {
       rethrow;
     } on PostgrestException catch (error) {
       throw StudentRegularScheduleFailure(
-        _friendlyDatabaseMessage(error.message),
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '정규 일정을 추가하지 못했습니다.',
+        ),
       );
-    } catch (error) {
-      throw StudentRegularScheduleFailure(
-        '정규 일정을 추가하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentRegularScheduleFailure(
+        '정규 일정을 추가하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -432,11 +435,14 @@ class StudentRegularScheduleRepository {
       rethrow;
     } on PostgrestException catch (error) {
       throw StudentRegularScheduleFailure(
-        _friendlyDatabaseMessage(error.message),
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '정규 일정을 종료하지 못했습니다.',
+        ),
       );
-    } catch (error) {
-      throw StudentRegularScheduleFailure(
-        '정규 일정을 종료하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentRegularScheduleFailure(
+        '정규 일정을 종료하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -472,11 +478,14 @@ class StudentRegularScheduleRepository {
       rethrow;
     } on PostgrestException catch (error) {
       throw StudentRegularScheduleFailure(
-        _friendlyDatabaseMessage(error.message),
+        _friendlyDatabaseMessage(
+          error.message,
+          fallback: '정규 일정을 변경하지 못했습니다.',
+        ),
       );
-    } catch (error) {
-      throw StudentRegularScheduleFailure(
-        '정규 일정을 변경하지 못했습니다.\n$error',
+    } catch (_) {
+      throw const StudentRegularScheduleFailure(
+        '정규 일정을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
       );
     }
   }
@@ -501,57 +510,56 @@ class StudentRegularScheduleRepository {
     return '$year-$month-$day';
   }
 
-  String _friendlyDatabaseMessage(String message) {
+  String _friendlyDatabaseMessage(
+    String message, {
+    required String fallback,
+  }) {
+    String? userMessage;
+
     if (message.contains('FORESTRING_BACKDATED_REGULAR_SCHEDULE_CHANGE_FORBIDDEN')) {
-      return '과거 날짜부터 정규 일정을 변경할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_OCCURRENCE_OUTSIDE_WORK_HOURS')) {
-      return '선택한 요일과 시간이 담당 선생님의 근무시간 밖입니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_SCHEDULE_FUTURE_VERSION_EXISTS')) {
-      return '이미 예정된 정규 일정 변경이 있습니다. 기존 변경 일정을 먼저 확인해주세요.';
-    }
-    if (message.contains('FORESTRING_REGULAR_ADD_REQUIRES_SEMESTER_START')) {
-      return '정규 수업 추가는 새 학기 시작일부터 적용할 수 있습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_ADD_ACTIVE_SEMESTER_FORBIDDEN')) {
-      return '이미 시작된 학기에는 정규 수업을 추가할 수 없습니다. 다음 학기를 선택해주세요.';
-    }
-    if (message.contains('FORESTRING_TARGET_SEMESTER_NOT_REGULAR')) {
-      return '선택한 학기는 정규 학생 일정으로 설정되어 있지 않습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_SCHEDULE_ALREADY_MATERIALIZED')) {
-      return '이미 생성된 수업이 있어 시작일부터 바로 삭제할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_TEACHER_ASSIGNMENT_MISMATCH') ||
+      userMessage = '과거 날짜부터 정규 일정을 변경하거나 종료할 수 없습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_OCCURRENCE_OUTSIDE_WORK_HOURS')) {
+      userMessage = '선택한 요일과 시간이 담당 선생님의 근무시간 밖입니다.';
+    } else if (message.contains('FORESTRING_REGULAR_SCHEDULE_FUTURE_VERSION_EXISTS')) {
+      userMessage = '이미 예정된 정규 일정 변경이 있습니다. 기존 변경 일정을 먼저 확인해주세요.';
+    } else if (message.contains('FORESTRING_REGULAR_ADD_REQUIRES_SEMESTER_START')) {
+      userMessage = '정규 수업 추가는 새 학기 시작일부터 적용할 수 있습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_ADD_ACTIVE_SEMESTER_FORBIDDEN')) {
+      userMessage = '이미 시작된 학기에는 정규 수업을 추가할 수 없습니다. 다음 학기를 선택해주세요.';
+    } else if (message.contains('FORESTRING_TARGET_SEMESTER_NOT_REGULAR')) {
+      userMessage = '선택한 학기는 정규 학생 일정으로 설정되어 있지 않습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_SCHEDULE_MATERIALIZED_UNDO_UNSAFE')) {
+      userMessage = '이미 변경하거나 취소한 수업 이력이 있어 이 정규 일정을 시작일부터 삭제할 수 없습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_SCHEDULE_ALREADY_MATERIALIZED')) {
+      userMessage = '이미 생성된 수업이 있어 이 정규 일정을 시작일부터 삭제할 수 없습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_TEACHER_ASSIGNMENT_MISMATCH') ||
         message.contains('FORESTRING_REGULAR_RECONCILIATION_ASSIGNMENT_MISMATCH')) {
-      return '선택한 적용일의 담당 선생님 정보와 정규 일정이 일치하지 않습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_RECONCILIATION_TIME_CONFLICT') ||
+      userMessage = '선택한 적용일의 담당 선생님 정보와 정규 일정이 일치하지 않습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_RECONCILIATION_TIME_CONFLICT') ||
         message.contains('FORESTRING_REGULAR_SERIES_TIME_CONFLICT') ||
         message.contains('TIME_CONFLICT')) {
-      return '변경하려는 시간에 다른 수업이 있어 저장할 수 없습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_RECONCILIATION_BLOCKED')) {
-      return '변경하려는 시간은 담당 선생님의 예약 불가 시간과 겹칩니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_RECONCILIATION_ON_CLOSURE')) {
-      return '변경되는 수업 중 학원 휴원일과 겹치는 일정이 있습니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_RECONCILIATION_COUNT_MISMATCH')) {
-      return '학기 내 정규 수업 횟수를 맞출 수 없습니다. 학기/휴원 설정을 확인해주세요.';
-    }
-    if (message.contains('FORESTRING_REGULAR_CHANGE_BEFORE_SLOT_START') ||
+      userMessage = '변경하려는 시간에 다른 수업이 있어 저장할 수 없습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_RECONCILIATION_BLOCKED')) {
+      userMessage = '변경하려는 시간은 담당 선생님의 예약 불가 시간과 겹칩니다.';
+    } else if (message.contains('FORESTRING_REGULAR_RECONCILIATION_ON_CLOSURE')) {
+      userMessage = '변경되는 수업 중 학원 휴원일과 겹치는 일정이 있습니다.';
+    } else if (message.contains('FORESTRING_REGULAR_RECONCILIATION_COUNT_MISMATCH')) {
+      userMessage = '학기 내 정규 수업 횟수를 맞출 수 없습니다. 학기/휴원 설정을 확인해주세요.';
+    } else if (message.contains('FORESTRING_REGULAR_CHANGE_BEFORE_SLOT_START') ||
         message.contains('FORESTRING_REGULAR_CHANGE_AFTER_SLOT_END')) {
-      return '이 정규 수업이 적용되는 기간 밖의 날짜입니다.';
-    }
-    if (message.contains('FORESTRING_REGULAR_SCHEDULE_CHANGE_FORBIDDEN') ||
+      userMessage = '이 정규 수업이 적용되는 기간 밖의 날짜입니다.';
+    } else if (message.contains('FORESTRING_REGULAR_SCHEDULE_CHANGE_FORBIDDEN') ||
         message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-      return '정규 일정 변경 권한이 없습니다.';
+      userMessage = '이 정규 일정을 관리할 권한이 없습니다.';
     }
-    if (message.contains('FORESTRING_')) {
-      return '정규 일정을 변경하지 못했습니다. ($message)';
-    }
-    return '정규 일정을 변경하지 못했습니다.';
+
+    return _withErrorCode(userMessage ?? fallback, message);
+  }
+
+  String _withErrorCode(String userMessage, String rawMessage) {
+    final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+    final code = match?.group(0);
+    if (code == null) return userMessage;
+    return '$userMessage\n오류 코드: $code';
   }
 }
