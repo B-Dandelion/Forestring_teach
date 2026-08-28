@@ -57,9 +57,16 @@ class TeacherWorkHoursScheduleRepository {
     } on TeacherFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      throw TeacherFailure(_failureMessage(error.message));
-    } catch (error) {
-      throw TeacherFailure('근무시간을 불러오지 못했습니다.\n$error');
+      throw TeacherFailure(
+        _failureMessage(
+          error.message,
+          fallback: '근무시간을 불러오지 못했습니다.',
+        ),
+      );
+    } catch (_) {
+      throw const TeacherFailure(
+        '근무시간을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -88,9 +95,16 @@ class TeacherWorkHoursScheduleRepository {
     } on TeacherFailure {
       rethrow;
     } on PostgrestException catch (error) {
-      throw TeacherFailure(_failureMessage(error.message));
-    } catch (error) {
-      throw TeacherFailure('근무시간을 변경하지 못했습니다.\n$error');
+      throw TeacherFailure(
+        _failureMessage(
+          error.message,
+          fallback: '근무시간을 변경하지 못했습니다.',
+        ),
+      );
+    } catch (_) {
+      throw const TeacherFailure(
+        '근무시간을 변경하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 }
@@ -103,47 +117,48 @@ String _dateOnly(DateTime value) {
   return '$year-$month-$day';
 }
 
-String _failureMessage(String message) {
+String _failureMessage(
+  String message, {
+  required String fallback,
+}) {
+  String? userMessage;
+
   if (message.contains('FORESTRING_AUTH_REQUIRED')) {
-    return '로그인이 필요합니다.';
-  }
-  if (message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
-    return '현재 계정은 더 이상 사용할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_STAFF_REQUIRED')) {
-    return '근무시간을 관리할 권한이 없습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
-    return '선생님 정보를 찾을 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_TEACHER_BRANCH_REQUIRED')) {
-    return '선생님의 지점 정보가 필요합니다.';
-  }
-  if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
-    return '재직 중인 선생님의 근무시간만 변경할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
-    return '지점 관리자는 자기 지점 선생님의 근무시간만 변경할 수 있습니다.';
-  }
-  if (message.contains('FORESTRING_BACKDATED_WORK_HOURS_CHANGE_FORBIDDEN')) {
-    return '지난 날짜부터 적용되는 근무시간은 변경할 수 없습니다.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_OVERLAP')) {
-    return '같은 요일에 서로 겹치는 근무시간이 있습니다.';
-  }
-  if (message.contains('FORESTRING_INVALID_WORK_HOURS_RANGE')) {
-    return '종료시간은 시작시간보다 뒤여야 합니다.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_NOT_ON_15_MINUTE_GRID')) {
-    return '근무시간은 15분 단위로 입력해주세요.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_EFFECTIVE_DATE_REQUIRED')) {
-    return '근무시간 적용 시작일을 선택해주세요.';
-  }
-  if (message.contains('FORESTRING_WORK_HOURS_ARRAY_REQUIRED') ||
+    userMessage = '로그인이 필요합니다.';
+  } else if (message.contains('FORESTRING_ACTIVE_USER_REQUIRED') ||
+      message.contains('FORESTRING_EFFECTIVE_ACCESS_REQUIRED')) {
+    userMessage = '현재 계정은 더 이상 사용할 수 없습니다.';
+  } else if (message.contains('FORESTRING_STAFF_REQUIRED')) {
+    userMessage = '근무시간을 관리할 권한이 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_NOT_FOUND')) {
+    userMessage = '선생님 정보를 찾을 수 없습니다.';
+  } else if (message.contains('FORESTRING_TEACHER_BRANCH_REQUIRED')) {
+    userMessage = '선생님의 지점 정보를 확인해주세요.';
+  } else if (message.contains('FORESTRING_ACTIVE_TEACHER_REQUIRED')) {
+    userMessage = '재직 중인 선생님의 근무시간만 변경할 수 있습니다.';
+  } else if (message.contains('FORESTRING_MANAGER_BRANCH_FORBIDDEN')) {
+    userMessage = '다른 지점 선생님의 근무시간은 변경할 수 없습니다.';
+  } else if (message.contains('FORESTRING_BACKDATED_WORK_HOURS_CHANGE_FORBIDDEN')) {
+    userMessage = '지난 날짜부터 적용되는 근무시간은 변경할 수 없습니다.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_OVERLAP')) {
+    userMessage = '같은 요일에 서로 겹치는 근무시간이 있습니다.';
+  } else if (message.contains('FORESTRING_INVALID_WORK_HOURS_RANGE')) {
+    userMessage = '종료시간은 시작시간보다 뒤여야 합니다.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_NOT_ON_15_MINUTE_GRID')) {
+    userMessage = '근무시간은 15분 단위로 입력해주세요.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_EFFECTIVE_DATE_REQUIRED')) {
+    userMessage = '근무시간 적용 시작일을 선택해주세요.';
+  } else if (message.contains('FORESTRING_WORK_HOURS_ARRAY_REQUIRED') ||
       message.contains('FORESTRING_INVALID_WORK_HOURS_FORMAT')) {
-    return '근무시간 입력 형식이 올바르지 않습니다.';
+    userMessage = '근무시간 입력 형식이 올바르지 않습니다.';
   }
 
-  return '근무시간을 처리하지 못했습니다.';
+  return _withErrorCode(userMessage ?? fallback, message);
+}
+
+String _withErrorCode(String userMessage, String rawMessage) {
+  final match = RegExp(r'FORESTRING_[A-Z0-9_]+').firstMatch(rawMessage);
+  final code = match?.group(0);
+  if (code == null) return userMessage;
+  return '$userMessage\n오류 코드: $code';
 }
