@@ -801,34 +801,42 @@ class _StudentManagementDetailPageState
     required String title,
     required List<Widget> actions,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          style: forestringTextStyle.copyWith(
-            color: Colors.black54,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: forestringTextStyle.copyWith(
+              color: Colors.black54,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 7),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final itemWidth = actions.length == 1
-                ? constraints.maxWidth
-                : (constraints.maxWidth - 8) / 2;
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final action in actions)
-                  SizedBox(width: itemWidth, height: 52, child: action),
-              ],
-            );
-          },
-        ),
-      ],
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = actions.length == 1
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final action in actions)
+                    SizedBox(width: itemWidth, height: 52, child: action),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -891,7 +899,10 @@ class _StudentManagementDetailPageState
   Future<void> _openLessonHistory() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => StudentLessonHistoryPage(student: _student),
+        builder: (_) => StudentLessonHistoryPage(
+          student: _student,
+          profile: widget.profile,
+        ),
       ),
     );
   }
