@@ -1,0 +1,1492 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+
+import '../../../core/theme/forestring_theme.dart';
+import '../../../core/widgets/forestring_navigation.dart';
+import '../../auth/domain/current_profile.dart';
+import '../../branches/data/branch_repository.dart';
+import '../../branches/domain/academy_branch.dart';
+import '../data/student_management_repository.dart';
+import '../data/student_next_semester_type_repository.dart';
+import 'student_create_page.dart';
+import 'student_lesson_history_page.dart';
+import 'student_next_semester_type_dialog.dart';
+import 'student_regular_schedule_page.dart';
+import 'student_teacher_change_dialog.dart';
+import 'student_withdrawal_dialog.dart';
+
+class StudentManagementV2Page extends StatefulWidget {
+  const StudentManagementV2Page({
+    super.key,
+    required this.profile,
+  });
+
+  final CurrentProfile profile;
+
+  @override
+  State<StudentManagementV2Page> createState() =>
+      _StudentManagementV2PageState();
+}
+
+class _StudentManagementV2PageState extends State<StudentManagementV2Page> {
+  static const _allBranches = '__all__';
+
+  final _repository = StudentManagementRepository();
+  final _branchRepository = BranchRepository();
+  final _searchController = TextEditingController();
+
+  List<AcademyBranch> _branches = const [];
+  List<ManagedStudent> _students = const [];
+  String? _branchId;
+  String _typeFilter = 'all';
+  String _statusFilter = 'active';
+  bool _loading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _loadInitial();
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final branches = (await _branchRepository.fetchBranches())
+          .where((branch) => branch.isActive)
+          .toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+      final branchId = widget.profile.isManager ? widget.profile.branchId : null;
+
+      if (!mounted) return;
+      setState(() {
+        _branches = branches;
+        _branchId = branchId;
+      });
+      await _loadStudents();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = '수강생 관리 화면을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadStudents() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final students = await _repository.fetchStudents(branchId: _branchId);
+      if (!mounted) return;
+      setState(() => _students = students);
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _students = const [];
+        _errorMessage = error.message;
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<ManagedStudent> get _visibleStudents {
+    final query = _searchController.text.trim().toLowerCase();
+    return _students.where((student) {
+      if (_typeFilter != 'all' && student.studentType != _typeFilter) {
+        return false;
+      }
+      if (_statusFilter == 'active' && !student.isActive) return false;
+      if (_statusFilter == 'withdrawn' && student.isActive) return false;
+      if (query.isEmpty) return true;
+      return student.displayName.toLowerCase().contains(query) ||
+          (student.teacherName ?? '').toLowerCase().contains(query) ||
+          student.branchName.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Future<void> _openRegistration() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentCreatePage(profile: widget.profile),
+      ),
+    );
+    if (mounted) await _loadStudents();
+  }
+
+  Future<void> _openStudent(ManagedStudent student) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => StudentManagementDetailPage(
+          profile: widget.profile,
+          initialStudent: student,
+        ),
+      ),
+    );
+    if (mounted) await _loadStudents();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleStudents = _visibleStudents;
+
+    return Scaffold(
+      backgroundColor: neutralIvory,
+      appBar: ForestringAppBar(
+        title: '수강생 관리',
+        actions: [
+          IconButton(
+            tooltip: '새로고침',
+            onPressed: _loading ? null : _loadStudents,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        onPressed: _openRegistration,
+        icon: const Icon(Icons.person_add_alt_1_outlined),
+        label: Text(
+          '수강생 등록',
+          style: forestringTextStyle.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadStudents,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 100),
+            children: [
+              _buildFilters(),
+              const SizedBox(height: 14),
+              if (_errorMessage != null) ...[
+                _errorCard(_errorMessage!),
+                const SizedBox(height: 12),
+              ],
+              if (_loading && _students.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 80),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (visibleStudents.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 80),
+                  child: Center(
+                    child: Text(
+                      '조건에 맞는 수강생이 없습니다.',
+                      style: forestringTextStyle.copyWith(color: Colors.black54),
+                    ),
+                  ),
+                )
+              else ...[
+                Text(
+                  '${visibleStudents.length}명',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...visibleStudents.map(_studentCard),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Column(
+      children: [
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: '수강생 이름 검색',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: _searchController.clear,
+                    icon: const Icon(Icons.close),
+                  ),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (widget.profile.isMaster) ...[
+          DropdownButtonFormField<String>(
+            initialValue: _branchId ?? _allBranches,
+            decoration: _filterDecoration('지점'),
+            items: [
+              const DropdownMenuItem(
+                value: _allBranches,
+                child: Text('전체 지점'),
+              ),
+              ..._branches.map(
+                (branch) => DropdownMenuItem(
+                  value: branch.id,
+                  child: Text(branch.name),
+                ),
+              ),
+            ],
+            onChanged: _loading
+                ? null
+                : (value) async {
+                    setState(() {
+                      _branchId = value == _allBranches ? null : value;
+                    });
+                    await _loadStudents();
+                  },
+          ),
+          const SizedBox(height: 10),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _typeFilter,
+                decoration: _filterDecoration('수강 형태'),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('전체')),
+                  DropdownMenuItem(value: 'regular', child: Text('정규')),
+                  DropdownMenuItem(value: 'flex', child: Text('자율 예약')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _typeFilter = value);
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _statusFilter,
+                decoration: _filterDecoration('상태'),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('전체')),
+                  DropdownMenuItem(value: 'active', child: Text('재원')),
+                  DropdownMenuItem(value: 'withdrawn', child: Text('퇴원')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _statusFilter = value);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _filterDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Colors.white,
+      isDense: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.18)),
+      ),
+    );
+  }
+
+  Widget _studentCard(ManagedStudent student) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 9),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: primaryColor.withValues(alpha: 0.16)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openStudent(student),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.person_outline, color: primaryColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            student.displayName,
+                            overflow: TextOverflow.ellipsis,
+                            style: forestringTextStyle.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _statusBadge(student),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${student.typeLabel} · ${student.branchName}',
+                      overflow: TextOverflow.ellipsis,
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      student.teacherName == null
+                          ? '담당 선생님 미배정'
+                          : '${student.teacherName} 선생님',
+                      overflow: TextOverflow.ellipsis,
+                      style: forestringTextStyle.copyWith(
+                        color: secondaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: primaryColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(ManagedStudent student) {
+    final color = student.isActive
+        ? (student.hasScheduledWithdrawal ? Colors.orange.shade700 : primaryColor)
+        : Colors.black45;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        student.statusLabel,
+        style: forestringTextStyle.copyWith(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _errorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        message,
+        style: forestringTextStyle.copyWith(
+          color: Colors.redAccent,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class StudentManagementDetailPage extends StatefulWidget {
+  const StudentManagementDetailPage({
+    super.key,
+    required this.profile,
+    required this.initialStudent,
+  });
+
+  final CurrentProfile profile;
+  final ManagedStudent initialStudent;
+
+  @override
+  State<StudentManagementDetailPage> createState() =>
+      _StudentManagementDetailPageState();
+}
+
+class _StudentManagementDetailPageState
+    extends State<StudentManagementDetailPage> {
+  final _repository = StudentManagementRepository();
+  final _nextSemesterRepository = StudentNextSemesterTypeRepository();
+
+  late ManagedStudent _student;
+  NextSemesterStudentTypePlan? _nextPlan;
+  bool _refreshing = false;
+  bool _nextPlanLoading = false;
+  String? _nextPlanError;
+
+  @override
+  void initState() {
+    super.initState();
+    _student = widget.initialStudent;
+    _loadNextPlan();
+  }
+
+  Future<void> _refreshStudent() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final students = await _repository.fetchStudents(
+        branchId: _student.branchId,
+      );
+      ManagedStudent? refreshed;
+      for (final student in students) {
+        if (student.id == _student.id) {
+          refreshed = student;
+          break;
+        }
+      }
+      if (!mounted) return;
+      if (refreshed == null) {
+        Navigator.of(context).pop();
+        return;
+      }
+      setState(() => _student = refreshed!);
+      await _loadNextPlan();
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  Future<void> _loadNextPlan() async {
+    if (!_student.isActive) {
+      if (mounted) {
+        setState(() {
+          _nextPlan = null;
+          _nextPlanError = null;
+          _nextPlanLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _nextPlanLoading = true;
+      _nextPlanError = null;
+    });
+    try {
+      final plan = await _nextSemesterRepository.fetchPlan(_student.id);
+      if (!mounted) return;
+      setState(() => _nextPlan = plan);
+    } on StudentNextSemesterTypeFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _nextPlan = null;
+        _nextPlanError = error.message;
+      });
+    } finally {
+      if (mounted) setState(() => _nextPlanLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: neutralIvory,
+      appBar: ForestringAppBar(
+        title: '수강생 관리',
+        actions: [
+          IconButton(
+            tooltip: '새로고침',
+            onPressed: _refreshing ? null : _refreshStudent,
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          children: [
+            Text(
+              _student.displayName,
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 23,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '${_student.typeLabel} · ${_student.branchName}',
+              style: forestringTextStyle.copyWith(
+                color: Colors.black54,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _summaryCard(),
+            const SizedBox(height: 18),
+            _actionSection(
+              title: '수업 관리',
+              actions: [
+                _actionButton(
+                  icon: Icons.event_note_outlined,
+                  label: '수업 일정 · 이력',
+                  onPressed: _openLessonHistory,
+                ),
+                if (_student.isActive && _student.isRegular)
+                  _actionButton(
+                    icon: Icons.edit_calendar_outlined,
+                    label: '정규 일정 관리',
+                    onPressed: _openRegularSchedule,
+                  ),
+                if (_student.isActive && _student.isFlex)
+                  _actionButton(
+                    icon: Icons.confirmation_number_outlined,
+                    label: '현재 수업권 변경',
+                    onPressed: _changeFlexRightCount,
+                  ),
+              ],
+            ),
+            if (_student.isActive) ...[
+              const SizedBox(height: 14),
+              _nextSemesterSection(),
+              const SizedBox(height: 14),
+              _actionSection(
+                title: '담당 관리',
+                actions: [
+                  _actionButton(
+                    icon: Icons.manage_accounts_outlined,
+                    label: _student.teacherId == null
+                        ? '담당 선생님 지정'
+                        : '담당 선생님 변경',
+                    onPressed: _changeTeacher,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _actionSection(
+                title: '계정 관리',
+                actions: [
+                  _actionButton(
+                    icon: Icons.drive_file_rename_outline,
+                    label: '이름 수정',
+                    onPressed: _changeName,
+                  ),
+                  _actionButton(
+                    icon: Icons.lock_reset_outlined,
+                    label: 'PIN 재설정',
+                    onPressed: _changePin,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _residencySection(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          _summaryRow('상태', _student.statusLabel),
+          _summaryRow(
+            '담당 선생님',
+            _student.teacherName == null
+                ? '미배정'
+                : '${_student.teacherName} 선생님',
+          ),
+          if (_student.isFlex)
+            _summaryRow(
+              '현재 수업권',
+              _student.flexBaseRightCount == null
+                  ? '설정 확인 필요'
+                  : '${_student.flexBaseRightCount}개 · ${_student.flexDurationMinutes ?? '-'}분',
+            ),
+          if (_student.withdrawalDate != null)
+            _summaryRow(
+              _student.isActive ? '퇴원 예정일' : '퇴원일',
+              DateFormat('yyyy.MM.dd').format(_student.withdrawalDate!),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: forestringTextStyle.copyWith(
+                color: Colors.black54,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _nextSemesterSection() {
+    final plan = _nextPlan;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '다음 학기',
+          style: forestringTextStyle.copyWith(
+            color: Colors.black54,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: primaryColor.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_nextPlanLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (plan != null) ...[
+                Text(
+                  '${plan.nextSemesterCode} · ${DateFormat('M.d').format(plan.nextSemesterStartsOn)} 시작',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '현재 ${plan.currentTypeLabel} → 다음 학기 ${plan.plannedTypeLabel}',
+                  style: forestringTextStyle.copyWith(fontSize: 14),
+                ),
+                if (plan.plannedIsFlex) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    '수업권 ${plan.flexBaseRightCount ?? plan.defaultFlexBaseRightCount}개 · '
+                    '${plan.flexDurationMinutes ?? plan.defaultFlexDurationMinutes}분',
+                    style: forestringTextStyle.copyWith(
+                      color: Colors.black54,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 7),
+                Text(
+                  plan.canChange
+                      ? '현재 학기는 그대로 유지되며, 다음 학기 시작 전까지 다시 변경할 수 있습니다.'
+                      : '다음 학기가 이미 시작되어 수강 형태를 변경할 수 없습니다.',
+                  style: forestringTextStyle.copyWith(
+                    color: plan.canChange ? Colors.black54 : Colors.orange.shade800,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ] else
+                Text(
+                  _nextPlanError ?? '다음 학기 정보를 확인하지 못했습니다.',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.redAccent,
+                    fontSize: 13,
+                  ),
+                ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _nextPlanLoading || plan == null || !plan.canChange
+                    ? null
+                    : _changeNextSemesterType,
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: const Text('다음 학기 수강 형태 변경'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primaryColor,
+                  side: const BorderSide(color: primaryColor),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _actionSection({
+    required String title,
+    required List<Widget> actions,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: forestringTextStyle.copyWith(
+            color: Colors.black54,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 7),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = actions.length == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 8) / 2;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final action in actions)
+                  SizedBox(width: itemWidth, height: 52, child: action),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    Color color = primaryColor,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: forestringTextStyle.copyWith(fontSize: 13),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.7)),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+      ),
+    );
+  }
+
+  Widget _residencySection() {
+    final actions = <Widget>[];
+    if (_student.withdrawalIsDue) {
+      actions.add(
+        _actionButton(
+          icon: Icons.person_off_outlined,
+          label: '퇴원 확정',
+          color: Colors.red.shade700,
+          onPressed: _finalizeWithdrawal,
+        ),
+      );
+    } else {
+      actions.add(
+        _actionButton(
+          icon: Icons.person_off_outlined,
+          label: _student.hasScheduledWithdrawal ? '퇴원 예정일 변경' : '퇴원 처리',
+          color: Colors.red.shade700,
+          onPressed: _openWithdrawal,
+        ),
+      );
+      if (_student.hasScheduledWithdrawal) {
+        actions.add(
+          _actionButton(
+            icon: Icons.undo_rounded,
+            label: '퇴원 예약 취소',
+            color: Colors.orange.shade800,
+            onPressed: _cancelWithdrawal,
+          ),
+        );
+      }
+    }
+    return _actionSection(title: '재원 관리', actions: actions);
+  }
+
+  Future<void> _openLessonHistory() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentLessonHistoryPage(student: _student),
+      ),
+    );
+  }
+
+  Future<void> _openRegularSchedule() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentRegularSchedulePage(student: _student),
+      ),
+    );
+    if (mounted) await _refreshStudent();
+  }
+
+  Future<void> _changeTeacher() async {
+    final changed = await showStudentTeacherChangeDialog(
+      context: context,
+      student: _student,
+    );
+    if (!mounted || changed != true) return;
+    await _refreshStudent();
+    if (!mounted) return;
+    _showMessage('담당 선생님 변경이 저장되었습니다.');
+  }
+
+  Future<void> _changeNextSemesterType() async {
+    final changed = await showStudentNextSemesterTypeDialog(
+      context: context,
+      student: _student,
+    );
+    if (!mounted || changed != true) return;
+    await _refreshStudent();
+    if (!mounted) return;
+    _showMessage('다음 학기 수강 형태가 저장되었습니다.');
+  }
+
+  Future<void> _changeName() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _StudentNameEditDialog(
+        student: _student,
+        repository: _repository,
+      ),
+    );
+    if (!mounted || changed != true) return;
+    await _refreshStudent();
+    if (!mounted) return;
+    _showMessage('이름이 변경되었습니다.');
+  }
+
+  Future<void> _changePin() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _PinResetDialog(
+        student: _student,
+        repository: _repository,
+      ),
+    );
+    if (!mounted || changed != true) return;
+    _showMessage('PIN이 변경되었습니다.');
+  }
+
+  Future<void> _changeFlexRightCount() async {
+    final result = await showDialog<FlexRightCountChangeResult>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => _FlexRightCountDialog(
+        student: _student,
+        repository: _repository,
+      ),
+    );
+    if (!mounted || result == null) return;
+    await _refreshStudent();
+    if (!mounted) return;
+    _showMessage(
+      '수업권이 ${result.newBaseRightCount}개로 변경되었습니다. '
+      '취소 가능 ${result.newCancellationLimit}회 · 이월 상한 ${result.newCarryoverCap}개',
+    );
+  }
+
+  Future<void> _openWithdrawal() async {
+    final result = await showStudentWithdrawalDialog(
+      context: context,
+      student: _student,
+      repository: _repository,
+    );
+    if (!mounted || result == null) return;
+    await _refreshStudent();
+    if (!mounted) return;
+    _showMessage(
+      result.finalized
+          ? '퇴원 처리가 완료되었습니다.'
+          : '${DateFormat('yyyy.MM.dd').format(result.withdrawalDate)} 퇴원 예정으로 저장되었습니다. 퇴원일 이후 수업은 즉시 정리됩니다.',
+    );
+  }
+
+  Future<void> _finalizeWithdrawal() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('퇴원 확정'),
+        content: Text(
+          '${_student.displayName} 학생의 퇴원을 확정합니다.\n\n'
+          '퇴원일 이후 수업은 이미 정리되어 있으며, 남은 사용 가능한 수강권을 회수하고 학생 계정을 비활성화합니다. 과거 수업 기록은 유지됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('퇴원 확정'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+
+    try {
+      await _repository.finalizeWithdrawal(studentId: _student.id);
+      if (!mounted) return;
+      _showMessage('퇴원 처리가 완료되었습니다.');
+      Navigator.of(context).pop();
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      _showMessage(error.message);
+    }
+  }
+
+  Future<void> _cancelWithdrawal() async {
+    final date = _student.withdrawalDate;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('퇴원 예약 취소'),
+        content: Text(
+          date == null
+              ? '${_student.displayName} 학생의 퇴원 예약을 취소할까요?'
+              : '${_student.displayName} 학생의 ${DateFormat('yyyy.MM.dd').format(date)} 퇴원 예약을 취소할까요?\n\n원래 수업 시간에 다른 예약이 생긴 경우 해당 수업은 자동 복구되지 않고 수업권으로 반환됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('아니요'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: primaryColor),
+            child: const Text('예약 취소'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+
+    try {
+      await _repository.cancelWithdrawal(studentId: _student.id);
+      if (!mounted) return;
+      await _refreshStudent();
+      if (!mounted) return;
+      _showMessage('퇴원 예약이 취소되었습니다. 복구 가능한 수업은 원래 일정으로 복구되었습니다.');
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      _showMessage(error.message);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+}
+
+class _StudentNameEditDialog extends StatefulWidget {
+  const _StudentNameEditDialog({
+    required this.student,
+    required this.repository,
+  });
+
+  final ManagedStudent student;
+  final StudentManagementRepository repository;
+
+  @override
+  State<_StudentNameEditDialog> createState() =>
+      _StudentNameEditDialogState();
+}
+
+class _StudentNameEditDialogState extends State<_StudentNameEditDialog> {
+  late final TextEditingController _nameController;
+  bool _saving = false;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.student.displayName);
+    _nameController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _nameController.text.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final current = widget.student.displayName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) {
+      setState(() => _validationMessage = '이름을 입력해주세요.');
+      return;
+    }
+    if (name.length > 100) {
+      setState(() => _validationMessage = '이름은 100자 이하로 입력해주세요.');
+      return;
+    }
+    if (name == current) {
+      setState(() => _validationMessage = '현재 이름과 동일합니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+    try {
+      await widget.repository.updateStudentName(studentId: widget.student.id, name: name);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('학생 이름 수정'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '이름을 변경하면 학생이 로그인할 때 사용하는 이름도 함께 변경됩니다.',
+              style: forestringTextStyle.copyWith(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameController,
+              enabled: !_saving,
+              autofocus: true,
+              maxLength: 100,
+              decoration: const InputDecoration(
+                labelText: '학생 이름',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: forestringTextStyle.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PinResetDialog extends StatefulWidget {
+  const _PinResetDialog({
+    required this.student,
+    required this.repository,
+  });
+
+  final ManagedStudent student;
+  final StudentManagementRepository repository;
+
+  @override
+  State<_PinResetDialog> createState() => _PinResetDialogState();
+}
+
+class _PinResetDialogState extends State<_PinResetDialog> {
+  final _pinController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _saving = false;
+  String? _validationMessage;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final pin = _pinController.text.trim();
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      setState(() => _validationMessage = 'PIN은 4자리 숫자로 입력해주세요.');
+      return;
+    }
+    if (pin != _confirmController.text.trim()) {
+      setState(() => _validationMessage = 'PIN 확인 값이 일치하지 않습니다.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+    try {
+      await widget.repository.resetStudentPin(studentId: widget.student.id, pin: pin);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('PIN 재설정'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _pinController,
+              enabled: !_saving,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: '새 PIN (4자리)',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _confirmController,
+              enabled: !_saving,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: '새 PIN 확인',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_validationMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationMessage!,
+                style: forestringTextStyle.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
+  }
+}
+
+class _FlexRightCountDialog extends StatefulWidget {
+  const _FlexRightCountDialog({
+    required this.student,
+    required this.repository,
+  });
+
+  final ManagedStudent student;
+  final StudentManagementRepository repository;
+
+  @override
+  State<_FlexRightCountDialog> createState() =>
+      _FlexRightCountDialogState();
+}
+
+class _FlexRightCountDialogState extends State<_FlexRightCountDialog> {
+  late final TextEditingController _countController;
+  bool _saving = false;
+  String? _validationMessage;
+
+  int? get _enteredCount => int.tryParse(_countController.text.trim());
+
+  @override
+  void initState() {
+    super.initState();
+    _countController = TextEditingController(
+      text: widget.student.flexBaseRightCount?.toString() ?? '',
+    )..addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    _countController
+      ..removeListener(_changed)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() => _validationMessage = null);
+  }
+
+  Future<void> _save() async {
+    final current = widget.student.flexBaseRightCount;
+    final next = _enteredCount;
+    if (current == null) {
+      setState(() => _validationMessage = '현재 학기의 자율 수업권 설정을 찾지 못했습니다.');
+      return;
+    }
+    if (next == null || next <= 0) {
+      setState(() => _validationMessage = '수업권 개수를 1개 이상 입력해주세요.');
+      return;
+    }
+    if (next == current) {
+      setState(() => _validationMessage = '현재 수업권 개수와 동일합니다.');
+      return;
+    }
+
+    if (next < current) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (confirmContext) => AlertDialog(
+          title: const Text('수업권 감액 확인'),
+          content: Text(
+            '${widget.student.displayName} 학생의 수업권을 $current개에서 $next개로 줄일까요?\n\n'
+            '사용 가능한 수업권부터 회수되며, 이미 사용한 취소 횟수는 유지됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(confirmContext).pop(false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(confirmContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text('감액'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
+    }
+
+    setState(() {
+      _saving = true;
+      _validationMessage = null;
+    });
+    try {
+      final result = await widget.repository.changeFlexBaseRightCount(
+        studentId: widget.student.id,
+        newBaseRightCount: next,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(result);
+    } on StudentManagementFailure catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _validationMessage = error.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entered = _enteredCount;
+    final cancellationLimit = entered == null ? null : (entered ~/ 4) * 2;
+    final carryoverCap = entered == null ? null : entered ~/ 4;
+
+    return AlertDialog(
+      title: const Text('현재 학기 자율 수업권 변경'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${widget.student.displayName} · 현재 ${widget.student.flexBaseRightCount ?? '-'}개',
+                style: forestringTextStyle.copyWith(
+                  color: primaryColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _countController,
+                enabled: !_saving && widget.student.flexBaseRightCount != null,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: '변경할 수업권 개수',
+                  suffixText: '개',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (entered != null && entered > 0)
+                Text(
+                  '변경 후 취소 $cancellationLimit회 · 이월 $carryoverCap개',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.black54,
+                    fontSize: 13,
+                  ),
+                ),
+              if (_validationMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _validationMessage!,
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.redAccent,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving || widget.student.flexBaseRightCount == null
+              ? null
+              : _save,
+          style: FilledButton.styleFrom(backgroundColor: primaryColor),
+          child: Text(_saving ? '변경 중...' : '변경'),
+        ),
+      ],
+    );
+  }
+}
