@@ -137,7 +137,7 @@ class _StudentWithdrawalDialogState extends State<_StudentWithdrawalDialog> {
               _messageBox(
                 _isToday
                     ? '오늘을 선택하면 즉시 퇴원 처리됩니다. 오늘 00:00 이후의 수업은 제거되고, 남아 있는 사용 가능한 수강권은 회수되며 학생 계정은 비활성화됩니다. 과거 수업 기록은 유지됩니다.'
-                    : '$dateText 퇴원 예정으로 저장됩니다. 예정일 전까지는 재원 상태가 유지되며, 예정일이 도래하면 관리자 화면에서 퇴원 확정을 진행할 수 있습니다.',
+                    : '$dateText 퇴원 예정으로 저장됩니다. 예정일 전까지는 재원 상태와 기존 시간표가 유지되며 퇴원 예약을 취소할 수 있습니다. 예정일이 도래하면 해당 날짜 이후의 수업과 사용 가능한 수강권이 자동으로 정리되고 학생 계정이 비활성화됩니다.',
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
