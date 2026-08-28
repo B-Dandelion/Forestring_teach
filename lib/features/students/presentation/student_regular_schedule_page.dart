@@ -1151,8 +1151,9 @@ class _RegularScheduleEditPageState extends State<_RegularScheduleEditPage> {
             ],
             const SizedBox(height: 14),
             _editMessageBox(
-              '적용일 이후 아직 개별 변경·취소되지 않은 정규 수업만 새 기본 일정에 맞춰 조정됩니다. '
-              '이미 취소했거나 한 번씩 따로 옮긴 수업은 그대로 보존됩니다.',
+              '정규 수업의 요일·시간을 변경할 때는 기존 시간표 수업을 먼저 취소하지 마세요. '
+              '정규 일정만 변경하면 적용일 이후의 예정 수업이 새 일정에 맞춰 자동으로 조정됩니다. '
+              '이미 개별 변경하거나 취소한 수업은 그대로 유지됩니다.',
             ),
             if (widget.schedule.hasFutureVersion &&
                 widget.schedule.nextVersionDate != null) ...[
