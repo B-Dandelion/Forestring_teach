@@ -35,7 +35,25 @@ class WeekSchedulePage extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: const ForestringAppBar(),
+      appBar: ForestringAppBar(
+        actions: [
+          IconButton(
+            tooltip: '새로고침',
+            onPressed: controller.isLoading ? null : controller.reload,
+            icon: controller.isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       drawer: ForestringDrawer(
         displayName: profile.displayName,
         roleLabel: '환영합니다',
