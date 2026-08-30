@@ -1,0 +1,111 @@
+name: One-time UI tuning
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one_time_ui_tuning.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  tune-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tune typography and spacing
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Student detail: keep the new information hierarchy, but remove the
+          # heavy weights that make medium-sized Korean text tiring to read.
+          path = Path('lib/features/students/presentation/student_management_v2_page.dart')
+          text = path.read_text()
+          start = text.index('class _StudentManagementDetailPageState')
+          end = text.index('class _StudentNameEditDialog')
+          segment = text[start:end]
+          segment = segment.replace('FontWeight.w700', 'FontWeight.w500')
+          segment = segment.replace('FontWeight.w600', 'FontWeight.w500')
+          text = text[:start] + segment + text[end:]
+          path.write_text(text)
+
+          # Next-semester dialog: same rule. Large title remains visually clear
+          # through size/color; cards and values use medium rather than bold.
+          path = Path('lib/features/students/presentation/student_next_semester_type_dialog.dart')
+          text = path.read_text()
+          text = text.replace('FontWeight.w700', 'FontWeight.w500')
+          text = text.replace('FontWeight.w600', 'FontWeight.w500')
+          path.write_text(text)
+
+          # Semester detail: retain the redesigned hierarchy while bringing the
+          # typography and vertical density back to comfortable phone sizing.
+          path = Path('lib/features/semesters/presentation/semester_detail_page.dart')
+          text = path.read_text()
+          marker = "  @override\n  Widget build(BuildContext context) {\n    final semester = _semester;"
+          start = text.index(marker)
+          end = text.index('\nclass _Bounds', start)
+          segment = text[start:end]
+          segment = segment.replace('FontWeight.w700', 'FontWeight.w500')
+          segment = segment.replace('FontWeight.w600', 'FontWeight.w500')
+          segment = segment.replace('fontSize: 25,', 'fontSize: 22,')
+          segment = segment.replace(
+              'color: Colors.black87,\n              fontSize: 19,\n              fontWeight: FontWeight.w500,',
+              'color: Colors.black87,\n              fontSize: 17,\n              fontWeight: FontWeight.w500,',
+          )
+          segment = segment.replace(
+              'fontSize: 20,\n        fontWeight: FontWeight.w500,',
+              'fontSize: 18,\n        fontWeight: FontWeight.w500,',
+          )
+          segment = segment.replace('padding: const EdgeInsets.all(18),', 'padding: const EdgeInsets.all(15),', 1)
+          segment = segment.replace('width: 48,\n                height: 48,', 'width: 42,\n                height: 42,', 1)
+          segment = segment.replace('size: 26,', 'size: 23,', 1)
+          segment = segment.replace('const SizedBox(height: 16),', 'const SizedBox(height: 12),', 1)
+          segment = segment.replace('const SizedBox(height: 26),', 'const SizedBox(height: 20),')
+          segment = segment.replace('height: 58,', 'height: 52,', 1)
+          segment = segment.replace(
+              'fontSize: 14,\n                  fontWeight: FontWeight.w500,',
+              'fontSize: 13,\n                  fontWeight: FontWeight.w500,',
+              1,
+          )
+          segment = segment.replace('height: 54,', 'height: 50,', 1)
+          segment = segment.replace(
+              "'기본 휴원 주간 · 휴원일 관리',\n                          style: forestringTextStyle.copyWith(\n                            fontSize: 15,",
+              "'기본 휴원 주간 · 휴원일 관리',\n                          style: forestringTextStyle.copyWith(\n                            fontSize: 14,",
+          )
+          segment = segment.replace(
+              'color: Colors.black87,\n                    fontSize: 16,\n                    fontWeight: FontWeight.w500,',
+              'color: Colors.black87,\n                    fontSize: 15,\n                    fontWeight: FontWeight.w500,',
+          )
+          segment = segment.replace(
+              'color: Colors.black87,\n                      fontSize: 17,\n                      fontWeight: FontWeight.w500,',
+              'color: Colors.black87,\n                      fontSize: 16,\n                      fontWeight: FontWeight.w500,',
+          )
+          segment = segment.replace(
+              'color: Colors.black87,\n                fontSize: 16,\n                fontWeight: FontWeight.w500,',
+              'color: Colors.black87,\n                fontSize: 15,\n                fontWeight: FontWeight.w500,',
+          )
+          text = text[:start] + segment + text[end:]
+          path.write_text(text)
+          PY
+
+      - name: Commit UI tuning
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'B-Dandelion'
+          git config user.email '164150236+B-Dandelion@users.noreply.github.com'
+          git add \
+            lib/features/students/presentation/student_management_v2_page.dart \
+            lib/features/students/presentation/student_next_semester_type_dialog.dart \
+            lib/features/semesters/presentation/semester_detail_page.dart
+          git commit -m 'ui: refine typography and semester density'
+          git push origin main
