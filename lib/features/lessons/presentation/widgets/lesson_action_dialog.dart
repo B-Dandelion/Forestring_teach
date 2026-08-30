@@ -55,6 +55,19 @@ Future<void> showLessonActionDialog({
         builder: (dialogBodyContext, setState) {
           const canEdit = true;
 
+          Future<void> editDate() async {
+            if (isSaving) return;
+            final picked = await showDatePicker(
+              context: dialogBodyContext,
+              initialDate: selectedDate,
+              firstDate: DateTime(2024, 1, 1),
+              lastDate: DateTime(2035, 12, 31),
+            );
+            if (picked != null) {
+              setState(() => selectedDate = picked);
+            }
+          }
+
           Future<void> editTime() async {
             if (!canEdit || isSaving) return;
             final picked = await showLessonTimeSlotPicker(
@@ -71,6 +84,10 @@ Future<void> showLessonActionDialog({
           }
 
           return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+            titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+            actionsPadding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
             title: Text(
               '일정 변경',
               style: forestringTextStyle.copyWith(
@@ -86,71 +103,55 @@ Future<void> showLessonActionDialog({
                 children: [
                   Text(
                     '${lesson.studentName ?? '학생'} · ${lesson.displayTypeLabel}',
-                    style: forestringTextStyle.copyWith(fontSize: 17),
+                    style: forestringTextStyle.copyWith(
+                      color: Colors.black87,
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          '날짜  ${DateFormat('yy.MM.dd').format(selectedDate)}',
-                          style: forestringTextStyle,
+                        child: _ScheduleValueCard(
+                          label: '날짜',
+                          value: DateFormat('yyyy.MM.dd').format(selectedDate),
+                          icon: Icons.calendar_today_outlined,
+                          onTap: isSaving ? null : editDate,
                         ),
                       ),
-                      IconButton(
-                        onPressed: !isSaving
-                            ? () async {
-                                final picked = await showDatePicker(
-                                  context: dialogBodyContext,
-                                  initialDate: selectedDate,
-                                  firstDate: DateTime(2024, 1, 1),
-                                  lastDate: DateTime(2035, 12, 31),
-                                );
-                                if (picked != null) {
-                                  setState(() => selectedDate = picked);
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.calendar_today),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ScheduleValueCard(
+                          label: '시간',
+                          value: _formatLessonTime(selectedTime),
+                          icon: Icons.access_time_rounded,
+                          onTap: isSaving ? null : editTime,
+                        ),
                       ),
                     ],
                   ),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: !isSaving ? editTime : null,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '시간  ${_formatLessonTime(selectedTime)}',
-                                style: forestringTextStyle,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: !isSaving ? editTime : null,
-                              icon: const Icon(Icons.access_time_rounded),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   DropdownButtonFormField<int>(
                     initialValue: selectedDuration,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: '수업 길이',
-                      border: OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     items: durations
                         .map(
                           (minutes) => DropdownMenuItem<int>(
                             value: minutes,
-                            child: Text('$minutes분'),
+                            child: Text(
+                              '$minutes분',
+                              style: forestringTextStyle.copyWith(fontSize: 15),
+                            ),
                           ),
                         )
                         .toList(),
@@ -207,13 +208,14 @@ Future<void> showLessonActionDialog({
                   style: TextStyle(color: Colors.redAccent),
                 ),
               ),
+              const Spacer(),
               TextButton(
                 onPressed: isSaving
                     ? null
                     : () => Navigator.of(dialogContext).pop(),
                 child: const Text('닫기'),
               ),
-              TextButton(
+              FilledButton(
                 onPressed: isSaving
                     ? null
                     : () async {
@@ -295,10 +297,8 @@ Future<void> showLessonActionDialog({
                           );
                         }
                       },
-                child: Text(
-                  isSaving ? '변경 중...' : '일정 변경',
-                  style: const TextStyle(color: primaryColor),
-                ),
+                style: FilledButton.styleFrom(backgroundColor: primaryColor),
+                child: Text(isSaving ? '변경 중...' : '일정 변경'),
               ),
             ],
           );
@@ -306,6 +306,67 @@ Future<void> showLessonActionDialog({
       );
     },
   );
+}
+
+class _ScheduleValueCard extends StatelessWidget {
+  const _ScheduleValueCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: primaryColor.withValues(alpha: 0.045),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: forestringTextStyle.copyWith(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        style: forestringTextStyle.copyWith(
+                          color: Colors.black,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(icon, size: 20, color: primaryColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 String _formatLessonTime(TimeOfDay value) {
