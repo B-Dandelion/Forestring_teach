@@ -238,7 +238,7 @@ class _StudentNextSemesterTypeDialogState
                                 style: forestringTextStyle.copyWith(
                                   color: primaryColor,
                                   fontSize: 24,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -256,7 +256,7 @@ class _StudentNextSemesterTypeDialogState
                           style: forestringTextStyle.copyWith(
                             color: Colors.black87,
                             fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -366,7 +366,7 @@ class _StudentNextSemesterTypeDialogState
           style: forestringTextStyle.copyWith(
             color: primaryColor,
             fontSize: 23,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 18),
@@ -419,7 +419,7 @@ class _StudentNextSemesterTypeDialogState
                       style: forestringTextStyle.copyWith(
                         color: primaryColor,
                         fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -490,7 +490,7 @@ class _StudentNextSemesterTypeDialogState
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -503,7 +503,7 @@ class _StudentNextSemesterTypeDialogState
             style: forestringTextStyle.copyWith(
               color: Colors.black87,
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -563,7 +563,7 @@ class _StudentNextSemesterTypeDialogState
                       style: forestringTextStyle.copyWith(
                         color: Colors.black87,
                         fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -656,7 +656,7 @@ class _StudentNextSemesterTypeDialogState
           style: forestringTextStyle.copyWith(
             color: secondaryColor,
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
           ),
         ),
         if (_workHours.isNotEmpty) ...[
@@ -861,7 +861,7 @@ class _StudentNextSemesterTypeDialogState
       style: forestringTextStyle.copyWith(
         color: primaryColor,
         fontSize: 18,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w500,
       ),
     );
   }

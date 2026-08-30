@@ -566,7 +566,7 @@ class _StudentManagementDetailPageState
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 27,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 5),
@@ -741,7 +741,7 @@ class _StudentManagementDetailPageState
               style: forestringTextStyle.copyWith(
                 color: valueColor ?? Colors.black87,
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -774,7 +774,7 @@ class _StudentManagementDetailPageState
             style: forestringTextStyle.copyWith(
               color: primaryColor,
               fontSize: 19,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
           if (_nextPlanLoading)
@@ -789,7 +789,7 @@ class _StudentManagementDetailPageState
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 14),
@@ -854,7 +854,7 @@ class _StudentManagementDetailPageState
               '다음 학기 수강 형태 변경',
               style: forestringTextStyle.copyWith(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
             style: OutlinedButton.styleFrom(
@@ -899,7 +899,7 @@ class _StudentManagementDetailPageState
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -922,7 +922,7 @@ class _StudentManagementDetailPageState
             style: forestringTextStyle.copyWith(
               color: Colors.black87,
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 3),
@@ -954,7 +954,7 @@ class _StudentManagementDetailPageState
           style: forestringTextStyle.copyWith(
             color: primaryColor,
             fontSize: 19,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 9),
@@ -1016,7 +1016,7 @@ class _StudentManagementDetailPageState
                   style: forestringTextStyle.copyWith(
                     color: color,
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (subtitle != null) ...[

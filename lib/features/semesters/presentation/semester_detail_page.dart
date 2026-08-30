@@ -1009,7 +1009,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 20),
                     _sectionTitle('기본 휴원'),
                     const SizedBox(height: 5),
                     Text(
@@ -1041,7 +1041,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                     ],
                     const SizedBox(height: 8),
                     SizedBox(
-                      height: 54,
+                      height: 50,
                       child: OutlinedButton.icon(
                         onPressed: _saving
                             ? null
@@ -1050,8 +1050,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         label: Text(
                           '기본 휴원 주간 · 휴원일 관리',
                           style: forestringTextStyle.copyWith(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
@@ -1065,7 +1065,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 20),
                     _sectionTitle('지점별 기간 · 휴원'),
                     const SizedBox(height: 5),
                     Text(
@@ -1122,7 +1122,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
             : '예정 학기';
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: primaryColor.withValues(alpha: 0.025),
         borderRadius: BorderRadius.circular(18),
@@ -1142,8 +1142,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: primaryColor,
                   shape: BoxShape.circle,
@@ -1151,7 +1151,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 child: const Icon(
                   Icons.calendar_month_rounded,
                   color: Colors.white,
-                  size: 26,
+                  size: 23,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1160,8 +1160,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   _semesterLabel(semester.code),
                   style: forestringTextStyle.copyWith(
                     color: primaryColor,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w500,
                     height: 1.2,
                   ),
                 ),
@@ -1178,19 +1178,19 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   style: forestringTextStyle.copyWith(
                     color: statusColor,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             '${_formatDate(semester.startsOn)} ~ ${_formatDate(semester.endsOn)}',
             style: forestringTextStyle.copyWith(
               color: Colors.black87,
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 10),
@@ -1207,7 +1207,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   style: forestringTextStyle.copyWith(
                     color: primaryColor,
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -1234,7 +1234,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     required VoidCallback? onPressed,
   }) {
     return SizedBox(
-      height: 58,
+      height: 52,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
@@ -1261,8 +1261,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: forestringTextStyle.copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -1308,8 +1308,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   _defaultClosureRangeText(closure),
                   style: forestringTextStyle.copyWith(
                     color: Colors.black87,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (reason != null && reason.isNotEmpty) ...[
@@ -1380,8 +1380,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                     branch.name,
                     style: forestringTextStyle.copyWith(
                       color: Colors.black87,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1396,7 +1396,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                     style: forestringTextStyle.copyWith(
                       color: primaryColor,
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1407,8 +1407,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
               '${_formatDate(start)} ~ ${_formatDate(end)}',
               style: forestringTextStyle.copyWith(
                 color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 3),
@@ -1417,7 +1417,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 11),
@@ -1460,7 +1460,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   style: forestringTextStyle.copyWith(
                     color: primaryColor,
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const Spacer(),
@@ -1559,7 +1559,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                     _closureRangeText(closure),
                     style: forestringTextStyle.copyWith(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (reason != null && reason.isNotEmpty) ...[
@@ -1595,8 +1595,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       title,
       style: forestringTextStyle.copyWith(
         color: primaryColor,
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
