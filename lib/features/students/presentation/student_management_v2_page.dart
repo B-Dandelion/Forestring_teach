@@ -536,7 +536,7 @@ class _StudentManagementDetailPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: neutralIvory,
+      backgroundColor: Colors.white,
       appBar: ForestringAppBar(
         title: '수강생 관리',
         actions: [
@@ -559,14 +559,14 @@ class _StudentManagementDetailPageState
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
           children: [
             Text(
               _student.displayName,
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
-                fontSize: 23,
-                fontWeight: FontWeight.w500,
+                fontSize: 27,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 5),
@@ -574,38 +574,42 @@ class _StudentManagementDetailPageState
               '${_student.typeLabel} · ${_student.branchName}',
               style: forestringTextStyle.copyWith(
                 color: Colors.black54,
-                fontSize: 14,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 16),
-            _summaryCard(),
             const SizedBox(height: 18),
+            _summaryCard(),
+            const SizedBox(height: 22),
             _actionSection(
               title: '수업 관리',
               actions: [
                 _actionButton(
-                  icon: Icons.event_note_outlined,
-                  label: '수업 일정 · 이력',
+                  icon: Icons.calendar_month_outlined,
+                  label: '수업 내역',
+                  subtitle: '수업 기록 확인',
                   onPressed: _openLessonHistory,
                 ),
                 if (_student.isActive && _student.isRegular)
                   _actionButton(
                     icon: Icons.edit_calendar_outlined,
                     label: '정규 일정 관리',
+                    subtitle: '정규 일정 설정 및 관리',
                     onPressed: _openRegularSchedule,
                   ),
                 if (_student.isActive && _student.isFlex)
                   _actionButton(
                     icon: Icons.confirmation_number_outlined,
                     label: '현재 수업권 변경',
+                    subtitle: '수업권 개수 조정',
                     onPressed: _changeFlexRightCount,
                   ),
               ],
             ),
             if (_student.isActive) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               _nextSemesterSection(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               _actionSection(
                 title: '담당 관리',
                 actions: [
@@ -614,27 +618,30 @@ class _StudentManagementDetailPageState
                     label: _student.teacherId == null
                         ? '담당 선생님 지정'
                         : '담당 선생님 변경',
+                    subtitle: '담당 선생님을 설정합니다',
                     onPressed: _changeTeacher,
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               _actionSection(
                 title: '계정 관리',
                 actions: [
                   _actionButton(
                     icon: Icons.drive_file_rename_outline,
                     label: '이름 수정',
+                    subtitle: '학생 이름 변경',
                     onPressed: _changeName,
                   ),
                   _actionButton(
                     icon: Icons.lock_reset_outlined,
                     label: 'PIN 재설정',
+                    subtitle: '로그인 PIN 변경',
                     onPressed: _changePin,
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               _residencySection(),
             ],
           ],
@@ -645,58 +652,97 @@ class _StudentManagementDetailPageState
 
   Widget _summaryCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.15)),
+        color: primaryColor.withValues(alpha: 0.025),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.13)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          _summaryRow('상태', _student.statusLabel),
           _summaryRow(
+            Icons.person_outline_rounded,
+            '상태',
+            _student.statusLabel,
+            valueColor: _student.isActive ? primaryColor : Colors.black54,
+          ),
+          Divider(height: 1, color: primaryColor.withValues(alpha: 0.08)),
+          _summaryRow(
+            Icons.badge_outlined,
             '담당 선생님',
             _student.teacherName == null
                 ? '미배정'
                 : '${_student.teacherName} 선생님',
           ),
-          if (_student.isFlex)
+          if (_student.isFlex) ...[
+            Divider(height: 1, color: primaryColor.withValues(alpha: 0.08)),
             _summaryRow(
+              Icons.confirmation_number_outlined,
               '현재 수업권',
               _student.flexBaseRightCount == null
                   ? '설정 확인 필요'
                   : '${_student.flexBaseRightCount}개 · ${_student.flexDurationMinutes ?? '-'}분',
             ),
-          if (_student.withdrawalDate != null)
+          ],
+          if (_student.withdrawalDate != null) ...[
+            Divider(height: 1, color: primaryColor.withValues(alpha: 0.08)),
             _summaryRow(
+              Icons.event_busy_outlined,
               _student.isActive ? '퇴원 예정일' : '퇴원일',
               DateFormat('yyyy.MM.dd').format(_student.withdrawalDate!),
             ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _summaryRow(String label, String value) {
+  Widget _summaryRow(
+    IconData icon,
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: primaryColor, size: 21),
+          ),
+          const SizedBox(width: 12),
           SizedBox(
-            width: 92,
+            width: 90,
             child: Text(
               label,
               style: forestringTextStyle.copyWith(
                 color: Colors.black54,
-                fontSize: 13,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: forestringTextStyle.copyWith(fontSize: 14),
+              style: forestringTextStyle.copyWith(
+                color: valueColor ?? Colors.black87,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -706,94 +752,193 @@ class _StudentManagementDetailPageState
 
   Widget _nextSemesterSection() {
     final plan = _nextPlan;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '다음 학기',
-          style: forestringTextStyle.copyWith(
-            color: Colors.black54,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: primaryColor.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.13)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
-        ),
-        const SizedBox(height: 7),
-        Container(
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: primaryColor.withValues(alpha: 0.15)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '다음 학기',
+            style: forestringTextStyle.copyWith(
+              color: primaryColor,
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_nextPlanLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (plan != null) ...[
-                Text(
-                  '${plan.nextSemesterCode} · ${DateFormat('M.d').format(plan.nextSemesterStartsOn)} 시작',
-                  style: forestringTextStyle.copyWith(
-                    color: primaryColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '현재 ${plan.currentTypeLabel} → 다음 학기 ${plan.plannedTypeLabel}',
-                  style: forestringTextStyle.copyWith(fontSize: 14),
-                ),
-                if (plan.plannedIsFlex) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    '수업권 ${plan.flexBaseRightCount ?? plan.defaultFlexBaseRightCount}개 · '
-                    '${plan.flexDurationMinutes ?? plan.defaultFlexDurationMinutes}분',
-                    style: forestringTextStyle.copyWith(
-                      color: Colors.black54,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 7),
-                Text(
-                  plan.canChange
-                      ? '현재 학기는 그대로 유지되며, 다음 학기 시작 전까지 다시 변경할 수 있습니다.'
-                      : '다음 학기가 이미 시작되어 수강 형태를 변경할 수 없습니다.',
-                  style: forestringTextStyle.copyWith(
-                    color: plan.canChange ? Colors.black54 : Colors.orange.shade800,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ] else
-                Text(
-                  _nextPlanError ?? '다음 학기 정보를 확인하지 못했습니다.',
-                  style: forestringTextStyle.copyWith(
-                    color: Colors.redAccent,
-                    fontSize: 13,
-                  ),
-                ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: _nextPlanLoading || plan == null || !plan.canChange
-                    ? null
-                    : _changeNextSemesterType,
-                icon: const Icon(Icons.swap_horiz_rounded),
-                label: const Text('다음 학기 수강 형태 변경'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: primaryColor,
-                  side: const BorderSide(color: primaryColor),
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                ),
+          if (_nextPlanLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 22),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (plan != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              '${plan.nextSemesterCode} 학기 · ${DateFormat('M월 d일').format(plan.nextSemesterStartsOn)} 시작',
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
-            ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _semesterTypeCard(
+                    label: '현재 학기',
+                    type: plan.currentTypeLabel,
+                    caption: '현재 수강 형태',
+                    icon: Icons.check_rounded,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: primaryColor,
+                    size: 24,
+                  ),
+                ),
+                Expanded(
+                  child: _semesterTypeCard(
+                    label: '다음 학기 예정',
+                    type: '${plan.plannedTypeLabel} 예정',
+                    caption: plan.plannedIsFlex
+                        ? '수업권 ${plan.flexBaseRightCount ?? plan.defaultFlexBaseRightCount}개 · ${plan.flexDurationMinutes ?? plan.defaultFlexDurationMinutes}분'
+                        : '다음 학기 수강 형태',
+                    icon: Icons.event_available_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              plan.canChange
+                  ? '현재 학기는 그대로 유지되며, 다음 학기 시작 전까지 다시 변경할 수 있습니다.'
+                  : '다음 학기가 이미 시작되어 수강 형태를 변경할 수 없습니다.',
+              style: forestringTextStyle.copyWith(
+                color: plan.canChange ? Colors.black54 : Colors.orange.shade800,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            Text(
+              _nextPlanError ?? '다음 학기 정보를 확인하지 못했습니다.',
+              style: forestringTextStyle.copyWith(
+                color: Colors.redAccent,
+                fontSize: 14,
+              ),
+            ),
+          ],
+          const SizedBox(height: 13),
+          OutlinedButton.icon(
+            onPressed: _nextPlanLoading || plan == null || !plan.canChange
+                ? null
+                : _changeNextSemesterType,
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: Text(
+              '다음 학기 수강 형태 변경',
+              style: forestringTextStyle.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: primaryColor,
+              side: const BorderSide(color: primaryColor),
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _semesterTypeCard({
+    required String label,
+    required String type,
+    required String caption,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 9),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: primaryColor, size: 23),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            type,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: forestringTextStyle.copyWith(
+              color: Colors.black87,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            caption,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: forestringTextStyle.copyWith(
+              color: Colors.black54,
+              fontSize: 11,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -801,42 +946,42 @@ class _StudentManagementDetailPageState
     required String title,
     required List<Widget> actions,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: forestringTextStyle.copyWith(
-              color: Colors.black54,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: forestringTextStyle.copyWith(
+            color: primaryColor,
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 10),
-          LayoutBuilder(
+        ),
+        const SizedBox(height: 9),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: primaryColor.withValues(alpha: 0.025),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: primaryColor.withValues(alpha: 0.12)),
+          ),
+          child: LayoutBuilder(
             builder: (context, constraints) {
               final itemWidth = actions.length == 1
                   ? constraints.maxWidth
-                  : (constraints.maxWidth - 8) / 2;
+                  : (constraints.maxWidth - 10) / 2;
               return Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   for (final action in actions)
-                    SizedBox(width: itemWidth, height: 52, child: action),
+                    SizedBox(width: itemWidth, height: 72, child: action),
                 ],
               );
             },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -844,20 +989,52 @@ class _StudentManagementDetailPageState
     required IconData icon,
     required String label,
     required VoidCallback? onPressed,
+    String? subtitle,
     Color color = primaryColor,
   }) {
-    return OutlinedButton.icon(
+    return OutlinedButton(
       onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-      label: Text(
-        label,
-        overflow: TextOverflow.ellipsis,
-        style: forestringTextStyle.copyWith(fontSize: 13),
-      ),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.7)),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        side: BorderSide(color: color.withValues(alpha: 0.75)),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 25),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: forestringTextStyle.copyWith(
+                    color: color,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: forestringTextStyle.copyWith(
+                      color: Colors.black54,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -869,6 +1046,7 @@ class _StudentManagementDetailPageState
         _actionButton(
           icon: Icons.person_off_outlined,
           label: '퇴원 확정',
+          subtitle: '퇴원 처리를 완료합니다',
           color: Colors.red.shade700,
           onPressed: _finalizeWithdrawal,
         ),
@@ -878,6 +1056,7 @@ class _StudentManagementDetailPageState
         _actionButton(
           icon: Icons.person_off_outlined,
           label: _student.hasScheduledWithdrawal ? '퇴원 예정일 변경' : '퇴원 처리',
+          subtitle: _student.hasScheduledWithdrawal ? '예정일을 다시 설정합니다' : '퇴원 일정을 설정합니다',
           color: Colors.red.shade700,
           onPressed: _openWithdrawal,
         ),
@@ -887,6 +1066,7 @@ class _StudentManagementDetailPageState
           _actionButton(
             icon: Icons.undo_rounded,
             label: '퇴원 예약 취소',
+            subtitle: '예약된 퇴원을 취소합니다',
             color: Colors.orange.shade800,
             onPressed: _cancelWithdrawal,
           ),
