@@ -929,7 +929,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     final semester = _semester;
 
     return Scaffold(
-      backgroundColor: neutralIvory,
+      backgroundColor: Colors.white,
       appBar: ForestringAppBar(
         title: '학기 상세',
         actions: [
@@ -958,95 +958,130 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 onRefresh: _load,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
                   children: [
                     _headerCard(semester),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
                       _errorCard(_errorMessage!),
                     ],
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 24),
                     _sectionTitle('기본 학기 설정'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: OutlinedButton.icon(
-                              onPressed: _saving ? null : _editCode,
-                              icon: const Icon(Icons.edit_outlined),
-                              label: const Text('학기 이름 수정'),
-                            ),
+                          child: _settingActionButton(
+                            icon: Icons.edit_outlined,
+                            label: '학기 이름 수정',
+                            onPressed: _saving ? null : _editCode,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: OutlinedButton.icon(
-                              onPressed: _saving ? null : _editGlobalRange,
-                              icon: const Icon(Icons.date_range_outlined),
-                              label: const Text('기간 변경'),
+                          child: _settingActionButton(
+                            icon: Icons.calendar_month_outlined,
+                            label: '기간 변경',
+                            onPressed: _saving ? null : _editGlobalRange,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          size: 18,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            '기간 변경 시 인접 학기 경계도 함께 조정됩니다.',
+                            style: forestringTextStyle.copyWith(
+                              color: Colors.black54,
+                              fontSize: 14,
+                              height: 1.4,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '기간을 바꾸면 학기 사이에 빈 날짜가 생기지 않도록 앞·뒤 학기 경계도 함께 조정됩니다.',
-                      style: forestringTextStyle.copyWith(
-                        color: Colors.black45,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 26),
                     _sectionTitle('기본 휴원'),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
-                      '모든 지점에 우선 적용되는 기본 휴원 주간과 휴원일을 관리합니다. '
-                      '지점별로 별도 설정한 휴원만 기본값을 따르지 않습니다.',
+                      '모든 지점에 우선 적용되는 기본 휴원 일정입니다.',
                       style: forestringTextStyle.copyWith(
                         color: Colors.black54,
-                        fontSize: 12,
-                        height: 1.4,
+                        fontSize: 14,
                       ),
                     ),
                     if (_defaultClosures.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 11),
                       ..._defaultClosures.map(_defaultClosureRow),
-                      const SizedBox(height: 3),
-                    ] else
-                      const SizedBox(height: 10),
+                    ] else ...[
+                      const SizedBox(height: 11),
+                      Container(
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.035),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Text(
+                          '등록된 기본 휴원 일정이 없습니다.',
+                          style: forestringTextStyle.copyWith(
+                            color: Colors.black54,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
                     SizedBox(
-                      height: 50,
+                      height: 54,
                       child: OutlinedButton.icon(
                         onPressed: _saving
                             ? null
                             : () => _openDefaultClosures(semester),
-                        icon: const Icon(Icons.event_busy_outlined),
-                        label: const Text('기본 휴원 주간 · 휴원일 관리'),
+                        icon: const Icon(Icons.event_busy_rounded, size: 23),
+                        label: Text(
+                          '기본 휴원 주간 · 휴원일 관리',
+                          style: forestringTextStyle.copyWith(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(
+                            color: primaryColor.withValues(alpha: 0.7),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 26),
                     _sectionTitle('지점별 기간 · 휴원'),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
-                      '지점별 학기 기간과 이 학기에 포함된 휴원 일정을 함께 관리합니다.',
+                      '지점별 학기 기간과 휴원 일정을 관리합니다.',
                       style: forestringTextStyle.copyWith(
                         color: Colors.black54,
-                        fontSize: 12,
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 11),
                     ..._branches.map((branch) => _branchCard(semester, branch)),
                     if (_semesters.isNotEmpty &&
                         _semesters.last.id == semester.id) ...[
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 24),
                       _sectionTitle('학기 삭제'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       OutlinedButton.icon(
                         onPressed: _saving ? null : _deleteSemester,
                         icon: const Icon(Icons.delete_outline),
@@ -1054,7 +1089,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red.shade700,
                           side: BorderSide(color: Colors.red.shade700),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ],
@@ -1087,29 +1122,53 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
             : '예정 학기';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.16)),
+        color: primaryColor.withValues(alpha: 0.025),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.13)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x09000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _semesterLabel(semester.code),
                   style: forestringTextStyle.copyWith(
                     color: primaryColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.09),
                   borderRadius: BorderRadius.circular(999),
@@ -1118,27 +1177,97 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   status,
                   style: forestringTextStyle.copyWith(
                     color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
             '${_formatDate(semester.startsOn)} ~ ${_formatDate(semester.endsOn)}',
-            style: forestringTextStyle.copyWith(fontSize: 15),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            '${semester.weekCount}주 · 지점별 별도 기간 ${semester.branchOverrides.length}곳',
             style: forestringTextStyle.copyWith(
-              color: Colors.black54,
-              fontSize: 13,
+              color: Colors.black87,
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  '${semester.weekCount}주',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '지점별 별도 기간 ${semester.branchOverrides.length}곳',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.black54,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _settingActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: 58,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryColor,
+          side: BorderSide(color: primaryColor.withValues(alpha: 0.65)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: forestringTextStyle.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1148,23 +1277,29 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
     final reason = closure.reason?.trim();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: primaryColor.withValues(alpha: 0.12)),
       ),
       child: Row(
         children: [
-          Icon(
-            isBreak
-                ? Icons.calendar_view_week_outlined
-                : Icons.event_busy_outlined,
-            size: 18,
-            color: primaryColor,
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isBreak ? Icons.event_busy_rounded : Icons.event_busy_outlined,
+              size: 22,
+              color: primaryColor,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1172,19 +1307,21 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 Text(
                   _defaultClosureRangeText(closure),
                   style: forestringTextStyle.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 if (reason != null && reason.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     reason,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: forestringTextStyle.copyWith(
-                      color: Colors.black54,
-                      fontSize: 12,
+                      color: primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -1206,64 +1343,99 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       ..sort((a, b) => a.startsOn.compareTo(b.startsOn));
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 11),
+      margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: override == null
-              ? Colors.black12
-              : primaryColor.withValues(alpha: 0.28),
+              ? primaryColor.withValues(alpha: 0.11)
+              : primaryColor.withValues(alpha: 0.3),
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(13),
+        padding: const EdgeInsets.all(15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.storefront_outlined,
+                    size: 22,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Text(
                     branch.name,
                     style: forestringTextStyle.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                   decoration: BoxDecoration(
-                    color: (override == null ? Colors.black45 : primaryColor)
-                        .withValues(alpha: 0.08),
+                    color: primaryColor.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     override == null ? '기본 기간' : '별도 기간',
                     style: forestringTextStyle.copyWith(
-                      color: override == null ? Colors.black54 : primaryColor,
+                      color: primaryColor,
                       fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
             Text(
-              '${_formatDate(start)} ~ ${_formatDate(end)} · $weeks주',
+              '${_formatDate(start)} ~ ${_formatDate(end)}',
               style: forestringTextStyle.copyWith(
-                color: Colors.black54,
-                fontSize: 13,
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 3),
+            Text(
+              '$weeks주',
+              style: forestringTextStyle.copyWith(
+                color: primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 11),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _saving ? null : () => _editBranchRange(branch),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: primaryColor,
+                      side: BorderSide(
+                        color: primaryColor.withValues(alpha: 0.65),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                    ),
                     child: Text(override == null ? '별도 기간 설정' : '기간 변경'),
                   ),
                 ),
@@ -1278,24 +1450,36 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                 ],
               ],
             ),
+            const SizedBox(height: 13),
+            Divider(color: primaryColor.withValues(alpha: 0.1), height: 1),
             const SizedBox(height: 12),
-            Divider(color: primaryColor.withValues(alpha: 0.12), height: 1),
-            const SizedBox(height: 12),
-            Text(
-              '휴원 일정',
-              style: forestringTextStyle.copyWith(
-                color: primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            Row(
+              children: [
+                Text(
+                  '휴원 일정',
+                  style: forestringTextStyle.copyWith(
+                    color: primaryColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${closures.length}건',
+                  style: forestringTextStyle.copyWith(
+                    color: Colors.black54,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 8),
             if (closures.isEmpty)
               Text(
-                '이 학기에 등록된 휴원 일정이 없습니다.',
+                '등록된 휴원 일정이 없습니다.',
                 style: forestringTextStyle.copyWith(
-                  color: Colors.black45,
-                  fontSize: 12,
+                  color: Colors.black54,
+                  fontSize: 13,
                 ),
               )
             else
@@ -1305,7 +1489,7 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 44,
+                    height: 46,
                     child: OutlinedButton.icon(
                       onPressed: _saving
                           ? null
@@ -1313,15 +1497,15 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                                 branch,
                                 BranchClosureKind.instructionalBreak,
                               ),
-                      icon: const Icon(Icons.calendar_view_week_outlined, size: 18),
-                      label: const Text('휴원 주간 설정'),
+                      icon: const Icon(Icons.calendar_view_week_outlined, size: 19),
+                      label: const Text('휴원 주간'),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: SizedBox(
-                    height: 44,
+                    height: 46,
                     child: OutlinedButton.icon(
                       onPressed: _saving
                           ? null
@@ -1329,8 +1513,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                                 branch,
                                 BranchClosureKind.ordinary,
                               ),
-                      icon: const Icon(Icons.event_busy_outlined, size: 18),
-                      label: const Text('휴원일 설정'),
+                      icon: const Icon(Icons.event_busy_outlined, size: 19),
+                      label: const Text('휴원일'),
                     ),
                   ),
                 ),
@@ -1348,10 +1532,10 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+      padding: const EdgeInsets.fromLTRB(11, 9, 4, 9),
       decoration: BoxDecoration(
-        color: neutralIvory,
-        borderRadius: BorderRadius.circular(9),
+        color: primaryColor.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
@@ -1359,10 +1543,10 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
             isBreak
                 ? Icons.calendar_view_week_outlined
                 : Icons.event_busy_outlined,
-            size: 18,
+            size: 19,
             color: primaryColor,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 9),
           Expanded(
             child: InkWell(
               onTap: _saving
@@ -1374,8 +1558,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
                   Text(
                     _closureRangeText(closure),
                     style: forestringTextStyle.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (reason != null && reason.isNotEmpty) ...[
@@ -1411,8 +1595,8 @@ class _SemesterDetailPageState extends State<SemesterDetailPage> {
       title,
       style: forestringTextStyle.copyWith(
         color: primaryColor,
-        fontSize: 17,
-        fontWeight: FontWeight.w500,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
       ),
     );
   }
