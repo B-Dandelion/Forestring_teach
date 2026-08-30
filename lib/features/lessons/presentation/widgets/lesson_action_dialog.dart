@@ -92,7 +92,7 @@ Future<void> showLessonActionDialog({
               '일정 변경',
               style: forestringTextStyle.copyWith(
                 color: primaryColor,
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -105,7 +105,7 @@ Future<void> showLessonActionDialog({
                     '${lesson.studentName ?? '학생'} · ${lesson.displayTypeLabel}',
                     style: forestringTextStyle.copyWith(
                       color: Colors.black87,
-                      fontSize: 15,
+                      fontSize: 20,
                     ),
                   ),
                   const SizedBox(height: 14),
