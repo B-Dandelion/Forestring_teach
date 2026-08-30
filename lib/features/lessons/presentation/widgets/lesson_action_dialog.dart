@@ -208,7 +208,6 @@ Future<void> showLessonActionDialog({
                   style: TextStyle(color: Colors.redAccent),
                 ),
               ),
-              const Spacer(),
               TextButton(
                 onPressed: isSaving
                     ? null
