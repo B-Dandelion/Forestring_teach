@@ -2,9 +2,7 @@ import { withSupabase } from 'npm:@supabase/server@^1'
 import { hash } from 'npm:bcryptjs@3.0.2'
 
 const encoder = new TextEncoder()
-
 const PIN_PATTERN = /^\d{4}$/
-
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -85,6 +83,108 @@ function dbMessage(
   return ''
 }
 
+function mappedDatabaseResponse(
+  message: string,
+): Response | null {
+  if (
+    message.includes(
+      'FORESTRING_NAME_PIN_ALREADY_IN_USE',
+    )
+  ) {
+    return Response.json(
+      {
+        message:
+          '같은 이름과 PIN을 사용하는 재원 계정이 이미 존재합니다.',
+      },
+      {
+        status: 409,
+      },
+    )
+  }
+
+  if (
+    message.includes(
+      'FORESTRING_REACTIVATION_BRANCH_MISMATCH',
+    )
+  ) {
+    return Response.json(
+      {
+        message:
+          '퇴원 이력이 있는 학생의 기존 지점과 선택한 지점이 다릅니다. 기존 지점에서 재등록해주세요.',
+      },
+      {
+        status: 409,
+      },
+    )
+  }
+
+  if (
+    message.includes(
+      'FORESTRING_REACTIVATION_HISTORY_CONFLICT',
+    )
+  ) {
+    return Response.json(
+      {
+        message:
+          '이전 퇴원 이력에 연결된 수업 기록이 있어 자동 재등록할 수 없습니다. 관리자 확인이 필요합니다.',
+      },
+      {
+        status: 409,
+      },
+    )
+  }
+
+  if (
+    message.includes(
+      'FORESTRING_MANAGER_BRANCH_MISMATCH',
+    )
+  ) {
+    return Response.json(
+      {
+        message:
+          '본인 지점에만 학생을 등록할 수 있습니다.',
+      },
+      {
+        status: 403,
+      },
+    )
+  }
+
+  if (
+    message.includes(
+      'FORESTRING_BRANCH',
+    )
+  ) {
+    return Response.json(
+      {
+        message:
+          '학생 지점을 확인해주세요.',
+      },
+      {
+        status: 400,
+      },
+    )
+  }
+
+  if (
+    message.includes(
+      'FORESTRING_STUDENT_TYPE',
+    )
+  ) {
+    return Response.json(
+      {
+        message:
+          '학생 유형을 확인해주세요.',
+      },
+      {
+        status: 400,
+      },
+    )
+  }
+
+  return null
+}
+
 export default {
   fetch: withSupabase(
     {
@@ -105,10 +205,6 @@ export default {
       }
 
       try {
-        // ====================================================
-        // AUTH
-        // ====================================================
-
         const authHeader =
           req.headers.get(
             'Authorization',
@@ -161,14 +257,6 @@ export default {
         const actorId =
           authUserData.user.id
 
-
-        // ====================================================
-        // EFFECTIVE ACCESS PREFLIGHT
-        //
-        // PostgreSQL remains the canonical policy source.
-        // The final mutation RPC checks effective access again.
-        // ====================================================
-
         const {
           error: effectiveActorError,
         } =
@@ -216,11 +304,6 @@ export default {
           )
         }
 
-
-        // ====================================================
-        // ACTOR PROFILE
-        // ====================================================
-
         const {
           data: actorProfile,
           error: actorError,
@@ -267,11 +350,6 @@ export default {
           )
         }
 
-
-        // ====================================================
-        // REQUEST
-        // ====================================================
-
         const body =
           await req.json()
 
@@ -298,7 +376,6 @@ export default {
         const studentType =
           body.studentType
 
-
         if (
           name.length === 0
           || name.length > 100
@@ -314,7 +391,6 @@ export default {
           )
         }
 
-
         if (
           !PIN_PATTERN.test(pin)
         ) {
@@ -328,7 +404,6 @@ export default {
             },
           )
         }
-
 
         if (
           !UUID_PATTERN.test(
@@ -346,7 +421,6 @@ export default {
           )
         }
 
-
         if (
           !isStudentType(
             studentType,
@@ -363,8 +437,6 @@ export default {
           )
         }
 
-
-        // Manager may only create in own branch.
         if (
           actorProfile.role === 'manager'
           && actorProfile.branch_id !==
@@ -380,11 +452,6 @@ export default {
             },
           )
         }
-
-
-        // ====================================================
-        // PIN
-        // ====================================================
 
         const pinPepper =
           Deno.env.get(
@@ -407,22 +474,87 @@ export default {
           )
         }
 
-        const pinHash =
-          await hash(
-            `${pin}:${pinPepper}`,
-            12,
-          )
-
         const pinFingerprint =
           await hmacHex(
             pinPepper,
             pin,
           )
 
+        const {
+          data: reactivatedStudentId,
+          error: reactivationError,
+        } =
+          await (ctx.supabaseAdmin as any).rpc(
+            'admin_reactivate_withdrawn_student_account_data',
+            {
+              p_actor_id:
+                actorId,
+              p_login_name_normalized:
+                name,
+              p_pin_fingerprint:
+                pinFingerprint,
+              p_branch_id:
+                branchId,
+              p_student_type:
+                studentType,
+            },
+          )
 
-        // ====================================================
-        // HIDDEN AUTH USER
-        // ====================================================
+        if (reactivationError) {
+          console.error(
+            'Student reactivation preflight failed:',
+            reactivationError,
+          )
+
+          const mapped =
+            mappedDatabaseResponse(
+              dbMessage(
+                reactivationError,
+              ),
+            )
+
+          if (mapped) {
+            return mapped
+          }
+
+          return Response.json(
+            {
+              message:
+                '기존 학생 재등록을 처리하지 못했습니다.',
+            },
+            {
+              status: 500,
+            },
+          )
+        }
+
+        if (
+          typeof reactivatedStudentId ===
+              'string'
+          && reactivatedStudentId.length > 0
+        ) {
+          return Response.json(
+            {
+              studentId:
+                reactivatedStudentId,
+              displayName:
+                name,
+              branchId,
+              studentType,
+              reactivated:
+                true,
+            },
+            {
+              status: 201,
+            },
+          )
+        }
+
+        const pinHash =
+          await hash(
+            `${pin}:${pinPepper}`,
+            12,
+          )
 
         const hiddenIdentity =
           crypto.randomUUID()
@@ -464,11 +596,6 @@ export default {
         const studentId =
           authData.user.id
 
-
-        // ====================================================
-        // DATABASE
-        // ====================================================
-
         const {
           error: dataError,
         } =
@@ -477,30 +604,22 @@ export default {
             {
               p_actor_id:
                 actorId,
-
               p_profile_id:
                 studentId,
-
               p_display_name:
                 name,
-
               p_login_name_normalized:
                 name,
-
               p_pin_hash:
                 pinHash,
-
               p_pin_fingerprint:
                 pinFingerprint,
-
               p_branch_id:
                 branchId,
-
               p_student_type:
                 studentType,
             },
           )
-
 
         if (dataError) {
           console.error(
@@ -508,8 +627,6 @@ export default {
             dataError,
           )
 
-          // Auth + PostgreSQL are not one transaction.
-          // Remove orphan Auth user when DB creation fails.
           const {
             error: cleanupError,
           } =
@@ -527,79 +644,16 @@ export default {
             )
           }
 
-          const message =
-            dbMessage(
-              dataError,
+          const mapped =
+            mappedDatabaseResponse(
+              dbMessage(
+                dataError,
+              ),
             )
 
-
-          if (
-            message.includes(
-              'FORESTRING_NAME_PIN_ALREADY_IN_USE',
-            )
-          ) {
-            return Response.json(
-              {
-                message:
-                  '같은 이름과 PIN을 사용하는 계정이 이미 존재합니다.',
-              },
-              {
-                status: 409,
-              },
-            )
+          if (mapped) {
+            return mapped
           }
-
-
-          if (
-            message.includes(
-              'FORESTRING_MANAGER_BRANCH_MISMATCH',
-            )
-          ) {
-            return Response.json(
-              {
-                message:
-                  '본인 지점에만 학생을 등록할 수 있습니다.',
-              },
-              {
-                status: 403,
-              },
-            )
-          }
-
-
-          if (
-            message.includes(
-              'FORESTRING_BRANCH',
-            )
-          ) {
-            return Response.json(
-              {
-                message:
-                  '학생 지점을 확인해주세요.',
-              },
-              {
-                status: 400,
-              },
-            )
-          }
-
-
-          if (
-            message.includes(
-              'FORESTRING_STUDENT_TYPE',
-            )
-          ) {
-            return Response.json(
-              {
-                message:
-                  '학생 유형을 확인해주세요.',
-              },
-              {
-                status: 400,
-              },
-            )
-          }
-
 
           return Response.json(
             {
@@ -612,11 +666,11 @@ export default {
           )
         }
 
-
         return Response.json(
           {
             studentId,
-            displayName: name,
+            displayName:
+              name,
             branchId,
             studentType,
           },
