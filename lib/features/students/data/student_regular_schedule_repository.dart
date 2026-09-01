@@ -92,6 +92,24 @@ class RegularScheduleSemesterOption {
   final String code;
   final DateTime startsOn;
   final DateTime endsOn;
+
+  bool isSelectableOn(
+    DateTime date, {
+    bool includeCurrent = false,
+  }) {
+    final day = DateTime(date.year, date.month, date.day);
+    return includeCurrent ? !endsOn.isBefore(day) : startsOn.isAfter(day);
+  }
+
+  bool isInProgressOn(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    return !startsOn.isAfter(day) && !endsOn.isBefore(day);
+  }
+
+  DateTime effectiveOnFor(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    return startsOn.isAfter(day) ? startsOn : day;
+  }
 }
 
 class StudentRegularScheduleRepository {
@@ -312,8 +330,9 @@ class StudentRegularScheduleRepository {
   }
 
   Future<List<RegularScheduleSemesterOption>> fetchUpcomingSemesters(
-    String? branchId,
-  ) async {
+    String? branchId, {
+    bool includeCurrent = false,
+  }) async {
     try {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
@@ -346,18 +365,20 @@ class StudentRegularScheduleRepository {
         final startsOn = DateTime.parse(
           (override?['starts_on'] ?? row['starts_on']).toString(),
         );
-        if (!startsOn.isAfter(today)) continue;
-
-        result.add(
-          RegularScheduleSemesterOption(
-            id: id,
-            code: row['code'].toString(),
-            startsOn: startsOn,
-            endsOn: DateTime.parse(
-              (override?['ends_on'] ?? row['ends_on']).toString(),
-            ),
-          ),
+        final endsOn = DateTime.parse(
+          (override?['ends_on'] ?? row['ends_on']).toString(),
         );
+        final option = RegularScheduleSemesterOption(
+          id: id,
+          code: row['code'].toString(),
+          startsOn: startsOn,
+          endsOn: endsOn,
+        );
+        if (!option.isSelectableOn(today, includeCurrent: includeCurrent)) {
+          continue;
+        }
+
+        result.add(option);
       }
 
       result.sort((a, b) => a.startsOn.compareTo(b.startsOn));

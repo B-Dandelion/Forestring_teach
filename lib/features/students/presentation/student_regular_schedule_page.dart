@@ -518,10 +518,11 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
     try {
       final semesters = await widget.repository.fetchUpcomingSemesters(
         widget.student.branchId,
+        includeCurrent: true,
       );
       if (semesters.isEmpty) {
         throw const StudentRegularScheduleFailure(
-          '추가할 수 있는 다음 학기 정보가 없습니다.',
+          '추가할 수 있는 적용 학기 정보가 없습니다.',
         );
       }
 
@@ -552,7 +553,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
     try {
       final teacher = await widget.repository.fetchTeacherAtDate(
         studentId: widget.student.id,
-        date: semester.startsOn,
+        date: semester.effectiveOnFor(DateTime.now()),
       );
       final workHours =
           await widget.repository.fetchTeacherWorkHours(teacher.id);
@@ -626,7 +627,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
         weekday: _weekday,
         startMinutes: startMinutes,
         durationMinutes: _durationMinutes,
-        effectiveOn: semester.startsOn,
+        effectiveOn: semester.effectiveOnFor(DateTime.now()),
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -661,7 +662,7 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
             ),
             const SizedBox(height: 5),
             Text(
-              '새 정규 수업은 선택한 학기부터 매주 적용됩니다.',
+              '진행 중인 학기는 오늘부터, 미래 학기는 학기 시작일부터 적용됩니다.',
               style: forestringTextStyle.copyWith(
                 color: Colors.black54,
                 fontSize: 14,
@@ -679,8 +680,10 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
                     (semester) => DropdownMenuItem(
                       value: semester.id,
                       child: Text(
-                        '${semester.code} · '
-                        '${DateFormat('yyyy.MM.dd').format(semester.startsOn)}부터',
+                        semester.isInProgressOn(DateTime.now())
+                            ? '${semester.code} · 진행 중'
+                            : '${semester.code} · '
+                                '${DateFormat('yyyy.MM.dd').format(semester.startsOn)}부터',
                       ),
                     ),
                   )
@@ -788,8 +791,8 @@ class _RegularScheduleAddPageState extends State<_RegularScheduleAddPage> {
             ],
             const SizedBox(height: 14),
             _addMessageBox(
-              '정규 수업은 학기 시작일부터 추가됩니다. '
-              '해당 학기가 시작될 때 수업권 4개와 예정 수업이 생성됩니다.',
+              '진행 중인 학기는 이미 지난 수업을 만들지 않고 남은 회차만 생성합니다. '
+              '다음 학기부터는 기존 정규 일정 기준으로 수업권 4개와 예정 수업이 생성됩니다.',
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 10),
