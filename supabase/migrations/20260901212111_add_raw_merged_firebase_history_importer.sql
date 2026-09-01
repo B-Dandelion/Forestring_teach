@@ -1,0 +1,217 @@
+create or replace function private.import_raw_merged_firebase_history_text(p_payload text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_line text;
+  v_parts text[];
+  v_firebase_id text;
+  v_old_legacy text;
+  v_starts timestamptz;
+  v_duration integer;
+  v_code text;
+  v_source_status text;
+  v_updated_at timestamptz;
+  v_teacher_legacy text;
+  v_type public.lesson_type;
+  v_status public.lesson_status;
+  v_canceled_at timestamptz;
+  v_student uuid;
+  v_teacher uuid;
+  v_branch uuid;
+  v_withdrawal date;
+  v_lesson uuid;
+  v_series uuid;
+  v_local_date date;
+  v_ns constant uuid := '9115f775-37e5-5b5e-9167-71b0be32b2ab'::uuid;
+  v_inserted integer := 0;
+  v_duplicate_skipped integer := 0;
+  v_cutoff_skipped integer := 0;
+  v_failed integer := 0;
+  v_failures jsonb := '[]'::jsonb;
+  v_state text;
+  v_message text;
+begin
+  if session_user <> 'postgres' then
+    raise exception using errcode='42501', message='FORESTRING_RAW_MERGED_HISTORY_IMPORT_FORBIDDEN';
+  end if;
+
+  perform pg_catalog.set_config('forestring.archive_import','on',true);
+
+  for v_line in
+    select x from regexp_split_to_table(p_payload, E'\n') as x where btrim(x) <> ''
+  loop
+    begin
+      v_parts := string_to_array(v_line, '|');
+      if array_length(v_parts, 1) <> 8 then
+        raise exception using errcode='22023', message='FORESTRING_RAW_MERGED_HISTORY_LINE_INVALID', detail=v_line;
+      end if;
+
+      v_firebase_id := nullif(v_parts[1], '');
+      v_old_legacy := nullif(v_parts[2], '');
+      v_starts := v_parts[3]::timestamptz;
+      v_duration := v_parts[4]::integer;
+      v_code := nullif(v_parts[5], '');
+      v_source_status := lower(coalesce(nullif(v_parts[6], ''), 'confirmed'));
+      v_updated_at := nullif(v_parts[7], '')::timestamptz;
+      v_teacher_legacy := nullif(v_parts[8], '');
+      v_local_date := (v_starts at time zone 'Asia/Seoul')::date;
+
+      if v_firebase_id is null or v_old_legacy is null then
+        raise exception using errcode='22023', message='FORESTRING_RAW_MERGED_HISTORY_ID_REQUIRED';
+      end if;
+      if v_duration <= 0 or mod(v_duration,15) <> 0 then
+        raise exception using errcode='23514', message='FORESTRING_RAW_MERGED_HISTORY_DURATION_INVALID';
+      end if;
+
+      v_type := case
+        when v_code = '-1' or v_source_status = 'makeup' then 'makeup'::public.lesson_type
+        else 'regular'::public.lesson_type
+      end;
+      v_status := case
+        when v_source_status = 'canceled' then 'canceled'::public.lesson_status
+        else 'scheduled'::public.lesson_status
+      end;
+      v_canceled_at := case when v_status='canceled'::public.lesson_status then v_updated_at else null end;
+      if v_status='canceled'::public.lesson_status and v_canceled_at is null then
+        raise exception using errcode='23514', message='FORESTRING_RAW_MERGED_HISTORY_UPDATED_AT_REQUIRED';
+      end if;
+
+      select sla.student_id, cp.branch_id,
+             nullif(a.student_snapshot->>'withdrawal_date','')::date
+      into v_student, v_branch, v_withdrawal
+      from private.student_legacy_aliases sla
+      join public.profiles cp on cp.id = sla.student_id
+      join lateral (
+        select mia.student_snapshot
+        from private.student_identity_merge_audit mia
+        where mia.old_legacy_id = v_old_legacy
+          and mia.canonical_student_id = sla.student_id
+        order by mia.merged_at desc
+        limit 1
+      ) a on true
+      where sla.alias_legacy_id = v_old_legacy;
+
+      if v_student is null or v_withdrawal is null then
+        raise exception using errcode='23503', message='FORESTRING_RAW_MERGED_HISTORY_ALIAS_NOT_FOUND', detail=v_old_legacy;
+      end if;
+
+      if v_local_date >= v_withdrawal
+         or v_local_date >= (pg_catalog.now() at time zone 'Asia/Seoul')::date then
+        v_cutoff_skipped := v_cutoff_skipped + 1;
+        continue;
+      end if;
+
+      v_teacher := null;
+      if v_teacher_legacy is not null then
+        select p.id into v_teacher
+        from public.profiles p
+        join public.teachers t on t.id=p.id
+        where p.legacy_id=v_teacher_legacy;
+      end if;
+
+      if v_teacher is null then
+        select tsa.teacher_id into v_teacher
+        from public.teacher_student_assignments tsa
+        where tsa.student_id=v_student
+          and tsa.starts_on <= v_local_date
+          and (tsa.ends_on is null or tsa.ends_on >= v_local_date)
+        order by tsa.starts_on desc, tsa.created_at desc
+        limit 1;
+      end if;
+      if v_teacher is null then
+        raise exception using errcode='23503', message='FORESTRING_RAW_MERGED_HISTORY_TEACHER_NOT_FOUND', detail=v_old_legacy;
+      end if;
+
+      if exists (
+        select 1 from public.lessons l
+        where l.student_id=v_student
+          and l.starts_at=v_starts
+          and l.duration_minutes=v_duration
+          and l.lesson_type=v_type
+      ) then
+        v_duplicate_skipped := v_duplicate_skipped + 1;
+        continue;
+      end if;
+
+      v_lesson := extensions.uuid_generate_v5(v_ns, 'merged-history:lesson:' || v_firebase_id);
+      v_series := case when v_type='regular'::public.lesson_type
+                       then extensions.uuid_generate_v5(v_ns, 'merged-history:series:' || v_firebase_id)
+                       else null end;
+
+      if exists (select 1 from public.lessons where id=v_lesson) then
+        v_duplicate_skipped := v_duplicate_skipped + 1;
+        continue;
+      end if;
+
+      if v_type='regular'::public.lesson_type then
+        insert into public.lesson_series(
+          id,student_id,teacher_id,weekday,start_time,duration_minutes,
+          effective_from,effective_until,legacy_code,branch_id,schedule_slot_id
+        ) values (
+          v_series,v_student,v_teacher,
+          extract(isodow from (v_starts at time zone 'Asia/Seoul'))::smallint,
+          (v_starts at time zone 'Asia/Seoul')::time,
+          v_duration,v_local_date,v_local_date,v_code,v_branch,null
+        ) on conflict (id) do nothing;
+      end if;
+
+      insert into public.lessons(
+        id,series_id,student_id,teacher_id,occurrence_at,starts_at,duration_minutes,
+        lesson_type,status,rescheduled_by,canceled_by,canceled_at,cancellation_reason,
+        branch_id,lesson_right_id,manual_makeup_right_id
+      ) values (
+        v_lesson,v_series,v_student,v_teacher,
+        case when v_type='regular'::public.lesson_type then v_starts else null end,
+        v_starts,v_duration,v_type,v_status,null,null,v_canceled_at,
+        case when v_status='canceled'::public.lesson_status then 'firebase_merged_history_recovery' else null end,
+        v_branch,null,null
+      );
+
+      v_inserted := v_inserted + 1;
+    exception when others then
+      get stacked diagnostics v_state=returned_sqlstate, v_message=message_text;
+      v_failed := v_failed + 1;
+      v_failures := v_failures || jsonb_build_array(jsonb_build_object(
+        'firebaseId',coalesce(v_firebase_id,''),
+        'studentLegacy',coalesce(v_old_legacy,''),
+        'startsAt',coalesce(case when v_parts is null then null else v_parts[3] end,''),
+        'sqlState',v_state,'message',v_message
+      ));
+    end;
+  end loop;
+
+  return jsonb_build_object(
+    'inserted',v_inserted,
+    'duplicateSkipped',v_duplicate_skipped,
+    'cutoffSkipped',v_cutoff_skipped,
+    'failed',v_failed,
+    'failures',v_failures
+  );
+end;
+$function$;
+
+create or replace function private.import_raw_merged_firebase_history_text_atomic(p_payload text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_result jsonb;
+begin
+  if session_user <> 'postgres' then
+    raise exception using errcode='42501', message='FORESTRING_RAW_MERGED_HISTORY_IMPORT_FORBIDDEN';
+  end if;
+  v_result := private.import_raw_merged_firebase_history_text(p_payload);
+  if coalesce((v_result->>'failed')::integer,0) > 0 then
+    raise exception using errcode='P0001', message='FORESTRING_RAW_MERGED_HISTORY_BATCH_ROLLED_BACK', detail=v_result::text;
+  end if;
+  return v_result;
+end;
+$function$;
+
+revoke all on function private.import_raw_merged_firebase_history_text(text) from public,anon,authenticated;
+revoke all on function private.import_raw_merged_firebase_history_text_atomic(text) from public,anon,authenticated;
