@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/img/포레스트링_선생님_로고.png" width="180" alt="Forestring Teacher logo" />
+  <img src="assets/img/포레스트링_선생님_로고.png" width="180" alt="포레스트링 선생님 앱 로고" />
 </p>
 
-<h1 align="center">Forestring Teacher</h1>
+<h1 align="center">포레스트링 Teacher</h1>
 
 <p align="center">
   실제 바이올린 학원 운영을 위해 개발한 <b>Flutter + Supabase 기반 수업 운영·관리 앱</b>
@@ -11,16 +11,19 @@
 <p align="center">
   <a href="https://github.com/B-Dandelion/forestring_stu">Student App</a>
   ·
-  Current release: <code>v3.1.1</code>
+  Current release: <code>v3.2.2</code>
 </p>
 
 ---
 
 ## Overview
 
-Forestring은 선생님과 수강생이 같은 수업 데이터를 기준으로 일정 조회, 취소, 보강, 학기 운영을 처리할 수 있도록 만든 학원 일정 관리 시스템입니다.
+포레스트링은 선생님과 수강생이 같은 수업 데이터를 기준으로 일정 조회, 취소, 보강, 학기 운영을 처리할 수 있도록 만든 학원 일정 관리 시스템입니다.
 
-이 저장소는 그중 **Teacher / Manager / Master용 운영 앱과 Supabase 백엔드 정의**를 담고 있습니다. 기존 Firebase 기반 앱을 운영하면서 겪은 일정 데이터 정합성, 권한 분리, 수업 취소·보강 처리 문제를 개선하기 위해 Flutter 클라이언트와 PostgreSQL 중심 구조로 재설계했습니다.
+이 저장소는 그중 **Teacher / Manager / Master용 운영 앱과 Supabase 백엔드 정의**를 담고 있습니다. 기존 Firebase 기반 앱을 실제로 운영하면서 겪은 일정 데이터 정합성, 권한 분리, 수업 취소·보강 처리 문제를 개선하기 위해 Flutter 클라이언트와 PostgreSQL 중심 구조로 재설계했습니다.
+
+> **1인 개발 · 실제 운영 서비스**  
+> 요구사항 정리부터 앱·데이터 구조·백엔드 로직·스토어 배포·운영 및 유지보수까지 직접 담당했습니다.
 
 ### 사용자 역할
 
@@ -67,8 +70,8 @@ Forestring은 선생님과 수강생이 같은 수업 데이터를 기준으로 
 
 ```mermaid
 flowchart LR
-    T[Forestring Teacher\nFlutter / Dart]
-    S[Forestring Student\nFlutter / Dart]
+    T[포레스트링 Teacher\nFlutter / Dart]
+    S[포레스트링 Student\nFlutter / Dart]
 
     T --> AUTH[Supabase Auth\nPIN login flow]
     S --> AUTH
@@ -95,7 +98,7 @@ flowchart LR
 - PostgreSQL 스키마 기반으로 수강생, 교사, 지점, 수업, 학기 데이터를 관계형 구조로 정리
 - Flutter의 직접 DB 수정 범위를 줄이고 Repository 계층과 RPC 중심으로 변경
 - Supabase migration 파일로 스키마 변경 이력을 관리
-- Firebase 설정 및 직접 Firestore 의존성을 운영 코드에서 제거
+- Firebase 직접 의존성을 현재 운영 코드에서 제거
 
 ### 2. Role-based Access Control
 
@@ -182,7 +185,7 @@ flutter build ipa --release --dart-define-from-file=env/dev.json
 
 ## Related Project
 
-- [Forestring Student](https://github.com/B-Dandelion/forestring_stu) — 수강생용 일정 조회 / 취소 / 보강 예약 앱
+- [포레스트링 Student](https://github.com/B-Dandelion/forestring_stu) — 수강생용 일정 조회 / 취소 / 보강 예약 앱
 
 ## Notes
 
